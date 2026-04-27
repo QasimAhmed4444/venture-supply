@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/"
+title = "Venture Supply"
+version = "1.0.0"
+id = "artifacts/venture-supply"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 23724
+
+[services.development]
+run = "pnpm --filter @workspace/venture-supply run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/venture-supply", "run", "build" ]
+publicDir = "artifacts/venture-supply/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "23724"
+BASE_PATH = "/"

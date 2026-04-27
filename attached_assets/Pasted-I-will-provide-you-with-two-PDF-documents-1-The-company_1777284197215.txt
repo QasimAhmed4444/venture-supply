@@ -1,0 +1,128 @@
+I will provide you with two PDF documents:
+1. The company profile PDF
+2. The full/deep SRS document PDF
+
+Please carefully read and understand both documents before building the prototype.
+
+The user wants a WEB-BASED PROTOTYPE only. This is not meant to be a fully functional end-to-end system. Do not build backend logic, real payment processing, real authentication, real order fulfillment, or production-level integrations. The goal is to create a complete clickable UI/UX prototype that shows the full flow for all user types mentioned in the SRS.
+
+Build the prototype as a modern responsive web application.
+
+Main goal:
+Create the complete user journey and UI screens based on the SRS and company profile. The prototype should clearly demonstrate how every user type interacts with the system, including dashboards, forms, listings, product/category pages, checkout-like screens if in scope, admin/vendor/customer flows if mentioned, and all major modules described in the SRS.
+
+Important scope rule:
+Only include features, screens, categories, and flows that are inside the SRS scope. Do not add out-of-scope features, random modules, or assumptions that are not supported by the documents.
+
+Design direction:
+The UI should be premium, modern, clean, and suitable for a Saudi Arabia-based brand. Use inspiration from high-quality Saudi retail/e-commerce platforms such as:
+
+- Nana: https://nana.sa/
+- Carrefour KSA: https://www.carrefourksa.com/mafsau/en
+- Panda: https://panda.sa/en
+
+Do not copy these websites directly. Use them only as inspiration for layout quality, spacing, product cards, category browsing, banners, navigation, mobile responsiveness, and overall polished Saudi retail-style UI.
+
+Branding:
+Use the company logo, colors, theme, brand identity, and company details from the company profile PDF that I will provide. The prototype must feel like it belongs to this company, not like a generic template.
+
+Language requirements:
+The prototype must support two languages:
+
+1. English as the default language
+2. Arabic through a language switch button
+
+When the user clicks the language button:
+- The entire interface should change to Arabic
+- The layout should switch properly to RTL
+- All labels, buttons, menus, headings, placeholders, cards, dashboard items, and static text should be translated
+- Arabic should feel natural and complete, not partially translated
+
+When English is selected:
+- The full interface should be English
+- Layout should be LTR
+
+The language switch should be visible in the header/top navigation.
+
+Images:
+Use category and product-style images from the internet only where appropriate.
+Images must match the categories and scope defined in the SRS.
+Do not use irrelevant images or categories.
+Do not add categories that are not mentioned in the SRS.
+Images should look professional, clean, and suitable for a Saudi Arabia retail/e-commerce/business platform.
+
+Prototype requirements:
+Create a complete UI flow for all relevant users described in the SRS. This may include, depending on what the SRS contains:
+- Public website / landing page
+- Login / signup screens
+- User/customer dashboard
+- Product/category browsing screens
+- Search and filter screens
+- Product or service detail pages
+- Cart or request flow if in scope
+- Checkout/order/request confirmation screens if in scope
+- Profile management
+- Notifications page
+- Admin dashboard
+- Vendor/supplier dashboard if mentioned
+- Staff/manager screens if mentioned
+- Reports/analytics UI if mentioned
+- Settings pages
+- Any approval, tracking, or management flows described in the SRS
+
+Again, these should be UI prototype screens only. Use mock/static data.
+
+Functionality expectations:
+- Buttons and menus should navigate between screens where possible
+- Forms can be static but should look complete
+- Use mock validation or simple UI behavior only if needed
+- Use realistic sample data based on the SRS and company profile
+- No real backend is required
+- No real payment gateway is required
+- No real database is required
+- No real API integration is required
+- No real authentication is required
+
+Technical expectations:
+Build it as a web-based responsive app.
+The UI should work well on desktop and mobile.
+Use clean component-based structure.
+Use modern frontend styling.
+Make the design polished, premium, and production-like, even though it is only a prototype.
+
+Suggested UI style:
+- Saudi Arabia brand-inspired visual identity
+- Clean white backgrounds
+- Strong brand color usage from the company profile
+- Modern cards
+- Rounded corners
+- High-quality category/product cards
+- Large banners/hero sections
+- Clear navigation
+- Professional dashboards
+- Arabic RTL support
+- Smooth spacing and typography
+- Elegant icons
+- Mobile-friendly navigation
+
+Important:
+Before generating the prototype, extract the following from the PDFs:
+- Company name
+- Logo and brand colors
+- Company theme and identity
+- Target users
+- In-scope modules
+- User roles
+- Main workflows
+- Categories/services/products
+- Any specific business rules from the SRS
+- Any screens explicitly or implicitly required by the SRS
+
+Deliverable:
+Create the full web-based prototype directly in Replit.
+The prototype should be ready to preview.
+Make sure it looks like a serious Saudi Arabia market-ready product prototype, not a basic wireframe.
+
+Final reminder:
+The priority is complete UI flow and excellent design, not backend functionality. 
+Focus on making every screen visually polished and connected, covering all users and flows from the SRS, while staying strictly within scope.

@@ -1,0 +1,278 @@
+import { Link } from "wouter";
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { ShoppingBag, MapPin, Bell, Package, Eye, Plus, CheckCircle2, Building2 } from "lucide-react";
+import { useLanguage } from "@/contexts/LanguageContext";
+import { useRole } from "@/contexts/RoleContext";
+import { useToast } from "@/hooks/use-toast";
+import { getOrdersByCustomer } from "@/data/orders";
+import { notifications } from "@/data/notifications";
+import { products } from "@/data/products";
+import { ProductCard } from "@/components/ProductCard";
+import { StatusBadge } from "@/components/StatusBadge";
+import { PriceTag } from "@/components/PriceTag";
+import { getSalespersonById } from "@/data/salespersons";
+
+export function AccountDashboardPage() {
+  const { t, language } = useLanguage();
+  const { customer, role } = useRole();
+  if (!customer) return null;
+  const orders = getOrdersByCustomer(customer.id);
+  const active = orders.filter((o) => !["delivered", "cancelled"].includes(o.status));
+  const recommended = products.slice(0, 4);
+  const isB2B = role === "b2b";
+  const sp = customer.assignedSalespersonId ? getSalespersonById(customer.assignedSalespersonId) : null;
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <p className="text-sm text-muted-foreground">{t("account.welcome")},</p>
+        <h1 className="text-3xl font-bold">{customer.name}</h1>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <KpiCard icon={Package} label={t("account.active_orders")} value={active.length} />
+        <KpiCard icon={ShoppingBag} label={t("account.total_orders")} value={customer.totalOrders} />
+        <KpiCard icon={MapPin} label={t("account.saved_addresses")} value={customer.addresses.length} />
+      </div>
+
+      {isB2B && sp && (
+        <Card className="bg-gradient-to-r from-secondary/10 to-secondary/5 border-secondary/30">
+          <CardContent className="p-5 flex items-center gap-4">
+            <div className="w-12 h-12 rounded-full bg-secondary/20 text-secondary flex items-center justify-center">
+              <Building2 className="w-6 h-6" />
+            </div>
+            <div className="flex-1">
+              <p className="text-xs uppercase tracking-wider text-muted-foreground">{t("account.account_manager")}</p>
+              <p className="font-semibold">{sp.name}</p>
+              <p className="text-sm text-muted-foreground">{sp.email} · {sp.phone}</p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      <Card>
+        <CardContent className="p-5 space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="font-bold">{t("account.recent_orders")}</h2>
+            <Link href="/account/orders"><Button variant="ghost" size="sm">{t("common.view_all")}</Button></Link>
+          </div>
+          {orders.length === 0 ? (
+            <p className="text-sm text-muted-foreground py-8 text-center">{t("account.empty_orders")}</p>
+          ) : (
+            <Table>
+              <TableHeader><TableRow><TableHead>{t("order.tracking_id")}</TableHead><TableHead>{t("order.placed_on")}</TableHead><TableHead>{t("common.total")}</TableHead><TableHead>{t("common.status")}</TableHead><TableHead></TableHead></TableRow></TableHeader>
+              <TableBody>
+                {orders.slice(0, 5).map((o) => (
+                  <TableRow key={o.id} data-testid={`row-account-order-${o.id}`}>
+                    <TableCell className="font-mono text-xs">{o.trackingId}</TableCell>
+                    <TableCell className="text-sm">{new Date(o.placedAt).toLocaleDateString(language === "ar" ? "ar-SA" : "en-GB")}</TableCell>
+                    <TableCell><PriceTag amount={o.total} size="sm" /></TableCell>
+                    <TableCell><StatusBadge status={o.status} /></TableCell>
+                    <TableCell><Link href={`/track/${o.trackingId}`}><Button size="sm" variant="ghost"><Eye className="w-3.5 h-3.5" /></Button></Link></TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
+
+      <div>
+        <h2 className="font-bold text-xl mb-4">{t("account.recommended")}</h2>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          {recommended.map((p) => <ProductCard key={p.id} product={p} />)}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function KpiCard({ icon: Icon, label, value }: { icon: any; label: string; value: number | string }) {
+  return (
+    <Card>
+      <CardContent className="p-5 flex items-center gap-3">
+        <div className="w-10 h-10 rounded-md bg-primary/10 text-primary flex items-center justify-center">
+          <Icon className="w-5 h-5" />
+        </div>
+        <div>
+          <p className="text-2xl font-bold">{value}</p>
+          <p className="text-xs text-muted-foreground">{label}</p>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+export function AccountOrdersPage() {
+  const { t, language } = useLanguage();
+  const { customer } = useRole();
+  if (!customer) return null;
+  const orders = getOrdersByCustomer(customer.id);
+  return (
+    <Card>
+      <CardContent className="p-5 space-y-4">
+        <h1 className="font-bold text-xl">{t("account.orders")}</h1>
+        {orders.length === 0 ? (
+          <p className="text-sm text-muted-foreground py-12 text-center">{t("account.empty_orders")}</p>
+        ) : (
+          <Table>
+            <TableHeader><TableRow><TableHead>{t("order.tracking_id")}</TableHead><TableHead>{t("order.placed_on")}</TableHead><TableHead>Items</TableHead><TableHead>{t("common.total")}</TableHead><TableHead>{t("common.status")}</TableHead><TableHead></TableHead></TableRow></TableHeader>
+            <TableBody>
+              {orders.map((o) => (
+                <TableRow key={o.id}>
+                  <TableCell className="font-mono text-xs">{o.trackingId}</TableCell>
+                  <TableCell className="text-sm">{new Date(o.placedAt).toLocaleDateString(language === "ar" ? "ar-SA" : "en-GB")}</TableCell>
+                  <TableCell className="text-sm">{o.items.length}</TableCell>
+                  <TableCell><PriceTag amount={o.total} size="sm" /></TableCell>
+                  <TableCell><StatusBadge status={o.status} /></TableCell>
+                  <TableCell><Link href={`/track/${o.trackingId}`}><Button size="sm" variant="ghost"><Eye className="w-3.5 h-3.5 me-1" /> {t("common.view")}</Button></Link></TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+export function AccountAddressesPage() {
+  const { t } = useLanguage();
+  const { customer } = useRole();
+  const { toast } = useToast();
+  if (!customer) return null;
+  return (
+    <Card>
+      <CardContent className="p-5 space-y-4">
+        <div className="flex items-center justify-between">
+          <h1 className="font-bold text-xl">{t("account.addresses")}</h1>
+          <Button onClick={() => toast({ title: t("account.add_address"), description: t("common.feature_coming_soon") })} className="bg-primary hover:bg-primary/90"><Plus className="w-4 h-4 me-1.5" /> {t("account.add_address")}</Button>
+        </div>
+        <div className="space-y-3">
+          {customer.addresses.map((a) => (
+            <div key={a.id} className="border rounded-md p-4 flex items-start gap-4 hover-elevate">
+              <MapPin className="w-5 h-5 text-secondary mt-0.5 shrink-0" />
+              <div className="flex-1">
+                <div className="flex items-center gap-2 mb-1">
+                  <p className="font-semibold">{a.label}</p>
+                  {a.isDefault && <Badge className="bg-emerald-100 text-emerald-800 border border-emerald-300">{t("common.default")}</Badge>}
+                </div>
+                <p className="text-sm text-muted-foreground">{a.fullAddress}, {a.city}</p>
+              </div>
+              <div className="flex gap-1">
+                {!a.isDefault && <Button size="sm" variant="outline" onClick={() => toast({ title: t("common.set_default"), description: t("common.feature_coming_soon") })}>{t("common.set_default")}</Button>}
+                <Button size="sm" variant="ghost" onClick={() => toast({ title: t("common.edit"), description: t("common.feature_coming_soon") })}>{t("common.edit")}</Button>
+              </div>
+            </div>
+          ))}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+export function AccountProfilePage() {
+  const { t } = useLanguage();
+  const { customer, role } = useRole();
+  const { toast } = useToast();
+  if (!customer) return null;
+  const isB2B = role === "b2b";
+  return (
+    <Card>
+      <CardContent className="p-5 space-y-4">
+        <h1 className="font-bold text-xl">{isB2B ? t("account.business_profile") : t("account.profile")}</h1>
+        <form className="space-y-4" onSubmit={(e) => { e.preventDefault(); toast({ title: t("common.save"), description: t("common.feature_coming_soon") }); }}>
+          <div className="grid sm:grid-cols-2 gap-3">
+            <div><Label>{t("common.name")}</Label><Input defaultValue={customer.name} /></div>
+            <div><Label>{t("common.email")}</Label><Input type="email" defaultValue={customer.email} /></div>
+            <div><Label>{t("common.phone")}</Label><Input defaultValue={customer.phone} /></div>
+            <div><Label>{t("common.city")}</Label><Input defaultValue={customer.city} /></div>
+          </div>
+          {isB2B && customer.business && (
+            <>
+              <Separator />
+              <h2 className="font-semibold">{t("checkout.business_details")}</h2>
+              <div className="grid sm:grid-cols-2 gap-3">
+                <div><Label>{t("checkout.business_name")}</Label><Input defaultValue={customer.business.name} /></div>
+                <div><Label>{t("checkout.business_type")}</Label><Input defaultValue={t(`checkout.business_type.${customer.business.type}`)} disabled /></div>
+                <div><Label>{t("checkout.cr_number")}</Label><Input defaultValue={customer.business.crNumber} /></div>
+                <div><Label>{t("checkout.vat_number")}</Label><Input defaultValue={customer.business.vatNumber} /></div>
+              </div>
+            </>
+          )}
+          <Button type="submit" className="bg-primary hover:bg-primary/90">{t("common.save")}</Button>
+        </form>
+      </CardContent>
+    </Card>
+  );
+}
+
+export function AccountNotificationsPage() {
+  const { t, language } = useLanguage();
+  const { toast } = useToast();
+  return (
+    <Card>
+      <CardContent className="p-5 space-y-4">
+        <div className="flex items-center justify-between">
+          <h1 className="font-bold text-xl">{t("account.notifications")}</h1>
+          <Button variant="outline" size="sm" onClick={() => toast({ title: t("account.notification.read_all") })}><CheckCircle2 className="w-4 h-4 me-1.5" /> {t("account.notification.read_all")}</Button>
+        </div>
+        <div className="space-y-2">
+          {notifications.map((n) => (
+            <div key={n.id} className={`border rounded-md p-4 flex gap-3 hover-elevate ${n.read ? "opacity-70" : "border-secondary/40 bg-secondary/5"}`}>
+              <div className="w-10 h-10 rounded-md bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                <Bell className="w-4 h-4" />
+              </div>
+              <div className="flex-1">
+                <p className="font-semibold">{language === "ar" ? n.arTitle : n.enTitle}</p>
+                <p className="text-sm text-muted-foreground mt-0.5">{language === "ar" ? n.arBody : n.enBody}</p>
+                <p className="text-xs text-muted-foreground mt-1">{new Date(n.at).toLocaleString(language === "ar" ? "ar-SA" : "en-GB")}</p>
+              </div>
+              {!n.read && <span className="w-2 h-2 rounded-full bg-secondary mt-2 shrink-0" />}
+            </div>
+          ))}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+export function AccountSettingsPage() {
+  const { t, language, setLanguage } = useLanguage();
+  const { toast } = useToast();
+  return (
+    <Card>
+      <CardContent className="p-5 space-y-5">
+        <h1 className="font-bold text-xl">{t("account.settings")}</h1>
+        <div className="space-y-4">
+          <div className="flex items-center justify-between p-4 border rounded-md">
+            <div>
+              <p className="font-medium">{t("account.lang_pref")}</p>
+              <p className="text-sm text-muted-foreground">{language === "ar" ? "العربية" : "English"}</p>
+            </div>
+            <Button variant="outline" onClick={() => setLanguage(language === "ar" ? "en" : "ar")}>
+              {language === "ar" ? "Switch to English" : "تغيير إلى العربية"}
+            </Button>
+          </div>
+          {[
+            { label: language === "ar" ? "إشعارات الطلبات" : "Order notifications" },
+            { label: language === "ar" ? "إشعارات العروض" : "Promo notifications" },
+            { label: language === "ar" ? "نشرة بريدية شهرية" : "Monthly newsletter" },
+          ].map((s, i) => (
+            <div key={i} className="flex items-center justify-between p-4 border rounded-md">
+              <p className="font-medium">{s.label}</p>
+              <Switch defaultChecked onCheckedChange={() => toast({ title: t("common.save"), description: t("common.feature_coming_soon") })} />
+            </div>
+          ))}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
