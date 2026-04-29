@@ -77,53 +77,53 @@
   --elevate-1: rgba(0,0,0, .03);
   --elevate-2: rgba(0,0,0, .08);
 
-  /* Warm Arabian Palette - Light Mode */
-  --background: 40 33% 98%; /* Warm off-white */
-  --foreground: 25 50% 15%; /* Deep espresso/brown */
+  /* Venture Supply Palette - Light Mode */
+  --background: 0 0% 100%; /* Clean white */
+  --foreground: 207 60% 14%; /* Deep navy text */
 
-  --border: 30 20% 85%;
-  --input: 30 20% 85%;
-  --ring: 42 82% 50%;
+  --border: 200 14% 88%;
+  --input: 200 14% 88%;
+  --ring: 192 78% 49%;
 
   --card: 0 0% 100%;
-  --card-foreground: 25 50% 15%;
-  --card-border: 30 20% 90%;
+  --card-foreground: 207 60% 14%;
+  --card-border: 200 14% 90%;
 
-  --sidebar: 35 30% 96%;
-  --sidebar-foreground: 25 50% 15%;
-  --sidebar-border: 30 20% 85%;
-  --sidebar-primary: 25 47% 24%;
+  --sidebar: 207 89% 30%;
+  --sidebar-foreground: 0 0% 100%;
+  --sidebar-border: 207 60% 24%;
+  --sidebar-primary: 192 78% 49%;
   --sidebar-primary-foreground: 0 0% 100%;
-  --sidebar-accent: 42 82% 50%;
-  --sidebar-accent-foreground: 25 50% 15%;
-  --sidebar-ring: 42 82% 50%;
+  --sidebar-accent: 207 60% 24%;
+  --sidebar-accent-foreground: 0 0% 100%;
+  --sidebar-ring: 192 78% 49%;
 
   --popover: 0 0% 100%;
-  --popover-foreground: 25 50% 15%;
-  --popover-border: 30 20% 90%;
+  --popover-foreground: 207 60% 14%;
+  --popover-border: 200 14% 90%;
 
-  /* Primary: Deep Date Brown */
-  --primary: 25 47% 24%;
+  /* Primary: Venture Supply Deep Blue #085890 */
+  --primary: 207 89% 30%;
   --primary-foreground: 0 0% 100%;
 
-  /* Secondary/Accent: Arabian Gold / Saffron */
-  --secondary: 42 82% 50%;
-  --secondary-foreground: 25 50% 15%;
+  /* Secondary/Accent: Venture Supply Cyan #18B8E0 */
+  --secondary: 192 78% 49%;
+  --secondary-foreground: 0 0% 100%;
 
-  --muted: 35 20% 92%;
-  --muted-foreground: 25 30% 40%;
+  --muted: 200 20% 96%;
+  --muted-foreground: 210 10% 44%;
 
-  --accent: 35 20% 92%;
-  --accent-foreground: 25 50% 15%;
+  --accent: 192 78% 95%;
+  --accent-foreground: 207 60% 14%;
 
   --destructive: 0 84% 60%;
   --destructive-foreground: 0 0% 100%;
 
-  --chart-1: 42 82% 50%; /* Gold */
-  --chart-2: 25 47% 24%; /* Brown */
-  --chart-3: 15 60% 50%; /* Rust/Spice */
-  --chart-4: 140 40% 40%; /* Olive Green */
-  --chart-5: 200 40% 40%; /* Deep Blue */
+  --chart-1: 207 89% 30%; /* Primary blue */
+  --chart-2: 192 78% 49%; /* Cyan */
+  --chart-3: 207 60% 50%; /* Mid blue */
+  --chart-4: 195 60% 60%; /* Light blue */
+  --chart-5: 210 10% 56%; /* Neutral grey */
 
   --app-font-sans: 'Outfit', 'Noto Sans Arabic', sans-serif;
   --app-font-serif: Georgia, serif;

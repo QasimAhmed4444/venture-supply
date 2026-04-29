@@ -32,21 +32,21 @@ export function Header() {
 
   return (
     <header className="bg-card border-b sticky top-0 z-40 shadow-sm" dir={isRTL ? "rtl" : "ltr"}>
-      <div className="bg-primary/5 border-b border-border/40 hidden md:block">
-        <div className="max-w-7xl mx-auto px-4 py-1.5 flex items-center justify-between text-xs text-muted-foreground">
+      <div className="bg-primary text-primary-foreground hidden md:block">
+        <div className="max-w-7xl mx-auto px-4 py-1.5 flex items-center justify-between text-xs">
           <div className="flex items-center gap-1.5">
             <MapPin className="w-3.5 h-3.5" />
-            <span>{t("nav.location")}: <span className="font-medium text-foreground">Riyadh, KSA</span></span>
+            <span>{t("nav.location")}: <span className="font-semibold">Madinah Al Munawwarah, KSA</span></span>
           </div>
-          <div className="flex items-center gap-4">
-            <Link href="/about" className="hover:text-foreground transition-colors">{t("nav.about")}</Link>
-            <Link href="/contact" className="hover:text-foreground transition-colors">{t("nav.contact")}</Link>
-            <Link href="/request-product" className="hover:text-foreground transition-colors">{t("nav.request_product")}</Link>
+          <div className="flex items-center gap-5">
+            <a href="tel:+966547206862" className="hover:text-secondary transition-colors">+966 54 720 6862</a>
+            <a href="mailto:info@venturesupply.sa" className="hover:text-secondary transition-colors">info@venturesupply.sa</a>
+            <Link href="/request-product" className="hover:text-secondary transition-colors">{t("nav.request_product")}</Link>
           </div>
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 py-3 flex items-center gap-4">
+      <div className="max-w-7xl mx-auto px-4 py-4 flex items-center gap-4">
         <Sheet>
           <SheetTrigger asChild>
             <Button variant="ghost" size="icon" className="lg:hidden">
@@ -72,7 +72,7 @@ export function Header() {
         </Sheet>
 
         <Link href="/" className="shrink-0">
-          <Logo />
+          <Logo size="lg" />
         </Link>
 
         <form onSubmit={handleSearch} className="flex-1 max-w-2xl mx-auto hidden sm:block">
@@ -81,7 +81,7 @@ export function Header() {
             <Input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder={t("common.search")}
+              placeholder={t("nav.search_placeholder")}
               className={`bg-muted/50 border-border/60 focus-visible:bg-card ${isRTL ? "pr-10" : "pl-10"}`}
               data-testid="input-search"
             />
@@ -89,7 +89,7 @@ export function Header() {
         </form>
 
         <div className="flex items-center gap-1">
-          <Button variant="ghost" size="icon" className="hidden md:inline-flex relative" data-testid="button-notifications">
+          <Button variant="ghost" size="icon" className="hidden md:inline-flex relative text-primary" data-testid="button-notifications">
             <Bell className="w-5 h-5" />
             <span className="absolute top-1.5 end-1.5 w-2 h-2 bg-secondary rounded-full" />
           </Button>
@@ -97,7 +97,7 @@ export function Header() {
           {isAuthenticated ? (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="gap-1.5 hidden md:inline-flex" data-testid="button-account-menu">
+                <Button variant="ghost" className="gap-1.5 hidden md:inline-flex text-primary" data-testid="button-account-menu">
                   <User className="w-4 h-4" />
                   <span className="text-sm font-medium max-w-[100px] truncate">{customer?.name.split(" ")[0] ?? "Account"}</span>
                   <ChevronDown className="w-3.5 h-3.5" />
@@ -118,7 +118,7 @@ export function Header() {
             </DropdownMenu>
           ) : (
             <Link href="/login">
-              <Button variant="default" className="bg-primary hover:bg-primary/90 hidden md:inline-flex" data-testid="button-login">
+              <Button variant="default" className="bg-secondary text-white hover:bg-secondary/90 hidden md:inline-flex font-semibold shadow-sm" data-testid="button-login">
                 {t("common.login")}
               </Button>
             </Link>
@@ -130,7 +130,7 @@ export function Header() {
         <div className="max-w-7xl mx-auto px-4 flex items-center gap-1 overflow-x-auto">
           {navItems.map((item) => (
             <Link key={item.href} href={item.href}>
-              <span className="px-3 py-2.5 text-sm font-medium hover:text-secondary transition-colors block">{item.label}</span>
+              <span className="px-3 py-2.5 text-sm font-semibold text-primary hover:text-secondary transition-colors block">{item.label}</span>
             </Link>
           ))}
           <div className="w-px h-5 bg-border mx-1" />

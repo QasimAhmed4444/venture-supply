@@ -518,7 +518,9 @@ export function AdminBrandsPage() {
         {brands.map((b) => (
           <Card key={b.id}>
             <CardContent className="p-5 text-center space-y-3">
-              <div className="w-16 h-16 mx-auto rounded-md flex items-center justify-center text-primary-foreground font-bold text-3xl shadow-md" style={{ background: b.accent }}>{b.name[0]}</div>
+              <div className="w-20 h-20 mx-auto rounded-md flex items-center justify-center bg-white border border-border/60 shadow-sm p-2">
+                <img src={b.logo} alt={b.name} className="max-w-full max-h-full object-contain" />
+              </div>
               <h3 className="font-bold">{b.name}</h3>
               <p className="text-xs text-muted-foreground">{language === "ar" ? b.arTagline : b.enTagline}</p>
               <p className="text-xs text-muted-foreground">{products.filter((p) => p.brandId === b.id).length} {t("admin.product_count").toLowerCase()}</p>

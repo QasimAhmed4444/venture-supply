@@ -1,0 +1,391 @@
+You are a professional frontend developer and UI/UX designer.
+
+I am giving you my Venture Supply website project. Please update ONLY the visual branding, header, footer, homepage colors, homepage slider, product categories, and company information according to my official company profile and logos.
+
+VERY IMPORTANT:
+Do NOT change the existing website structure unnecessarily.
+Do NOT remove any existing sections unless required.
+Do NOT change the meaning of any existing text.
+Do NOT redesign the full website from scratch.
+Only improve the theme, header, footer, homepage branding, products, categories, and company/profile details.
+
+========================
+BRAND NAME
+========================
+Venture Supply
+Arabic name: التوريد الريادي
+
+Use the official Venture Supply logo exactly as uploaded. Do not recreate it. Do not change its colors. Use the same logo in the header and footer.
+
+Make the logo size bigger in the header.
+The logo should look premium, clean, and clearly visible.
+
+========================
+EXACT BRAND COLOR THEME
+========================
+Use colors from the Venture Supply logo and company profile.
+
+Primary Dark Blue:
+#085890
+
+Secondary Dark Blue:
+#085898
+
+Primary Cyan / Sky Blue:
+#18B8E0
+
+Bright Cyan:
+#18C0E8
+
+Neutral Grey:
+#9098A0
+
+Light Grey:
+#D8E0E0
+
+White:
+#FFFFFF
+
+Header and footer must use these Venture Supply colors, not yellow/gold.
+Remove the current yellow accent from the header/footer and replace it with the Venture Supply cyan/blue color palette.
+
+Recommended usage:
+- Header background: #FFFFFF or very light clean background
+- Header text: #085890
+- Active links / buttons / icons: #18B8E0
+- Footer background: #085890 or gradient from #085890 to #085898
+- Footer headings: #FFFFFF
+- Footer icons / highlights: #18B8E0
+- Footer body text: #D8E0E0
+- Borders / dividers: rgba(24,184,224,0.25)
+
+Make the full website feel like the official Venture Supply company profile.
+
+========================
+HEADER REQUIREMENTS
+========================
+Update the header to match the Venture Supply brand.
+
+Header should include:
+- Large Venture Supply logo on the left
+- Navigation links should remain clean and professional
+- Use dark blue text #085890
+- Hover color should be cyan #18B8E0
+- Add a clean CTA button such as “Contact Us” or “Wholesale Registration” using #18B8E0 background and white text
+- Header should look modern, premium, and suitable for a Saudi food supply / wholesale company
+- Keep spacing clean
+- Make the logo bigger than current size
+- Do not distort the logo
+
+========================
+HOMEPAGE AUTO SLIDER
+========================
+Add an automatic homepage hero image slider.
+
+Slider should:
+- Auto slide every 3 to 5 seconds
+- Have smooth fade or slide animation
+- Use food supply related images:
+  1. Rice and grains
+  2. Spices and seasonings
+  3. Pulses and lentils
+  4. Oils and condiments
+  5. Tea and beverages
+  6. Wholesale food distribution
+- Add dark/blue overlay so text remains readable
+- Use Venture Supply blue/cyan theme
+- Include professional text such as:
+  “From Everyday Essentials to Specialty Flavors”
+  “We Deliver Taste You Can Trust”
+  “Supplying Quality, Building Trust”
+  “Premium Food Products Across Saudi Arabia”
+
+Do not use random unrelated images. Use food, grocery, wholesale, spices, rice, pulses, oils, and supply chain visuals only.
+
+========================
+COMPANY ABOUT CONTENT
+========================
+Use this company information from the official profile:
+
+Venture Supply is a fast-growing food supplies company founded in 2019 and headquartered in Madinah Al Munawwarah, Saudi Arabia. The company is committed to delivering high-quality food products across the Kingdom of Saudi Arabia through a specialized distribution network and production facility being established in Madinah Al Munawwarah.
+
+The company serves:
+- Retail chains
+- HORECA sector
+- Hotels
+- Restaurants
+- Cafés
+- Foodservice businesses
+- Wholesale customers
+- Individual customers
+
+Use this message style:
+“Supplying Quality, Building Trust”
+
+========================
+MISSION
+========================
+Use this mission text:
+
+To deliver premium food products that enrich culinary experiences while fostering long-term, value-driven partnerships with our clients in the retail and hospitality sectors.
+
+========================
+VISION
+========================
+Use this vision text:
+
+To be one of Saudi Arabia’s most trusted and innovative food distributors — recognized for Quality, Consistency, and Customer Commitment.
+
+========================
+PRODUCT CATEGORIES
+========================
+Replace demo/fake categories with real Venture Supply categories from the profile.
+
+Use these main categories:
+
+1. Staple Foods
+Description:
+Premium-quality rice known for consistency, purity, and rich aroma.
+
+2. Spices & Seasonings
+Description:
+Authentic plain spices sourced from around the world, including Himalayan salt and global flavors.
+
+3. Specialized Recipes
+Description:
+Exclusive blends and ready-to-cook recipe mixes developed for diverse culinary needs.
+
+4. Condiments & Ingredients
+Description:
+Fried onions, sauces, and essential ingredients for everyday cooking.
+
+5. Oils
+Description:
+Premium edible oils offering purity, taste, and balanced nutrition.
+
+6. Pulses & Lentils
+Description:
+Carefully selected and hygienically packed pulses ensuring freshness and superior quality.
+
+7. Specialty Items
+Description:
+Specialty food products such as vermicelli and other niche food items.
+
+8. Beverages
+Description:
+Premium tea products distributed under the Vital brand.
+
+========================
+REAL PRODUCT LIST
+========================
+Use real products from the company profile.
+
+Chef Flavor / Chef Products:
+- 1121 Sella Basmati Rice
+- 1121 Creamy Basmati Rice
+- 1121 Golden Sella Rice
+- 1509 Sella Basmati Rice
+- 1509 Creamy Basmati Rice
+- 1509 Golden Sella Rice
+- Chef Rice
+- Chef Oil 17LTR
+- Vermicelli 150gm
+- Fried Onion 400gm
+- Fried Onion 4.5kg
+- Red Lentils
+- Split Chick Peas
+- Black Chick Peas
+- Mung Beans
+- Red Kidney Beans
+- Black Lentil
+- Chick Peas White 7MM
+- Chick Peas White 9MM
+- Chick Peas White 12MM
+
+Chef Spices / Recipe Mix:
+- Garam Masala
+- Ginger Powder
+- Red Chilli Powder
+- Turmeric Powder
+- Turmeric Whole Finger
+- Sesame Seed
+- Coriander Powder
+- Funnel Seed
+- Cumin Seed
+- Cumin Powder
+- Black Pepper Whole
+- Black Pepper Powder
+- Red Chilli Crush
+- Coriander Seed
+- Curry Powder Masala
+- Fish Masala
+- Haleem Masala
+- Chicken Tikka Masala
+- Tandoori Masala
+- Karahi Gosht
+- Achar Gosht
+- Pulao Masala
+- Nihari Masala
+- Paya Masala
+- Chaat Masala
+- Biryani Masala
+- Qourma Masala
+
+Malka Products:
+- Plain Spices
+- Recipe Mix
+- Sauces
+- Himalayan Salt
+- Premium quality real taste sauces
+
+Vital Products:
+- Vital Tea 450gm Jar
+- Vital Tea 900gm Jar
+- Vital Loose Tea 5kg
+- Vital Tea Bag 2gm
+- Vital Tea Bag Round 2.5gm
+
+========================
+BRAND PORTFOLIO SECTION
+========================
+Add or update a brand portfolio section using the uploaded logos exactly:
+
+Brands:
+1. Chef Flavor
+2. Malka
+3. Vital Tea
+
+Use the exact uploaded logo files. Do not recreate them. Do not change their colors.
+
+Brand Portfolio heading:
+“Diverse Flavors, One Trusted Source”
+
+Description:
+“Venture Supply provides a diverse range of essential and specialty food products designed to meet varied market needs.”
+
+========================
+WHY VENTURE SUPPLY SECTION
+========================
+Create or update this section using clean cards with icons.
+
+Heading:
+“What Sets Us Apart, Drives Us Forward”
+
+Cards:
+1. Proprietary Brands
+In-house labels like Chef Flavor, Malka, and Vital ensure consistent product quality and foster strong brand loyalty.
+
+2. Strategic Location
+Operating from Madinah enables streamlined logistics and efficient nationwide distribution.
+
+3. Comprehensive Product Range
+A well-balanced portfolio of everyday essentials and specialized items caters to a broad spectrum of customer needs.
+
+4. Nationwide Reach
+Venture Supply supports high-volume retail operations as well as hospitality and foodservice requirements across Saudi Arabia.
+
+========================
+CONTACT INFO
+========================
+Use this exact contact information from the company profile:
+
+Address:
+Dist, Al Ihn, Al Masi Business center
+7009, Madinah 42319
+Saudi Arabia
+
+Phone:
++966 54 720 6862
++966 54 611 0852
+
+Email:
+info@venturesupply.sa
+
+Website:
+www.venturesupply.sa
+
+Update footer contact info with this exact information.
+Remove wrong/demo contact info such as Riyadh address or fake numbers.
+
+========================
+FOOTER REQUIREMENTS
+========================
+Make the footer bigger, cleaner, and more professional.
+
+Footer should:
+- Use Venture Supply dark blue background #085890 or gradient #085890 to #085898
+- Use cyan highlights #18B8E0
+- Use the official Venture Supply logo, bigger size
+- Add company description
+- Add quick links
+- Add product categories
+- Add business links
+- Add brand logos or brand names
+- Add correct contact information
+- Add copyright:
+  © 2026 Venture Supply. All rights reserved.
+
+IMPORTANT FOOTER SCROLL BEHAVIOR:
+The footer must NOT be fixed at the bottom of the screen.
+It should be a normal page footer.
+When I scroll, the footer should move naturally with the page and go upward/downward normally.
+Do not make the footer sticky.
+Do not make it overlay the page.
+Make sure it appears after all homepage content.
+
+Make footer height slightly bigger than current footer and give it proper padding.
+
+========================
+WHATSAPP BUTTON
+========================
+Keep the WhatsApp floating button if it already exists.
+Change its color style to match the website but keep WhatsApp green acceptable.
+Place it cleanly at the bottom-right.
+Make sure it does not overlap footer text.
+
+========================
+VISUAL STYLE
+========================
+Overall website style should be:
+- Premium
+- Corporate
+- Clean
+- Saudi food supply company style
+- Wholesale and retail friendly
+- Professional blue/cyan branding
+- Similar color feeling to the official Venture Supply profile
+- No yellow/gold theme
+- No random colors
+- No cartoon style
+
+Use smooth hover effects, soft shadows, rounded cards, clean spacing, and responsive layout.
+
+========================
+RESPONSIVE DESIGN
+========================
+Make everything responsive:
+- Desktop
+- Tablet
+- Mobile
+
+On mobile:
+- Logo should still be visible clearly
+- Header should collapse properly
+- Slider text should remain readable
+- Product cards should stack cleanly
+- Footer sections should stack vertically
+
+========================
+FINAL CHECK
+========================
+Before finishing, confirm:
+1. Header uses Venture Supply logo colors.
+2. Footer uses Venture Supply logo colors.
+3. Logo is bigger and not distorted.
+4. Footer is bigger and not sticky/fixed.
+5. Footer scrolls normally with the page.
+6. Homepage has auto image slider.
+7. Product categories are from the official company profile.
+8. Contact details are from the official company profile.
+9. Existing website content/structure is not unnecessarily changed.
+10. The final website looks like a professional Venture Supply Saudi food distribution company website.
