@@ -1,93 +1,163 @@
+import * as React from "react";
 import { Switch, Route, Router as WouterRouter } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { LanguageProvider, useLanguage } from "@/contexts/LanguageContext";
-import { RoleProvider, useRole } from "@/contexts/RoleContext";
-import { Button } from "@/components/ui/button";
+import { LanguageProvider } from "@/contexts/LanguageContext";
+import { RoleProvider } from "@/contexts/RoleContext";
+import { CartProvider } from "@/contexts/CartContext";
+
+import { StorefrontLayout } from "@/layouts/StorefrontLayout";
+import { AccountLayout } from "@/layouts/AccountLayout";
+import { AdminLayout } from "@/layouts/AdminLayout";
+import { SalesLayout } from "@/layouts/SalesLayout";
+
+import { HomePage } from "@/pages/HomePage";
+import { ProductListingPage } from "@/pages/ProductListingPage";
+import { ProductDetailPage } from "@/pages/ProductDetailPage";
+import { CartPage } from "@/pages/CartPage";
+import { CheckoutPage } from "@/pages/CheckoutPage";
+import { OrderSuccessPage } from "@/pages/OrderSuccessPage";
+import { OrderTrackingPage } from "@/pages/OrderTrackingPage";
+import { AuthPage } from "@/pages/AuthPage";
+import { AboutPage, ContactPage, OffersPage, RequestProductPage } from "@/pages/StaticPages";
+
+import {
+  AccountDashboardPage,
+  AccountOrdersPage,
+  AccountAddressesPage,
+  AccountProfilePage,
+  AccountNotificationsPage,
+  AccountSettingsPage,
+} from "@/pages/AccountPages";
+
+import {
+  AdminDashboardPage,
+  AdminCategoriesPage,
+  AdminProductsPage,
+  AdminInventoryPage,
+  AdminOrdersPage,
+  AdminCustomersPage,
+  AdminSalespersonsPage,
+  AdminPromotionsPage,
+  AdminBrandsPage,
+  AdminReportsPage,
+  AdminSettingsPage,
+} from "@/pages/AdminPages";
+
+import {
+  SalesDashboardPage,
+  SalesMyCustomersPage,
+  SalesMyOrdersPage,
+  SalesCreateOrderPage,
+  SalesPerformancePage,
+} from "@/pages/SalesPages";
+
+import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient();
 
-function DemoSwitcher() {
-  const { language, setLanguage, t } = useLanguage();
-  const { role, setRole } = useRole();
-
-  return (
-    <div className="bg-primary text-primary-foreground py-2 px-4 flex justify-between items-center text-sm">
-      <div className="flex gap-2 items-center">
-        <span className="font-semibold opacity-70 uppercase tracking-wider text-xs">Demo Mode</span>
-        <select 
-          className="bg-primary-foreground/10 border-none rounded px-2 py-1 text-sm outline-none"
-          value={role}
-          onChange={(e) => setRole(e.target.value as any)}
-        >
-          <option value="guest" className="text-black">B2C Customer</option>
-          <option value="b2b" className="text-black">B2B Customer</option>
-          <option value="admin" className="text-black">Admin</option>
-          <option value="sales" className="text-black">Salesperson</option>
-        </select>
-      </div>
-      <Button 
-        variant="ghost" 
-        size="sm" 
-        className="h-7 text-primary-foreground hover:bg-primary-foreground/20 hover:text-white"
-        onClick={() => setLanguage(language === "en" ? "ar" : "en")}
-      >
-        {language === "en" ? "العربية" : "English"}
-      </Button>
-    </div>
+function withStorefront(Component: React.ComponentType) {
+  return () => (
+    <StorefrontLayout>
+      <Component />
+    </StorefrontLayout>
   );
 }
 
-function Home() {
-  const { t } = useLanguage();
-  const { role } = useRole();
-
-  return (
-    <div className="min-h-screen bg-background">
-      <DemoSwitcher />
-      <header className="bg-card border-b py-4 px-6 sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto flex justify-between items-center">
-          <div className="text-2xl font-bold text-primary flex items-center gap-2">
-            <span className="bg-secondary text-secondary-foreground p-1 rounded-md">V</span>
-            Venture Supply
-          </div>
-          <nav className="hidden md:flex gap-6 font-medium text-muted-foreground">
-            <a href="#" className="text-primary">{t("nav.home")}</a>
-            <a href="#" className="hover:text-primary transition-colors">{t("nav.products")}</a>
-            <a href="#" className="hover:text-primary transition-colors">{t("nav.offers")}</a>
-            <a href="#" className="hover:text-primary transition-colors">{t("nav.about")}</a>
-            <a href="#" className="hover:text-primary transition-colors">{t("nav.contact")}</a>
-          </nav>
-          <div>
-            <Button>{t("role." + role)} Profile</Button>
-          </div>
-        </div>
-      </header>
-      
-      <main>
-        <section className="bg-primary/5 py-20 px-6">
-          <div className="max-w-3xl mx-auto text-center space-y-6">
-            <h1 className="text-5xl font-bold text-foreground leading-tight">
-              {t("hero.title")}
-            </h1>
-            <p className="text-xl text-muted-foreground">
-              {t("hero.subtitle")}
-            </p>
-            <div className="pt-4">
-              <Button size="lg" className="text-lg px-8">{t("action.add_to_cart")}</Button>
-            </div>
-          </div>
-        </section>
-      </main>
-    </div>
+function withAccount(Component: React.ComponentType) {
+  return () => (
+    <AccountLayout>
+      <Component />
+    </AccountLayout>
   );
 }
 
-function Router() {
+function withAdmin(Component: React.ComponentType) {
+  return () => (
+    <AdminLayout>
+      <Component />
+    </AdminLayout>
+  );
+}
+
+function withSales(Component: React.ComponentType) {
+  return () => (
+    <SalesLayout>
+      <Component />
+    </SalesLayout>
+  );
+}
+
+function ProductListingAll() {
+  return <ProductListingPage scope="all" />;
+}
+function ProductListingCategory() {
+  return <ProductListingPage scope="category" />;
+}
+function ProductListingBrand() {
+  return <ProductListingPage scope="brand" />;
+}
+function LoginPage() {
+  return <AuthPage mode="login" />;
+}
+function RegisterPage() {
+  return <AuthPage mode="register" />;
+}
+
+function AppRouter() {
   return (
     <Switch>
-      <Route path="/" component={Home} />
+      {/* Storefront */}
+      <Route path="/" component={withStorefront(HomePage)} />
+      <Route path="/products" component={withStorefront(ProductListingAll)} />
+      <Route path="/categories/:slug" component={withStorefront(ProductListingCategory)} />
+      <Route path="/brands/:slug" component={withStorefront(ProductListingBrand)} />
+      <Route path="/offers" component={withStorefront(OffersPage)} />
+      <Route path="/products/:slug" component={withStorefront(ProductDetailPage)} />
+      <Route path="/cart" component={withStorefront(CartPage)} />
+      <Route path="/checkout" component={withStorefront(CheckoutPage)} />
+      <Route path="/order-success" component={withStorefront(OrderSuccessPage)} />
+      <Route path="/track/:tid" component={withStorefront(OrderTrackingPage)} />
+      <Route path="/track" component={withStorefront(OrderTrackingPage)} />
+
+      {/* Auth */}
+      <Route path="/login" component={LoginPage} />
+      <Route path="/register" component={RegisterPage} />
+
+      {/* Static */}
+      <Route path="/about" component={withStorefront(AboutPage)} />
+      <Route path="/contact" component={withStorefront(ContactPage)} />
+      <Route path="/request-product" component={withStorefront(RequestProductPage)} />
+      {/* Account (B2C / B2B) */}
+      <Route path="/account" component={withAccount(AccountDashboardPage)} />
+      <Route path="/account/orders" component={withAccount(AccountOrdersPage)} />
+      <Route path="/account/addresses" component={withAccount(AccountAddressesPage)} />
+      <Route path="/account/profile" component={withAccount(AccountProfilePage)} />
+      <Route path="/account/notifications" component={withAccount(AccountNotificationsPage)} />
+      <Route path="/account/settings" component={withAccount(AccountSettingsPage)} />
+
+      {/* Admin */}
+      <Route path="/admin" component={withAdmin(AdminDashboardPage)} />
+      <Route path="/admin/categories" component={withAdmin(AdminCategoriesPage)} />
+      <Route path="/admin/products" component={withAdmin(AdminProductsPage)} />
+      <Route path="/admin/inventory" component={withAdmin(AdminInventoryPage)} />
+      <Route path="/admin/orders" component={withAdmin(AdminOrdersPage)} />
+      <Route path="/admin/customers" component={withAdmin(AdminCustomersPage)} />
+      <Route path="/admin/salespersons" component={withAdmin(AdminSalespersonsPage)} />
+      <Route path="/admin/promotions" component={withAdmin(AdminPromotionsPage)} />
+      <Route path="/admin/brands" component={withAdmin(AdminBrandsPage)} />
+      <Route path="/admin/reports" component={withAdmin(AdminReportsPage)} />
+      <Route path="/admin/settings" component={withAdmin(AdminSettingsPage)} />
+
+      {/* Salesperson */}
+      <Route path="/sales" component={withSales(SalesDashboardPage)} />
+      <Route path="/sales/customers" component={withSales(SalesMyCustomersPage)} />
+      <Route path="/sales/orders" component={withSales(SalesMyOrdersPage)} />
+      <Route path="/sales/create-order" component={withSales(SalesCreateOrderPage)} />
+      <Route path="/sales/performance" component={withSales(SalesPerformancePage)} />
+
+      <Route component={NotFound} />
     </Switch>
   );
 }
@@ -97,12 +167,14 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <LanguageProvider>
         <RoleProvider>
-          <TooltipProvider>
-            <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
-              <Router />
-            </WouterRouter>
-            <Toaster />
-          </TooltipProvider>
+          <CartProvider>
+            <TooltipProvider>
+              <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
+                <AppRouter />
+              </WouterRouter>
+              <Toaster />
+            </TooltipProvider>
+          </CartProvider>
         </RoleProvider>
       </LanguageProvider>
     </QueryClientProvider>

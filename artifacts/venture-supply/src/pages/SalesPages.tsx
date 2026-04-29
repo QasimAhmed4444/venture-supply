@@ -53,7 +53,7 @@ export function SalesDashboardPage() {
         <CardContent className="p-5">
           <div className="flex items-center justify-between mb-3">
             <h2 className="font-bold">{t("sales.target")}</h2>
-            <span className="text-sm text-muted-foreground"><PriceTag amount={monthlySales} size="sm" inline /> / <PriceTag amount={target} size="sm" inline /></span>
+            <span className="text-sm text-muted-foreground"><PriceTag amount={monthlySales} size="sm" /> / <PriceTag amount={target} size="sm" /></span>
           </div>
           <div className="w-full h-3 bg-muted rounded-full overflow-hidden">
             <div className="h-full bg-gradient-to-r from-secondary to-primary transition-all" style={{ width: `${Math.min(pct, 100)}%` }} />

@@ -492,6 +492,7 @@ export const translations: Record<Language, Record<string, string>> = {
     "nav.delivery": "توصيل",
     "nav.pickup": "استلام",
     "nav.location": "التوصيل إلى",
+    "nav.search_placeholder": "ابحث عن الأرز والبهارات والزيوت...",
 
     // Hero / Home
     "hero.title": "نكهات سعودية فاخرة،\nموصَّلة بثقة",
