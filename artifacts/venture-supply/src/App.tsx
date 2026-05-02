@@ -21,6 +21,7 @@ import { OrderSuccessPage } from "@/pages/OrderSuccessPage";
 import { OrderTrackingPage } from "@/pages/OrderTrackingPage";
 import { AuthPage } from "@/pages/AuthPage";
 import { AboutPage, ContactPage, OffersPage, RequestProductPage } from "@/pages/StaticPages";
+import { AdminLoginPage } from "@/pages/AdminLoginPage";
 
 import {
   AccountDashboardPage,
@@ -125,6 +126,7 @@ function AppRouter() {
       {/* Auth */}
       <Route path="/login" component={LoginPage} />
       <Route path="/register" component={RegisterPage} />
+      <Route path="/admin/login" component={AdminLoginPage} />
 
       {/* Static */}
       <Route path="/about" component={withStorefront(AboutPage)} />

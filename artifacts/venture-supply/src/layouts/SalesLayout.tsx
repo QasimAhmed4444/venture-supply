@@ -1,6 +1,5 @@
 import { ReactNode, useMemo } from "react";
 import { Link, useLocation } from "wouter";
-import { DemoSwitcher } from "@/components/DemoSwitcher";
 import { Logo } from "@/components/Logo";
 import { ScrollToTop } from "@/components/ScrollToTop";
 import { Button } from "@/components/ui/button";
@@ -34,7 +33,6 @@ export function SalesLayout({ children }: { children: ReactNode }) {
   return (
     <div className="min-h-screen flex flex-col bg-muted/30">
       <ScrollToTop />
-      <DemoSwitcher />
       <div className="flex flex-1">
         <aside className={`w-60 bg-card border-${isRTL ? "l" : "r"} flex flex-col shrink-0 hidden lg:flex`}>
           <div className="p-4 border-b">

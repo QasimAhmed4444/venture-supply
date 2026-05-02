@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { Search, MapPin, ChevronDown, Menu, User, LogOut, Bell, Heart, Package, Building2 } from "lucide-react";
+import { Search, ChevronDown, Menu, User, LogOut, Bell, Package, Building2, Languages } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useRole } from "@/contexts/RoleContext";
 import { Logo } from "./Logo";
@@ -13,7 +13,7 @@ import { NotificationBell } from "./NotificationBell";
 import { categories } from "@/data/categories";
 
 export function Header() {
-  const { t, language, isRTL } = useLanguage();
+  const { t, language, setLanguage, isRTL } = useLanguage();
   const { role, isAuthenticated, customer, logout } = useRole();
   const [, setLocation] = useLocation();
   const [search, setSearch] = useState("");
@@ -42,21 +42,7 @@ export function Header() {
 
   return (
     <header className="bg-card border-b sticky top-0 z-40 shadow-sm" dir={isRTL ? "rtl" : "ltr"}>
-      <div className="bg-primary text-primary-foreground hidden md:block">
-        <div className="max-w-7xl mx-auto px-4 py-1.5 flex items-center justify-between text-xs">
-          <div className="flex items-center gap-1.5">
-            <MapPin className="w-3.5 h-3.5" />
-            <span>{t("nav.location")}: <span className="font-semibold">Madinah Al Munawwarah, KSA</span></span>
-          </div>
-          <div className="flex items-center gap-5">
-            <a href="tel:+966547206862" className="hover:text-secondary transition-colors">+966 54 720 6862</a>
-            <a href="mailto:info@venturesupply.sa" className="hover:text-secondary transition-colors">info@venturesupply.sa</a>
-            <Link href="/request-product" className="hover:text-secondary transition-colors">{t("nav.request_product")}</Link>
-          </div>
-        </div>
-      </div>
-
-      <div className="max-w-7xl mx-auto px-4 py-4 flex items-center gap-4">
+      <div className="max-w-7xl mx-auto px-4 py-3 flex items-center gap-4">
         <Sheet>
           <SheetTrigger asChild>
             <Button variant="ghost" size="icon" className="lg:hidden">
@@ -99,6 +85,17 @@ export function Header() {
         </form>
 
         <div className="flex items-center gap-1">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="hidden md:inline-flex text-muted-foreground hover:text-primary"
+            onClick={() => setLanguage(language === "en" ? "ar" : "en")}
+            aria-label="Toggle language"
+            data-testid="button-toggle-language"
+          >
+            <Languages className="w-4 h-4" />
+          </Button>
+
           {isAuthenticated && customer ? (
             <NotificationBell
               variant="customer"

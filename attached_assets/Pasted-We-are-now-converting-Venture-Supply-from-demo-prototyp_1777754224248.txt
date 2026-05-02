@@ -1,0 +1,139 @@
+We are now converting Venture Supply from demo/prototype mode into a real B2B/B2C ecommerce platform.
+
+Important context:
+- Supabase is the only database and storage source.
+- Do not store real data in Replit DB/cloud/local files.
+- All products, users, orders, notifications, images, banners, offers, carts, and admin data must come from Supabase.
+- Supabase Storage must be used for product/banner/category images.
+- Remove all dummy/static/mock data across B2C, B2B, Admin, and Salesperson.
+- After every completed change, push the updated frontend and backend code to GitHub.
+- Do not change the existing brand colors/theme unless required for layout fixes.
+
+Reference screenshots:
+- Screenshot 1 shows current homepage with “DEMO MODE” top bar.
+- Screenshot 2 is the reference homepage design inspiration.
+- Screenshot 3 shows current “Why Venture Supply” section that should not appear on the first homepage fold.
+- Screenshots 4, 6, and 7 show the type of homepage layout I want: category blocks, banners, offer sections, product sliders, and clean ecommerce sections.
+- Screenshot 8 shows current login page with demo quick login buttons.
+- Screenshot 9 shows B2C registration.
+- Screenshot 10 shows B2B registration.
+- Screenshot 11 shows product listing with extra internal filter scrollbar.
+- Screenshot 12 shows inconsistent product card height.
+- Screenshot 13 shows product detail image too large.
+
+Required changes:
+
+1. Remove demo/prototype UI
+- Remove the complete “DEMO MODE / Viewing as” top bar.
+- Remove demo role switching from the customer-facing UI.
+- Remove demo quick login buttons from the login page.
+- Remove demo placeholders and fake sample text where not needed.
+
+2. Header redesign for B2C
+- Remove the top contact strip containing:
+  - Deliver to Madinah Al Munawwarah, KSA
+  - phone number
+  - email
+  - Request a Product
+- Create a clean ecommerce header inspired by the Carrefour-style reference screenshot, but keep Venture Supply branding and colors.
+- Header should include:
+  - logo
+  - search bar
+  - login/account
+  - cart
+  - notification icon where applicable
+  - category navigation
+  - clean responsive layout
+- Do not copy Carrefour branding or colors. Only use the structure/layout inspiration.
+
+3. Homepage redesign
+- First homepage fold should focus on beautiful ecommerce banners, product/category sections, deals, and customer shopping flow.
+- Move “Why Venture Supply / What sets us apart” to the About Us page, not the main first homepage area.
+- Add homepage sections similar to:
+  - hero banner carousel
+  - top categories
+  - best sellers
+  - weekly deals
+  - online exclusive deals
+  - featured B2C products
+  - B2B/wholesale call-to-action
+- All homepage content must be managed from Supabase, not hardcoded.
+
+4. Authentication and routes
+- Normal login/register remains for B2C and B2B customers.
+- Admin login must be separate:
+  /admin/login
+- Admin login UI must be different from customer login UI.
+- Salesperson login can also be separate or role-based, but must not use demo buttons.
+- Add a “Back to Home” button/link on the normal login page.
+- Create real test credentials in Supabase for:
+  - B2C customer
+  - B2B customer
+  - Admin
+  - Salesperson
+- These credentials should be seeded safely and documented for testing.
+
+5. Registration forms
+B2C registration fields:
+- Account type: Personal (B2C)
+- Full name
+- Email
+- Phone
+- Password
+
+B2B registration fields:
+- Account type: Business (B2B)
+- Full name/contact person
+- Email
+- Phone
+- Business name
+- CR number
+- VAT number
+- Password
+
+Use placeholders only where helpful. Do not overload every field with fake values.
+
+6. Product listing page fixes
+- Remove the unnecessary internal scrollbar inside the filters panel.
+- The full page should scroll naturally.
+- Product cards must all have equal height and consistent spacing.
+- Product images must have consistent aspect ratio.
+- Product title, rating, price, stock status, and add-to-cart button must align properly.
+- Fix long/empty card issue shown in screenshot 12.
+
+7. Product detail page fixes
+- Reduce the product image height/size so the product info and below sections are visible in one clean view.
+- Keep product image and product details balanced side-by-side.
+- Maintain responsive layout.
+
+8. Real ecommerce data flow
+- When a customer places an order, it must create a real order in Supabase.
+- Admin must receive a real-time notification for new orders.
+- Notifications must be stored and updated in Supabase.
+- Cart, checkout, order status, product stock, and customer data must all use Supabase.
+- No fake orders, fake users, fake notifications, or fake product records.
+
+9. Supabase integration
+- Review current Supabase schema and update where needed.
+- Use proper tables for:
+  - users/profiles
+  - products
+  - categories
+  - banners
+  - carts
+  - orders
+  - order_items
+  - notifications
+  - roles/permissions
+  - product_images/storage references
+- Enable real-time subscriptions where needed, especially admin order notifications.
+- Add safe validation and error handling.
+- Keep frontend and backend aligned.
+
+10. GitHub workflow
+- After completing the changes, push the latest frontend and backend code to GitHub.
+- Every major update must be committed with a clear message.
+- Do not leave local changes only in Replit.
+
+Final goal:
+This is no longer a demo website. Treat Venture Supply as a real scalable ecommerce platform for B2C and B2B customers. Keep the current Venture Supply brand identity and colors, improve UI/UX heavily, remove all demo behavior, connect everything to Supabase, and push all completed changes to GitHub.

@@ -5,9 +5,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Separator } from "@/components/ui/separator";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Loader2 } from "lucide-react";
+import { Loader2, ArrowLeft } from "lucide-react";
 import { Logo } from "@/components/Logo";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useRole, type UserRole } from "@/contexts/RoleContext";
@@ -23,18 +22,13 @@ export function AuthPage({ mode = "login" }: Props) {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
 
-  // ── shared state ──────────────────────────────────────────────────────────
   const [activeTab, setActiveTab] = useState<"login" | "register">(mode);
   const [accountType, setAccountType] = useState<"b2c" | "b2b">("b2c");
   const [isLoading, setIsLoading] = useState(false);
 
-  // ── login state ───────────────────────────────────────────────────────────
   const [loginEmail, setLoginEmail] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
-  const [step, setStep] = useState<"form" | "otp">("form");
-  const [otp, setOtp] = useState("");
 
-  // ── register state ────────────────────────────────────────────────────────
   const [regName, setRegName] = useState("");
   const [regEmail, setRegEmail] = useState("");
   const [regPhone, setRegPhone] = useState("");
@@ -43,26 +37,14 @@ export function AuthPage({ mode = "login" }: Props) {
   const [regCR, setRegCR] = useState("");
   const [regVAT, setRegVAT] = useState("");
 
-  // ── helpers ───────────────────────────────────────────────────────────────
   function redirectAfterAuth(role: string) {
     if (role === "admin") setLocation("/admin");
     else if (role === "sales") setLocation("/sales");
     else setLocation("/account");
   }
 
-  const demoLogin = (role: UserRole) => {
-    setRole(role);
-    redirectAfterAuth(role);
-    toast({ title: t("auth.welcome_back") });
-  };
-
-  // ── login submit ──────────────────────────────────────────────────────────
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!loginEmail.includes("@")) {
-      setStep("otp");
-      return;
-    }
     setIsLoading(true);
     try {
       const result = await apiFetch<{
@@ -89,17 +71,6 @@ export function AuthPage({ mode = "login" }: Props) {
     }
   };
 
-  const verifyOtp = () => {
-    if (otp.length < 4) {
-      toast({ title: "OTP", description: t("auth.otp_hint"), variant: "destructive" });
-      return;
-    }
-    setRole(accountType);
-    setLocation("/account");
-    toast({ title: t("auth.welcome_back") });
-  };
-
-  // ── register submit ───────────────────────────────────────────────────────
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!regName || !regEmail || !regPhone || !regPassword) return;
@@ -141,79 +112,53 @@ export function AuthPage({ mode = "login" }: Props) {
         </div>
         <Card>
           <CardContent className="p-6">
-            <Tabs value={activeTab} onValueChange={(v) => { setActiveTab(v as any); setStep("form"); }}>
+            <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)}>
               <TabsList className="grid w-full grid-cols-2 mb-6">
                 <TabsTrigger value="login" onClick={() => setLocation("/login")}>{t("auth.tab_login")}</TabsTrigger>
                 <TabsTrigger value="register" onClick={() => setLocation("/register")}>{t("auth.tab_register")}</TabsTrigger>
               </TabsList>
 
-              {/* ── Login tab ─────────────────────────────────────────── */}
+              {/* Login tab */}
               <TabsContent value="login" className="space-y-4">
                 <div>
                   <h1 className="text-2xl font-bold">{t("auth.welcome_back")}</h1>
                   <p className="text-sm text-muted-foreground mt-1">{t("auth.login_subtitle")}</p>
                 </div>
 
-                {step === "form" ? (
-                  <form className="space-y-4" onSubmit={handleLogin}>
-                    <div>
-                      <Label>{t("common.phone")} / Email</Label>
-                      <Input
-                        value={loginEmail}
-                        onChange={(e) => setLoginEmail(e.target.value)}
-                        placeholder="+966 5X XXX XXXX or admin@example.com"
-                        required
-                        data-testid="input-login-phone"
-                      />
-                    </div>
-                    <div>
-                      <Label>{t("common.password")}</Label>
-                      <Input
-                        type="password"
-                        value={loginPassword}
-                        onChange={(e) => setLoginPassword(e.target.value)}
-                        placeholder="••••••••"
-                        required
-                        data-testid="input-login-password"
-                      />
-                    </div>
-                    <Button
-                      type="submit"
-                      className="w-full bg-primary hover:bg-primary/90"
-                      disabled={isLoading}
-                      data-testid="button-login-submit"
-                    >
-                      {isLoading
-                        ? <><Loader2 className="w-4 h-4 me-2 animate-spin" /> Signing in…</>
-                        : loginEmail.includes("@") ? "Sign In" : t("auth.send_otp")}
-                    </Button>
-                  </form>
-                ) : (
-                  <div className="space-y-4">
-                    <div>
-                      <Label>{t("auth.otp_label")}</Label>
-                      <Input
-                        value={otp}
-                        onChange={(e) => setOtp(e.target.value)}
-                        maxLength={4}
-                        className="text-center text-2xl tracking-widest font-mono"
-                        placeholder="••••"
-                        data-testid="input-otp"
-                      />
-                      <p className="text-xs text-muted-foreground mt-1">{t("auth.otp_hint")}</p>
-                    </div>
-                    <Button onClick={verifyOtp} className="w-full bg-primary hover:bg-primary/90" data-testid="button-verify-otp">
-                      {t("auth.verify_otp")}
-                    </Button>
-                    <button
-                      type="button"
-                      className="w-full text-sm text-muted-foreground hover:text-foreground"
-                      onClick={() => setStep("form")}
-                    >
-                      ← Back
-                    </button>
+                <form className="space-y-4" onSubmit={handleLogin}>
+                  <div>
+                    <Label>{t("common.email")}</Label>
+                    <Input
+                      type="email"
+                      value={loginEmail}
+                      onChange={(e) => setLoginEmail(e.target.value)}
+                      placeholder="you@example.sa"
+                      required
+                      data-testid="input-login-email"
+                    />
                   </div>
-                )}
+                  <div>
+                    <Label>{t("common.password")}</Label>
+                    <Input
+                      type="password"
+                      value={loginPassword}
+                      onChange={(e) => setLoginPassword(e.target.value)}
+                      placeholder="••••••••"
+                      required
+                      data-testid="input-login-password"
+                    />
+                  </div>
+                  <Button
+                    type="submit"
+                    className="w-full bg-primary hover:bg-primary/90"
+                    disabled={isLoading}
+                    data-testid="button-login-submit"
+                  >
+                    {isLoading
+                      ? <><Loader2 className="w-4 h-4 me-2 animate-spin" /> Signing in…</>
+                      : "Sign In"}
+                  </Button>
+                </form>
 
                 <div className="text-center">
                   <button
@@ -226,7 +171,7 @@ export function AuthPage({ mode = "login" }: Props) {
                 </div>
               </TabsContent>
 
-              {/* ── Register tab ──────────────────────────────────────── */}
+              {/* Register tab */}
               <TabsContent value="register" className="space-y-4">
                 <div>
                   <h1 className="text-2xl font-bold">{t("auth.create_account")}</h1>
@@ -273,22 +218,14 @@ export function AuthPage({ mode = "login" }: Props) {
                 </form>
               </TabsContent>
             </Tabs>
-
-            <Separator className="my-6" />
-
-            <div className="space-y-2">
-              <p className="text-xs text-center text-muted-foreground uppercase tracking-wider font-semibold">Demo quick login</p>
-              <div className="grid grid-cols-2 gap-2">
-                <Button variant="outline" size="sm" onClick={() => demoLogin("b2c")} data-testid="button-demo-b2c">{t("auth.demo_login_b2c")}</Button>
-                <Button variant="outline" size="sm" onClick={() => demoLogin("b2b")} data-testid="button-demo-b2b">{t("auth.demo_login_b2b")}</Button>
-                <Button variant="outline" size="sm" onClick={() => demoLogin("admin")} data-testid="button-demo-admin">{t("auth.demo_login_admin")}</Button>
-                <Button variant="outline" size="sm" onClick={() => demoLogin("sales")} data-testid="button-demo-sales">{t("auth.demo_login_sales")}</Button>
-              </div>
-            </div>
           </CardContent>
         </Card>
-        <p className="text-center text-xs text-muted-foreground mt-4">
-          <Link href="/"><span className="hover:text-foreground cursor-pointer">{t("common.back")} {t("nav.home").toLowerCase()}</span></Link>
+        <p className="text-center text-sm text-muted-foreground mt-4">
+          <Link href="/">
+            <span className="hover:text-foreground cursor-pointer inline-flex items-center gap-1">
+              <ArrowLeft className="w-3.5 h-3.5" /> Back to Home
+            </span>
+          </Link>
         </p>
       </div>
     </div>

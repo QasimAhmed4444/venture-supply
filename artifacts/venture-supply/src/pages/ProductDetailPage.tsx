@@ -75,7 +75,7 @@ export function ProductDetailPage() {
 
       <div className="grid lg:grid-cols-2 gap-8">
         <div>
-          <div className="aspect-square overflow-hidden rounded-lg bg-muted border">
+          <div className="aspect-[4/3] overflow-hidden rounded-lg bg-muted border">
             <img src={product.image} alt={name} className="w-full h-full object-cover" />
           </div>
           <div className="grid grid-cols-4 gap-2 mt-3">
