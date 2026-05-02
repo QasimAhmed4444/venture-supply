@@ -14,7 +14,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Plus, Trash2, ShoppingBag, Users as UsersIcon, AlertTriangle, TrendingUp, Wallet, Eye,
   Pencil, Search, Download, FileText, Package, DollarSign, Building2, CheckCircle2,
-  Clock, XCircle, Truck, PackageCheck, ShoppingCart,
+  Clock, XCircle, Truck, PackageCheck, ShoppingCart, X,
 } from "lucide-react";
 import {
   LineChart, Line, AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell,
@@ -939,9 +939,22 @@ export function AdminCustomersPage() {
   const { t, language } = useLanguage();
   const { toast } = useToast();
   const [tab, setTab] = useState<"all" | "b2c" | "b2b">("all");
+  const [search, setSearch] = useState("");
   const { data: allCustomers = [] } = useCustomers();
   const { data: businessTypes = [] } = useBusinessTypes();
-  const list = tab === "all" ? allCustomers : allCustomers.filter((c) => c.type === tab);
+  const list = allCustomers
+    .filter((c) => tab === "all" || c.type === tab)
+    .filter((c) => {
+      const q = search.trim().toLowerCase();
+      if (!q) return true;
+      return (
+        c.name.toLowerCase().includes(q) ||
+        c.email.toLowerCase().includes(q) ||
+        c.phone.toLowerCase().includes(q) ||
+        c.city.toLowerCase().includes(q) ||
+        (c.business?.name ?? "").toLowerCase().includes(q)
+      );
+    });
   const createCustomer = useCreateCustomer();
   const updateCustomer = useUpdateCustomer();
   const deleteCustomer = useDeleteCustomer();
@@ -1045,9 +1058,26 @@ export function AdminCustomersPage() {
         </Dialog>
       </div>
 
-      <Tabs value={tab} onValueChange={(v) => setTab(v as any)}>
-        <TabsList><TabsTrigger value="all">{t("common.all")} ({allCustomers.length})</TabsTrigger><TabsTrigger value="b2c">B2C ({allCustomers.filter((c) => c.type === "b2c").length})</TabsTrigger><TabsTrigger value="b2b">B2B ({allCustomers.filter((c) => c.type === "b2b").length})</TabsTrigger></TabsList>
-      </Tabs>
+      <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
+        <Tabs value={tab} onValueChange={(v) => { setTab(v as any); setSearch(""); }}>
+          <TabsList><TabsTrigger value="all">{t("common.all")} ({allCustomers.length})</TabsTrigger><TabsTrigger value="b2c">B2C ({allCustomers.filter((c) => c.type === "b2c").length})</TabsTrigger><TabsTrigger value="b2b">B2B ({allCustomers.filter((c) => c.type === "b2b").length})</TabsTrigger></TabsList>
+        </Tabs>
+        <div className="relative flex-1 max-w-sm">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+          <Input
+            className="pl-8 h-9"
+            placeholder="Search by name, email, phone, city…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+          {search && (
+            <button onClick={() => setSearch("")} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
+        {search && <p className="text-xs text-muted-foreground self-center">{list.length} result{list.length !== 1 ? "s" : ""}</p>}
+      </div>
       <Card>
         <CardContent className="p-5">
           <Table>
