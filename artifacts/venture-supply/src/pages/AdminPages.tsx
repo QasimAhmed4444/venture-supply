@@ -30,6 +30,7 @@ import { useOrders, useUpdateOrderStatus } from "@/hooks/useOrders";
 import { useDashboard } from "@/hooks/useDashboard";
 import { useSalespersons, useCreateSalesperson, useUpdateSalesperson, useDeleteSalesperson, type Salesperson } from "@/hooks/useSalespersons";
 import { useBusinessTypes, useCreateBusinessType, useUpdateBusinessType, useDeleteBusinessType, type BusinessType } from "@/hooks/useBusinessTypes";
+import { useCreateCustomer, useDeleteCustomer } from "@/hooks/useCustomerMutations";
 import {
   useCreateProduct, useDeleteProduct, useUpdateProduct,
   useCreateCategory, useDeleteCategory, useUpdateCategory,
@@ -941,6 +942,8 @@ export function AdminCustomersPage() {
   const { data: allCustomers = [] } = useCustomers();
   const { data: businessTypes = [] } = useBusinessTypes();
   const list = tab === "all" ? allCustomers : allCustomers.filter((c) => c.type === tab);
+  const createCustomer = useCreateCustomer();
+  const deleteCustomer = useDeleteCustomer();
   const [addOpen, setAddOpen] = useState(false);
   const [newCust, setNewCust] = useState(BLANK_CUST);
   const [viewCust, setViewCust] = useState<(typeof allCustomers)[0] | null>(null);
@@ -1005,7 +1008,18 @@ export function AdminCustomersPage() {
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setAddOpen(false)}>Cancel</Button>
-              <Button onClick={() => { toast({ title: "Coming soon", description: "Customer creation will be wired to the API" }); setAddOpen(false); }}>Save</Button>
+              <Button onClick={() => {
+                if (!newCust.name) return;
+                const bt = businessTypes.find((b) => b.id === newCust.businessTypeId);
+                createCustomer.mutate({ ...newCust, businessTypeCode: bt?.code }, {
+                  onSuccess: () => {
+                    toast({ title: "Customer added", description: `${newCust.name} saved to database` });
+                    setAddOpen(false);
+                    setNewCust(BLANK_CUST);
+                  },
+                  onError: (e) => toast({ title: "Error", description: (e as Error).message, variant: "destructive" }),
+                });
+              }} disabled={createCustomer.isPending}>{createCustomer.isPending ? "Saving…" : "Save"}</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
@@ -1040,7 +1054,16 @@ export function AdminCustomersPage() {
                   <TableCell>{c.totalOrders}</TableCell>
                   <TableCell><PriceTag amount={c.lifetimeValue} size="sm" /></TableCell>
                   <TableCell>
-                    <Button size="sm" variant="ghost" onClick={() => setViewCust(c)}><Eye className="w-3.5 h-3.5" /></Button>
+                    <div className="flex gap-1">
+                      <Button size="sm" variant="ghost" onClick={() => setViewCust(c)}><Eye className="w-3.5 h-3.5" /></Button>
+                      <Button size="sm" variant="ghost" className="text-rose-600" onClick={() => {
+                        if (!confirm(`Remove ${c.name}?`)) return;
+                        deleteCustomer.mutate(c.id, {
+                          onSuccess: () => toast({ title: "Customer removed" }),
+                          onError: (e) => toast({ title: "Error", description: (e as Error).message, variant: "destructive" }),
+                        });
+                      }}><Trash2 className="w-3.5 h-3.5" /></Button>
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}

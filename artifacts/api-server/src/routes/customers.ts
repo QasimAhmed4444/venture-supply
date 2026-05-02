@@ -35,6 +35,59 @@ router.get("/customers", async (req, res) => {
   }
 });
 
+router.post("/customers", async (req, res) => {
+  const sb = getSupabase();
+  if (!sb) return res.status(503).json({ error: "db unavailable" });
+  const b = req.body;
+  const id = `c-${Date.now().toString(36)}`;
+  const business = b.type === "b2b" && b.businessName
+    ? { name: b.businessName, type: b.businessTypeCode ?? "retailer", crNumber: "", vatNumber: "", businessTypeId: b.businessTypeId ?? null, allowCredit: b.allowCredit ?? false, creditLimit: b.allowCredit ? Number(b.creditLimit ?? 0) : null }
+    : null;
+  const addresses = b.address
+    ? [{ id: `a-${Date.now().toString(36)}`, label: "Primary", fullAddress: b.address, city: b.city ?? "", isDefault: true }]
+    : [];
+  const { data, error } = await sb.from("customers").insert({
+    id,
+    name: b.name,
+    email: b.email ?? null,
+    phone: b.phone ?? null,
+    city: b.city ?? null,
+    type: b.type ?? "b2c",
+    total_orders: 0,
+    lifetime_value: 0,
+    business,
+    addresses,
+    joined_date: new Date().toISOString().slice(0, 10),
+  }).select().single();
+  if (error) return res.status(400).json({ error: error.message });
+  return res.status(201).json(toCamel(data as Record<string, unknown>));
+});
+
+router.put("/customers/:id", async (req, res) => {
+  const sb = getSupabase();
+  if (!sb) return res.status(503).json({ error: "db unavailable" });
+  const b = req.body;
+  const payload: Record<string, unknown> = {};
+  if (b.name !== undefined) payload.name = b.name;
+  if (b.email !== undefined) payload.email = b.email;
+  if (b.phone !== undefined) payload.phone = b.phone;
+  if (b.city !== undefined) payload.city = b.city;
+  if (b.type !== undefined) payload.type = b.type;
+  if (b.assignedSalespersonId !== undefined) payload.assigned_salesperson_id = b.assignedSalespersonId;
+  if (b.business !== undefined) payload.business = b.business;
+  const { data, error } = await sb.from("customers").update(payload).eq("id", req.params.id).select().single();
+  if (error) return res.status(400).json({ error: error.message });
+  return res.json(toCamel(data as Record<string, unknown>));
+});
+
+router.delete("/customers/:id", async (req, res) => {
+  const sb = getSupabase();
+  if (!sb) return res.status(503).json({ error: "db unavailable" });
+  const { error } = await sb.from("customers").delete().eq("id", req.params.id);
+  if (error) return res.status(400).json({ error: error.message });
+  return res.status(204).send();
+});
+
 router.get("/customers/:id", async (req, res) => {
   const sb = getSupabase();
   if (!sb) {
