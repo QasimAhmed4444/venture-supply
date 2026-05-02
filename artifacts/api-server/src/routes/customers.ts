@@ -75,6 +75,7 @@ router.put("/customers/:id", async (req, res) => {
   if (b.type !== undefined) payload.type = b.type;
   if (b.assignedSalespersonId !== undefined) payload.assigned_salesperson_id = b.assignedSalespersonId;
   if (b.business !== undefined) payload.business = b.business;
+  if (b.addresses !== undefined) payload.addresses = b.addresses;
   const { data, error } = await sb.from("customers").update(payload).eq("id", req.params.id).select().single();
   if (error) return res.status(400).json({ error: error.message });
   return res.json(toCamel(data as Record<string, unknown>));

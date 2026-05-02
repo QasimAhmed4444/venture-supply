@@ -20,6 +20,8 @@ import { StatusBadge } from "@/components/StatusBadge";
 import { PriceTag } from "@/components/PriceTag";
 import { useMemo, useState, useCallback, useRef } from "react";
 import type { Order } from "@/data/orders";
+import { useUpdateCustomer } from "@/hooks/useCustomerMutations";
+import type { Customer } from "@/data/customers";
 
 // ─── status → human-readable notification copy ───────────────────────────────
 const STATUS_NOTIF: Record<string, { en: string; ar: string; enBody: string; arBody: string }> = {
@@ -421,33 +423,159 @@ export function AccountNotificationsPage() {
 }
 
 // ─── AccountAddressesPage ──────────────────────────────────────────────────────
+type Address = Customer["addresses"][number];
+
+interface AddressFormState {
+  label: string;
+  fullAddress: string;
+  city: string;
+}
+
+const EMPTY_ADDR: AddressFormState = { label: "", fullAddress: "", city: "" };
+
 export function AccountAddressesPage() {
   const { t } = useLanguage();
-  const { customer } = useRole();
+  const { customer, setCustomer } = useRole();
   const { toast } = useToast();
+  const update = useUpdateCustomer();
+
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [addForm, setAddForm] = useState<AddressFormState>(EMPTY_ADDR);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState<AddressFormState>(EMPTY_ADDR);
+
   if (!customer) return null;
+
+  const saveAddresses = async (next: Address[], successMsg: string) => {
+    try {
+      const updated = await update.mutateAsync({ id: customer.id, addresses: next } as any);
+      setCustomer(updated);
+      toast({ title: successMsg });
+    } catch (e: any) {
+      toast({ title: "Save failed", description: e.message, variant: "destructive" });
+    }
+  };
+
+  const handleAdd = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!addForm.label || !addForm.fullAddress || !addForm.city) return;
+    const isFirst = customer.addresses.length === 0;
+    const next: Address[] = [
+      ...customer.addresses,
+      { id: `a-${Date.now().toString(36)}`, label: addForm.label, fullAddress: addForm.fullAddress, city: addForm.city, isDefault: isFirst },
+    ];
+    await saveAddresses(next, t("account.add_address"));
+    setShowAddForm(false);
+    setAddForm(EMPTY_ADDR);
+  };
+
+  const handleEdit = async (e: React.FormEvent, id: string) => {
+    e.preventDefault();
+    const next = customer.addresses.map((a) =>
+      a.id === id ? { ...a, label: editForm.label, fullAddress: editForm.fullAddress, city: editForm.city } : a
+    );
+    await saveAddresses(next, t("common.save"));
+    setEditingId(null);
+  };
+
+  const handleSetDefault = async (id: string) => {
+    const next = customer.addresses.map((a) => ({ ...a, isDefault: a.id === id }));
+    await saveAddresses(next, t("common.set_default"));
+  };
+
+  const handleDelete = async (id: string) => {
+    const remaining = customer.addresses.filter((a) => a.id !== id);
+    // If we removed the default and others remain, make the first one default
+    const hasDefault = remaining.some((a) => a.isDefault);
+    const next = !hasDefault && remaining.length > 0
+      ? remaining.map((a, i) => ({ ...a, isDefault: i === 0 }))
+      : remaining;
+    await saveAddresses(next, "Address removed");
+  };
+
+  const startEdit = (a: Address) => {
+    setEditingId(a.id);
+    setEditForm({ label: a.label, fullAddress: a.fullAddress, city: a.city });
+    setShowAddForm(false);
+  };
+
+  const isSaving = update.isPending;
+
   return (
     <Card>
       <CardContent className="p-5 space-y-4">
         <div className="flex items-center justify-between">
           <h1 className="font-bold text-xl">{t("account.addresses")}</h1>
-          <Button onClick={() => toast({ title: t("account.add_address"), description: t("common.feature_coming_soon") })} className="bg-primary hover:bg-primary/90"><Plus className="w-4 h-4 me-1.5" /> {t("account.add_address")}</Button>
+          <Button
+            onClick={() => { setShowAddForm(true); setEditingId(null); }}
+            className="bg-primary hover:bg-primary/90"
+            disabled={showAddForm}
+          >
+            <Plus className="w-4 h-4 me-1.5" /> {t("account.add_address")}
+          </Button>
         </div>
+
+        {/* Add-address inline form */}
+        {showAddForm && (
+          <form onSubmit={handleAdd} className="border rounded-md p-4 space-y-3 bg-muted/30">
+            <p className="font-semibold text-sm">{t("account.add_address")}</p>
+            <div className="grid sm:grid-cols-2 gap-3">
+              <div><Label>Label (e.g. Home)</Label><Input value={addForm.label} onChange={(e) => setAddForm((f) => ({ ...f, label: e.target.value }))} placeholder="Home" required /></div>
+              <div><Label>{t("common.city")}</Label><Input value={addForm.city} onChange={(e) => setAddForm((f) => ({ ...f, city: e.target.value }))} placeholder="Riyadh" required /></div>
+              <div className="sm:col-span-2"><Label>Full address</Label><Input value={addForm.fullAddress} onChange={(e) => setAddForm((f) => ({ ...f, fullAddress: e.target.value }))} placeholder="Street, District, Building" required /></div>
+            </div>
+            <div className="flex gap-2">
+              <Button type="submit" size="sm" className="bg-primary hover:bg-primary/90" disabled={isSaving}>
+                {isSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : t("common.save")}
+              </Button>
+              <Button type="button" size="sm" variant="ghost" onClick={() => { setShowAddForm(false); setAddForm(EMPTY_ADDR); }}>Cancel</Button>
+            </div>
+          </form>
+        )}
+
         <div className="space-y-3">
+          {customer.addresses.length === 0 && !showAddForm && (
+            <p className="text-sm text-muted-foreground text-center py-6">No addresses yet. Add one to speed up checkout.</p>
+          )}
           {customer.addresses.map((a) => (
-            <div key={a.id} className="border rounded-md p-4 flex items-start gap-4 hover-elevate">
-              <MapPin className="w-5 h-5 text-secondary mt-0.5 shrink-0" />
-              <div className="flex-1">
-                <div className="flex items-center gap-2 mb-1">
-                  <p className="font-semibold">{a.label}</p>
-                  {a.isDefault && <Badge className="bg-emerald-100 text-emerald-800 border border-emerald-300">{t("common.default")}</Badge>}
+            <div key={a.id} className="border rounded-md p-4 hover-elevate">
+              {editingId === a.id ? (
+                <form onSubmit={(e) => handleEdit(e, a.id)} className="space-y-3">
+                  <div className="grid sm:grid-cols-2 gap-3">
+                    <div><Label>Label</Label><Input value={editForm.label} onChange={(e) => setEditForm((f) => ({ ...f, label: e.target.value }))} required /></div>
+                    <div><Label>{t("common.city")}</Label><Input value={editForm.city} onChange={(e) => setEditForm((f) => ({ ...f, city: e.target.value }))} required /></div>
+                    <div className="sm:col-span-2"><Label>Full address</Label><Input value={editForm.fullAddress} onChange={(e) => setEditForm((f) => ({ ...f, fullAddress: e.target.value }))} required /></div>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button type="submit" size="sm" className="bg-primary hover:bg-primary/90" disabled={isSaving}>
+                      {isSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : t("common.save")}
+                    </Button>
+                    <Button type="button" size="sm" variant="ghost" onClick={() => setEditingId(null)}>Cancel</Button>
+                  </div>
+                </form>
+              ) : (
+                <div className="flex items-start gap-4">
+                  <MapPin className="w-5 h-5 text-secondary mt-0.5 shrink-0" />
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-1">
+                      <p className="font-semibold">{a.label}</p>
+                      {a.isDefault && <Badge className="bg-emerald-100 text-emerald-800 border border-emerald-300">{t("common.default")}</Badge>}
+                    </div>
+                    <p className="text-sm text-muted-foreground">{a.fullAddress}, {a.city}</p>
+                  </div>
+                  <div className="flex gap-1 shrink-0">
+                    {!a.isDefault && (
+                      <Button size="sm" variant="outline" disabled={isSaving} onClick={() => handleSetDefault(a.id)}>
+                        {t("common.set_default")}
+                      </Button>
+                    )}
+                    <Button size="sm" variant="ghost" onClick={() => startEdit(a)}>{t("common.edit")}</Button>
+                    <Button size="sm" variant="ghost" className="text-destructive hover:text-destructive" disabled={isSaving} onClick={() => handleDelete(a.id)}>
+                      ✕
+                    </Button>
+                  </div>
                 </div>
-                <p className="text-sm text-muted-foreground">{a.fullAddress}, {a.city}</p>
-              </div>
-              <div className="flex gap-1">
-                {!a.isDefault && <Button size="sm" variant="outline" onClick={() => toast({ title: t("common.set_default"), description: t("common.feature_coming_soon") })}>{t("common.set_default")}</Button>}
-                <Button size="sm" variant="ghost" onClick={() => toast({ title: t("common.edit"), description: t("common.feature_coming_soon") })}>{t("common.edit")}</Button>
-              </div>
+              )}
             </div>
           ))}
         </div>
@@ -459,34 +587,68 @@ export function AccountAddressesPage() {
 // ─── AccountProfilePage ────────────────────────────────────────────────────────
 export function AccountProfilePage() {
   const { t } = useLanguage();
-  const { customer, role } = useRole();
+  const { customer, role, setCustomer } = useRole();
   const { toast } = useToast();
+  const update = useUpdateCustomer();
+
+  const [name, setName] = useState(customer?.name ?? "");
+  const [email, setEmail] = useState(customer?.email ?? "");
+  const [phone, setPhone] = useState(customer?.phone ?? "");
+  const [city, setCity] = useState(customer?.city ?? "");
+  const [bizName, setBizName] = useState(customer?.business?.name ?? "");
+  const [crNumber, setCrNumber] = useState(customer?.business?.crNumber ?? "");
+  const [vatNumber, setVatNumber] = useState(customer?.business?.vatNumber ?? "");
+
   if (!customer) return null;
   const isB2B = role === "b2b";
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      const business = isB2B && customer.business
+        ? { ...customer.business, name: bizName, crNumber, vatNumber }
+        : customer.business;
+      const updated = await update.mutateAsync({
+        id: customer.id,
+        name,
+        email,
+        phone,
+        city,
+        ...(isB2B ? { business } : {}),
+      } as any);
+      setCustomer(updated);
+      toast({ title: "Profile saved", description: "Your details have been updated." });
+    } catch (e: any) {
+      toast({ title: "Save failed", description: e.message, variant: "destructive" });
+    }
+  };
+
   return (
     <Card>
       <CardContent className="p-5 space-y-4">
         <h1 className="font-bold text-xl">{isB2B ? t("account.business_profile") : t("account.profile")}</h1>
-        <form className="space-y-4" onSubmit={(e) => { e.preventDefault(); toast({ title: t("common.save"), description: t("common.feature_coming_soon") }); }}>
+        <form className="space-y-4" onSubmit={handleSubmit}>
           <div className="grid sm:grid-cols-2 gap-3">
-            <div><Label>{t("common.name")}</Label><Input defaultValue={customer.name} /></div>
-            <div><Label>{t("common.email")}</Label><Input type="email" defaultValue={customer.email} /></div>
-            <div><Label>{t("common.phone")}</Label><Input defaultValue={customer.phone} /></div>
-            <div><Label>{t("common.city")}</Label><Input defaultValue={customer.city} /></div>
+            <div><Label>{t("common.name")}</Label><Input value={name} onChange={(e) => setName(e.target.value)} required /></div>
+            <div><Label>{t("common.email")}</Label><Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} /></div>
+            <div><Label>{t("common.phone")}</Label><Input value={phone} onChange={(e) => setPhone(e.target.value)} /></div>
+            <div><Label>{t("common.city")}</Label><Input value={city} onChange={(e) => setCity(e.target.value)} /></div>
           </div>
           {isB2B && customer.business && (
             <>
               <Separator />
               <h2 className="font-semibold">{t("checkout.business_details")}</h2>
               <div className="grid sm:grid-cols-2 gap-3">
-                <div><Label>{t("checkout.business_name")}</Label><Input defaultValue={customer.business.name} /></div>
-                <div><Label>{t("checkout.business_type")}</Label><Input defaultValue={t(`checkout.business_type.${customer.business.type}`)} disabled /></div>
-                <div><Label>{t("checkout.cr_number")}</Label><Input defaultValue={customer.business.crNumber} /></div>
-                <div><Label>{t("checkout.vat_number")}</Label><Input defaultValue={customer.business.vatNumber} /></div>
+                <div><Label>{t("checkout.business_name")}</Label><Input value={bizName} onChange={(e) => setBizName(e.target.value)} /></div>
+                <div><Label>{t("checkout.business_type")}</Label><Input value={t(`checkout.business_type.${customer.business.type}`)} disabled /></div>
+                <div><Label>{t("checkout.cr_number")}</Label><Input value={crNumber} onChange={(e) => setCrNumber(e.target.value)} /></div>
+                <div><Label>{t("checkout.vat_number")}</Label><Input value={vatNumber} onChange={(e) => setVatNumber(e.target.value)} /></div>
               </div>
             </>
           )}
-          <Button type="submit" className="bg-primary hover:bg-primary/90">{t("common.save")}</Button>
+          <Button type="submit" className="bg-primary hover:bg-primary/90" disabled={update.isPending}>
+            {update.isPending ? <><Loader2 className="w-4 h-4 me-2 animate-spin" /> Saving…</> : t("common.save")}
+          </Button>
         </form>
       </CardContent>
     </Card>
