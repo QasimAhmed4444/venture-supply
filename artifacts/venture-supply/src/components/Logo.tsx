@@ -9,19 +9,29 @@ interface LogoProps {
 
 export function Logo({ size = "md", variant = "default", showText = false }: LogoProps) {
   const { t } = useLanguage();
-  const dim =
-    size === "sm" ? "h-9" : size === "lg" ? "h-14" : size === "xl" ? "h-20" : "h-12";
+
+  const containerH =
+    size === "sm" ? 40 : size === "lg" ? 72 : size === "xl" ? 96 : 52;
+  const imgH = Math.round(containerH * 1.35);
 
   return (
     <div className="flex items-center gap-3" data-testid="logo">
-      <img
-        src={vsLogo}
-        alt={t("brand.name")}
-        className={`${dim} w-auto object-contain ${variant === "light" ? "brightness-0 invert" : ""}`}
-        draggable={false}
-      />
+      <div
+        className="flex items-center justify-center overflow-hidden"
+        style={{ height: containerH, width: "auto" }}
+      >
+        <img
+          src={vsLogo}
+          alt={t("brand.name")}
+          style={{ height: imgH, width: "auto", objectFit: "contain" }}
+          className={variant === "light" ? "brightness-0 invert" : ""}
+          draggable={false}
+        />
+      </div>
       {showText && (
-        <span className={`font-bold tracking-tight ${variant === "light" ? "text-white" : "text-primary"} ${size === "lg" || size === "xl" ? "text-xl" : "text-base"}`}>
+        <span
+          className={`font-bold tracking-tight ${variant === "light" ? "text-white" : "text-primary"} ${size === "lg" || size === "xl" ? "text-xl" : "text-base"}`}
+        >
           {t("brand.name")}
         </span>
       )}

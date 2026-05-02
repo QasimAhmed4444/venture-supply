@@ -39,30 +39,22 @@ export function HomePage() {
   const { role } = useRole();
   const popular = products.slice(0, 4);
   const [slideIdx, setSlideIdx] = useState(0);
-  const [brandPage, setBrandPage] = useState(0);
   const brandScrollRef = useRef<HTMLDivElement>(null);
 
+  // Hero auto-slide only — NO auto-scroll for brands section
   useEffect(() => {
     const id = setInterval(() => setSlideIdx((i) => (i + 1) % heroSlides.length), 5000);
     return () => clearInterval(id);
   }, []);
 
-  useEffect(() => {
-    const id = setInterval(() => {
-      setBrandPage((p) => {
-        const next = (p + 1) % brands.length;
-        if (brandScrollRef.current) {
-          const card = brandScrollRef.current.children[next] as HTMLElement;
-          if (card) card.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
-        }
-        return next;
-      });
-    }, 3000);
-    return () => clearInterval(id);
-  }, []);
-
   const slide = heroSlides[slideIdx];
   const Chevron = isRTL ? "←" : "→";
+
+  const scrollBrands = (dir: "left" | "right") => {
+    if (!brandScrollRef.current) return;
+    const amount = 260;
+    brandScrollRef.current.scrollBy({ left: dir === "left" ? -amount : amount, behavior: "smooth" });
+  };
 
   return (
     <div className="pb-8">
@@ -159,7 +151,7 @@ export function HomePage() {
 
         <div className="flex gap-4 overflow-x-auto pb-3" style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}>
           {categories.map((c) => (
-            <Link key={c.id} href={`/products`} onClick={() => {}}>
+            <Link key={c.id} href="/products">
               <div
                 className="group flex-shrink-0 cursor-pointer rounded-xl overflow-hidden bg-card border border-border/60 hover:border-secondary/60 hover:shadow-md transition-all"
                 style={{ width: 170 }}
@@ -173,7 +165,6 @@ export function HomePage() {
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                     onError={(e) => { (e.target as HTMLImageElement).src = "https://images.unsplash.com/photo-1604908176997-125f25cc6f3d?w=400&q=80"; }}
                   />
-                  {/* Category badge */}
                   <span className="absolute bottom-2 start-2 bg-primary/85 text-white text-[10px] font-semibold px-2 py-0.5 rounded-full backdrop-blur-sm">
                     {t(`category.${c.id}`)}
                   </span>
@@ -192,7 +183,7 @@ export function HomePage() {
       <section className="bg-slate-50 border-y border-border/40 mt-14">
         <div className="max-w-7xl mx-auto px-4 py-14">
           <div className="text-center max-w-2xl mx-auto mb-10">
-            <p className="text-xs font-bold uppercase tracking-widest text-foreground mb-3">
+            <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-3">
               {isRTL ? "لماذا فينتشر سبلاي" : "Why Venture Supply"}
             </p>
             <h2 className="text-3xl md:text-4xl font-extrabold tracking-tight text-primary">
@@ -251,61 +242,82 @@ export function HomePage() {
             <h2 className="text-2xl md:text-3xl font-bold tracking-tight text-primary">{t("home.brands.title")}</h2>
             <p className="text-sm text-muted-foreground mt-1">{t("home.brands.subtitle")}</p>
           </div>
+          {/* Manual scroll arrows */}
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => scrollBrands(isRTL ? "right" : "left")}
+              className="w-9 h-9 rounded-full border border-border flex items-center justify-center hover:bg-muted transition-colors text-primary"
+              aria-label="Previous brands"
+            >
+              ←
+            </button>
+            <button
+              type="button"
+              onClick={() => scrollBrands(isRTL ? "left" : "right")}
+              className="w-9 h-9 rounded-full border border-border flex items-center justify-center hover:bg-muted transition-colors text-primary"
+              aria-label="Next brands"
+            >
+              →
+            </button>
+          </div>
         </div>
 
         <div
           ref={brandScrollRef}
-          className="flex gap-4 overflow-x-auto pb-2 snap-x snap-mandatory"
+          className="flex gap-4 overflow-x-auto pb-3 snap-x snap-mandatory"
           style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
         >
-          {brands.map((b, i) => (
+          {brands.map((b) => (
             <Link key={b.id} href={`/brands/${b.id}`}>
-              <Card
-                className="cursor-pointer border-2 overflow-hidden group flex-shrink-0 snap-start transition-all duration-300 hover:shadow-lg"
-                style={{
-                  width: 240,
-                  borderColor: i === brandPage ? "#085890" : "transparent",
-                }}
-              >
-                <div className="h-40 flex items-center justify-center bg-white border-b border-border/40 p-6">
-                  {b.logo ? (
-                    <img src={b.logo} alt={b.name} className="max-h-full max-w-full object-contain group-hover:scale-105 transition-transform duration-300" />
+              <Card className="cursor-pointer border border-border/60 overflow-hidden group flex-shrink-0 snap-start hover:border-primary/50 hover:shadow-lg transition-all duration-300" style={{ width: 240 }}>
+                {/* Image area */}
+                <div className="relative overflow-hidden" style={{ height: 160 }}>
+                  {b.isPhoto ? (
+                    <>
+                      <img
+                        src={b.logo}
+                        alt={b.name}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                        onError={(e) => { (e.target as HTMLImageElement).src = "https://images.unsplash.com/photo-1604908176997-125f25cc6f3d?w=400&q=80"; }}
+                      />
+                      <div className="absolute inset-0" style={{ background: "linear-gradient(to top, rgba(6,30,58,0.75) 0%, transparent 60%)" }} />
+                      <div
+                        className="absolute bottom-3 start-3 w-10 h-10 rounded-full flex items-center justify-center text-white text-lg font-extrabold shadow-md"
+                        style={{ background: b.accent }}
+                      >
+                        {b.name[0]}
+                      </div>
+                    </>
                   ) : (
-                    <div
-                      className="w-20 h-20 rounded-full flex items-center justify-center text-white text-3xl font-extrabold shadow"
-                      style={{ background: b.accent }}
-                    >
-                      {b.name[0]}
+                    <div className="w-full h-full flex items-center justify-center bg-white p-6 border-b border-border/40">
+                      {b.logo ? (
+                        <img
+                          src={b.logo}
+                          alt={b.name}
+                          className="max-h-full max-w-full object-contain group-hover:scale-105 transition-transform duration-300"
+                        />
+                      ) : (
+                        <div
+                          className="w-20 h-20 rounded-full flex items-center justify-center text-white text-3xl font-extrabold shadow"
+                          style={{ background: b.accent }}
+                        >
+                          {b.name[0]}
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
-                <CardContent className="p-4 text-center space-y-1.5">
-                  <h3 className="font-bold text-primary">{b.name}</h3>
-                  <p className="text-xs text-muted-foreground">{isRTL ? b.arTagline : b.enTagline}</p>
-                  <span className="inline-flex items-center gap-1 text-xs font-semibold text-secondary">
+
+                <CardContent className="p-4 space-y-1">
+                  <h3 className="font-bold text-primary text-sm">{b.name}</h3>
+                  <p className="text-xs text-muted-foreground leading-snug">{isRTL ? b.arTagline : b.enTagline}</p>
+                  <span className="inline-flex items-center gap-1 text-xs font-semibold text-secondary pt-1">
                     {t("common.see_more")} {Chevron}
                   </span>
                 </CardContent>
               </Card>
             </Link>
-          ))}
-        </div>
-
-        {/* Dots */}
-        <div className="flex gap-2 mt-4 justify-center">
-          {brands.map((_, i) => (
-            <button
-              key={i}
-              type="button"
-              aria-label={`Brand ${i + 1}`}
-              onClick={() => {
-                setBrandPage(i);
-                const card = brandScrollRef.current?.children[i] as HTMLElement;
-                if (card) card.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
-              }}
-              className="h-1.5 rounded-full transition-all"
-              style={{ width: i === brandPage ? 24 : 8, background: i === brandPage ? "#085890" : "#CBD5E1" }}
-            />
           ))}
         </div>
       </section>

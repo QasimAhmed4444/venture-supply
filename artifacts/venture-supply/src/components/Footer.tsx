@@ -5,7 +5,7 @@ import { MapPin, Phone, Mail, Globe, Facebook, Instagram, Linkedin } from "lucid
 import { Logo } from "./Logo";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { categories } from "@/data/categories";
-import { brands } from "@/data/brands";
+import { ownBrands } from "@/data/brands";
 import { useToast } from "@/hooks/use-toast";
 
 export function Footer() {
@@ -88,28 +88,42 @@ export function Footer() {
           </h3>
           <ul className="space-y-2 text-sm text-white/85">
             {categories.slice(0, 6).map((c) => (
-              <li key={c.id}><Link href={`/categories/${c.slug}`}><span className="hover:text-white transition-colors">{t(`category.${c.id}`)}</span></Link></li>
+              <li key={c.id}>
+                <Link href={`/categories/${c.slug}`}>
+                  <span className="hover:text-white transition-colors">{t(`category.${c.id}`)}</span>
+                </Link>
+              </li>
             ))}
-            <li><Link href="/products"><span className="hover:text-white transition-colors font-semibold">{t("listing.all_products")} →</span></Link></li>
+            <li>
+              <Link href="/products">
+                <span className="hover:text-white transition-colors font-semibold">{t("listing.all_products")} →</span>
+              </Link>
+            </li>
           </ul>
         </div>
 
-        {/* Brands + Newsletter */}
-        <div className="lg:col-span-3 space-y-5">
+        {/* Own Brands (Chef, Malka, Vital only) + Newsletter */}
+        <div className="lg:col-span-3 space-y-6">
           <div>
             <h3 className="font-bold mb-4 text-sm uppercase tracking-wider" style={{ color: "#18B8E0" }}>
               {t("home.brands.title")}
             </h3>
-            <div className="grid grid-cols-3 gap-2 bg-white/95 rounded-md p-3">
-              {brands.map((b) => (
+            <div className="grid grid-cols-3 gap-2 bg-white/95 rounded-lg p-3">
+              {ownBrands.map((b) => (
                 <Link key={b.id} href={`/brands/${b.id}`}>
-                  <div className="aspect-square flex items-center justify-center hover:opacity-80 transition-opacity cursor-pointer">
-                    <img src={b.logo} alt={b.name} className="max-h-12 w-auto object-contain" />
+                  <div className="aspect-square flex items-center justify-center p-2 hover:opacity-75 transition-opacity cursor-pointer">
+                    <img
+                      src={b.logo}
+                      alt={b.name}
+                      className="max-h-full max-w-full object-contain"
+                      onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+                    />
                   </div>
                 </Link>
               ))}
             </div>
           </div>
+
           <form onSubmit={handleSubscribe} className="space-y-2">
             <p className="text-xs text-white/85 font-semibold uppercase tracking-wider">{t("footer.newsletter")}</p>
             <div className="flex gap-2">
