@@ -41,6 +41,7 @@ import {
   AdminSalespersonsPage,
   AdminPromotionsPage,
   AdminBrandsPage,
+  AdminBusinessTypesPage,
   AdminReportsPage,
   AdminSettingsPage,
 } from "@/pages/AdminPages";
@@ -147,6 +148,7 @@ function AppRouter() {
       <Route path="/admin/salespersons" component={withAdmin(AdminSalespersonsPage)} />
       <Route path="/admin/promotions" component={withAdmin(AdminPromotionsPage)} />
       <Route path="/admin/brands" component={withAdmin(AdminBrandsPage)} />
+      <Route path="/admin/business-types" component={withAdmin(AdminBusinessTypesPage)} />
       <Route path="/admin/reports" component={withAdmin(AdminReportsPage)} />
       <Route path="/admin/settings" component={withAdmin(AdminSettingsPage)} />
 
