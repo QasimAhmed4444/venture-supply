@@ -933,7 +933,7 @@ export function AdminOrdersPage() {
 
 // ─── Customers ─────────────────────────────────────────────────────────────────
 
-const BLANK_CUST = { name: "", email: "", phone: "", city: "", address: "", type: "b2c" as "b2c" | "b2b", businessName: "", businessTypeId: "", creditLimit: "", allowCredit: false, active: true };
+const BLANK_CUST = { name: "", email: "", phone: "", city: "", address: "", type: "b2c" as "b2c" | "b2b", businessName: "", businessTypeId: "", creditLimit: "", allowCredit: false, active: true, assignedSalespersonId: "" };
 
 export function AdminCustomersPage() {
   const { t, language } = useLanguage();
@@ -998,6 +998,7 @@ export function AdminCustomersPage() {
       creditLimit: (c.business as any)?.creditLimit != null ? String((c.business as any).creditLimit) : "",
       allowCredit: (c.business as any)?.allowCredit ?? false,
       active: true,
+      assignedSalespersonId: c.assignedSalespersonId ?? "",
     });
   };
 
@@ -1280,6 +1281,21 @@ export function AdminCustomersPage() {
               </>
             )}
             <Separator />
+            <p className="text-xs font-semibold uppercase text-muted-foreground tracking-wider">Assigned Salesperson</p>
+            <div>
+              <Label>Salesperson</Label>
+              <select
+                className="w-full h-9 px-3 border rounded-md bg-background mt-1"
+                value={editData.assignedSalespersonId}
+                onChange={(e) => setEditData((p) => ({ ...p, assignedSalespersonId: e.target.value }))}
+              >
+                <option value="">— Unassigned —</option>
+                {salespersons.map((sp) => (
+                  <option key={sp.id} value={sp.id}>{sp.name}</option>
+                ))}
+              </select>
+            </div>
+            <Separator />
             <p className="text-xs font-semibold uppercase text-muted-foreground tracking-wider">Location</p>
             <div className="grid grid-cols-2 gap-3">
               <div><Label>City</Label><Input value={editData.city} onChange={(e) => setEditData((p) => ({ ...p, city: e.target.value }))} /></div>
@@ -1309,6 +1325,7 @@ export function AdminCustomersPage() {
                 city: editData.city,
                 type: editData.type,
                 business,
+                assignedSalespersonId: editData.assignedSalespersonId || null,
               } as any, {
                 onSuccess: () => {
                   toast({ title: "Customer updated", description: `${editData.name} saved` });

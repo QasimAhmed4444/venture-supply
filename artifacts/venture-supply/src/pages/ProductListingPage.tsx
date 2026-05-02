@@ -13,6 +13,7 @@ import { useProducts } from "@/hooks/useProducts";
 import { useCategories } from "@/hooks/useCategories";
 import { useBrands } from "@/hooks/useBrands";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { useRole } from "@/contexts/RoleContext";
 
 interface Props {
   scope?: "all" | "category" | "brand" | "search";
@@ -20,12 +21,14 @@ interface Props {
 
 export function ProductListingPage({ scope = "all" }: Props) {
   const { t, isRTL, language } = useLanguage();
+  const { role } = useRole();
+  const isB2B = role === "b2b";
   const params = useParams();
   const [location] = useLocation();
   const queryString = location.split("?")[1] ?? "";
   const searchParams = new URLSearchParams(queryString);
   const q = searchParams.get("q")?.toLowerCase() ?? "";
-  const initialBrand = searchParams.get("brand") ?? undefined;
+  const initialBrand = searchParams.get("brand") ?? (scope === "brand" ? params.slug : undefined);
 
   const urlCategoryId = scope === "category" ? params.slug : undefined;
 
@@ -40,6 +43,7 @@ export function ProductListingPage({ scope = "all" }: Props) {
   const { data: brands = [] } = useBrands();
 
   const activeCat = categories.find((c) => c.id === activeCategory || c.slug === activeCategory);
+  const activeBrand = scope === "brand" && selectedBrands.length === 1 ? brands.find((b) => b.id === selectedBrands[0]) : null;
 
   const filtered = useMemo(() => {
     let list = products;
@@ -49,12 +53,13 @@ export function ProductListingPage({ scope = "all" }: Props) {
     if (q) list = list.filter((p) => p.enName.toLowerCase().includes(q) || p.arName.includes(q));
     if (selectedBrands.length) list = list.filter((p) => selectedBrands.includes(p.brandId));
     if (selectedAvailability.length) list = list.filter((p) => selectedAvailability.includes(p.stockStatus));
-    list = list.filter((p) => p.b2cPrice >= priceRange[0] && p.b2cPrice <= priceRange[1]);
+    const priceKey = isB2B ? "b2bPrice" : "b2cPrice";
+    list = list.filter((p) => p[priceKey] >= priceRange[0] && p[priceKey] <= priceRange[1]);
     if (sortBy === "rating") list = [...list].sort((a, b) => b.rating - a.rating);
-    if (sortBy === "price-asc") list = [...list].sort((a, b) => a.b2cPrice - b.b2cPrice);
-    if (sortBy === "price-desc") list = [...list].sort((a, b) => b.b2cPrice - a.b2cPrice);
+    if (sortBy === "price-asc") list = [...list].sort((a, b) => a[priceKey] - b[priceKey]);
+    if (sortBy === "price-desc") list = [...list].sort((a, b) => b[priceKey] - a[priceKey]);
     return list;
-  }, [products, activeCategory, activeCat, q, selectedBrands, selectedAvailability, priceRange, sortBy]);
+  }, [products, activeCategory, activeCat, q, selectedBrands, selectedAvailability, priceRange, sortBy, isB2B]);
 
   const toggleBrand = (val: string) => {
     setSelectedBrands((prev) => prev.includes(val) ? prev.filter((v) => v !== val) : [...prev, val]);
@@ -64,7 +69,13 @@ export function ProductListingPage({ scope = "all" }: Props) {
   };
 
   const Chev = isRTL ? ChevronLeft : ChevronRight;
-  const heading = activeCat ? t(`category.${activeCat.id}`) : q ? `"${q}"` : t("listing.all_products");
+  const heading = activeCat
+    ? t(`category.${activeCat.id}`)
+    : activeBrand
+    ? activeBrand.name
+    : q
+    ? `"${q}"`
+    : t("listing.all_products");
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-6">

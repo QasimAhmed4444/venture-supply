@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
 import { Star, ShoppingCart, Plus, Minus, Truck, ShieldCheck, Package2, ChevronRight, ChevronLeft } from "lucide-react";
-import { products, getProductById } from "@/data/products";
+import { useProduct, useProducts } from "@/hooks/useProducts";
 import { categories } from "@/data/categories";
 import { brands } from "@/data/brands";
 import { ProductCard } from "@/components/ProductCard";
@@ -22,7 +22,8 @@ export function ProductDetailPage() {
   const { role } = useRole();
   const { addItem } = useCart();
   const { toast } = useToast();
-  const product = products.find((p) => p.slug === slug);
+  const { data: product } = useProduct(slug);
+  const { data: allProducts = [] } = useProducts();
   const isB2B = role === "b2b";
 
   if (!product) {
@@ -35,17 +36,18 @@ export function ProductDetailPage() {
   }
 
   const visiblePacks = product.packs.filter((p) => (isB2B ? p.b2bPrice : p.b2cPrice));
+  const displayPacks = visiblePacks.length > 0 ? visiblePacks : product.packs;
   const [selectedPackIdx, setSelectedPackIdx] = useState(0);
   const [qty, setQty] = useState(isB2B ? product.minOrderQty : 1);
 
-  const pack = visiblePacks[selectedPackIdx] ?? product.packs[0];
+  const pack = displayPacks[selectedPackIdx] ?? product.packs[0];
   const unitPrice = (isB2B ? pack.b2bPrice : pack.b2cPrice) ?? (isB2B ? product.b2bPrice : product.b2cPrice);
   const name = language === "ar" ? product.arName : product.enName;
   const description = language === "ar" ? product.arDescription : product.enDescription;
   const brand = brands.find((b) => b.id === product.brandId);
   const category = categories.find((c) => c.id === product.categoryId);
 
-  const related = products.filter((p) => p.categoryId === product.categoryId && p.id !== product.id).slice(0, 4);
+  const related = allProducts.filter((p) => p.categoryId === product.categoryId && p.id !== product.id).slice(0, 4);
   const Chev = isRTL ? ChevronLeft : ChevronRight;
 
   const handleAdd = () => {
@@ -66,7 +68,7 @@ export function ProductDetailPage() {
       <nav className="flex items-center gap-1 text-sm text-muted-foreground mb-4 flex-wrap">
         <Link href="/"><span className="hover:text-foreground cursor-pointer">{t("nav.home")}</span></Link>
         <Chev className="w-3.5 h-3.5" />
-        <Link href={`/categories/${category?.slug}`}><span className="hover:text-foreground cursor-pointer">{category && t(`category.${category.id}`)}</span></Link>
+        <Link href={`/categories/${category?.slug ?? product.categoryId}`}><span className="hover:text-foreground cursor-pointer">{category ? t(`category.${category.id}`) : product.categoryId}</span></Link>
         <Chev className="w-3.5 h-3.5" />
         <span className="text-foreground font-medium truncate">{name}</span>
       </nav>
@@ -120,7 +122,7 @@ export function ProductDetailPage() {
               <div>
                 <p className="text-sm font-semibold mb-2">{t("product.pack_size")}</p>
                 <div className="flex flex-wrap gap-2">
-                  {visiblePacks.map((p, i) => (
+                  {displayPacks.map((p, i) => (
                     <button
                       key={p.size}
                       onClick={() => setSelectedPackIdx(i)}
@@ -181,7 +183,7 @@ export function ProductDetailPage() {
             <CardContent className="p-5">
               <dl className="grid grid-cols-2 gap-4 text-sm">
                 <div><dt className="text-muted-foreground">{t("product.brand")}</dt><dd className="font-medium">{brand?.name}</dd></div>
-                <div><dt className="text-muted-foreground">{t("product.category")}</dt><dd className="font-medium">{category && t(`category.${category.id}`)}</dd></div>
+                <div><dt className="text-muted-foreground">{t("product.category")}</dt><dd className="font-medium">{category ? t(`category.${category.id}`) : product.categoryId}</dd></div>
                 <div><dt className="text-muted-foreground">{t("product.sku")}</dt><dd className="font-mono">{product.sku}</dd></div>
                 <div><dt className="text-muted-foreground">{t("product.rating")}</dt><dd className="font-medium">{product.rating} / 5</dd></div>
               </dl>
