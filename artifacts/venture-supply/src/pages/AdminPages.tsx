@@ -14,7 +14,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Plus, Trash2, ShoppingBag, Users as UsersIcon, AlertTriangle, TrendingUp, Wallet, Eye,
   Pencil, Search, Download, FileText, Package, DollarSign, Building2, CheckCircle2,
-  Clock, XCircle, Truck, PackageCheck, ShoppingCart, X,
+  Clock, XCircle, Truck, PackageCheck, ShoppingCart, X, ChevronUp, ChevronDown,
 } from "lucide-react";
 import {
   LineChart, Line, AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell,
@@ -940,6 +940,13 @@ export function AdminCustomersPage() {
   const { toast } = useToast();
   const [tab, setTab] = useState<"all" | "b2c" | "b2b">("all");
   const [search, setSearch] = useState("");
+  const [sortKey, setSortKey] = useState<"name" | "city" | "totalOrders" | "lifetimeValue" | null>(null);
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+
+  const toggleSort = (key: typeof sortKey) => {
+    if (sortKey === key) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    else { setSortKey(key); setSortDir("asc"); }
+  };
   const { data: allCustomers = [] } = useCustomers();
   const { data: businessTypes = [] } = useBusinessTypes();
   const list = allCustomers
@@ -955,6 +962,16 @@ export function AdminCustomersPage() {
         (c.business?.name ?? "").toLowerCase().includes(q)
       );
     });
+  const sorted = sortKey
+    ? [...list].sort((a, b) => {
+        const mul = sortDir === "asc" ? 1 : -1;
+        if (sortKey === "name") return mul * a.name.localeCompare(b.name);
+        if (sortKey === "city") return mul * (a.city ?? "").localeCompare(b.city ?? "");
+        if (sortKey === "totalOrders") return mul * (a.totalOrders - b.totalOrders);
+        if (sortKey === "lifetimeValue") return mul * (a.lifetimeValue - b.lifetimeValue);
+        return 0;
+      })
+    : list;
   const createCustomer = useCreateCustomer();
   const updateCustomer = useUpdateCustomer();
   const deleteCustomer = useDeleteCustomer();
@@ -1105,18 +1122,30 @@ export function AdminCustomersPage() {
         <CardContent className="p-5">
           <Table>
             <TableHeader><TableRow>
-              <TableHead>Name</TableHead>
-              <TableHead>Email</TableHead>
-              <TableHead>Phone</TableHead>
-              <TableHead>City</TableHead>
-              <TableHead>Type</TableHead>
-              <TableHead>Business</TableHead>
-              <TableHead>Orders</TableHead>
-              <TableHead>Lifetime Value</TableHead>
-              <TableHead>Actions</TableHead>
+              {(["name", "city"] as const).includes(sortKey as any) || true ? (
+                <>
+                  <TableHead className="cursor-pointer select-none" onClick={() => toggleSort("name")}>
+                    <span className="flex items-center gap-1">Name {sortKey === "name" ? (sortDir === "asc" ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />) : <ChevronUp className="w-3 h-3 opacity-20" />}</span>
+                  </TableHead>
+                  <TableHead>Email</TableHead>
+                  <TableHead>Phone</TableHead>
+                  <TableHead className="cursor-pointer select-none" onClick={() => toggleSort("city")}>
+                    <span className="flex items-center gap-1">City {sortKey === "city" ? (sortDir === "asc" ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />) : <ChevronUp className="w-3 h-3 opacity-20" />}</span>
+                  </TableHead>
+                  <TableHead>Type</TableHead>
+                  <TableHead>Business</TableHead>
+                  <TableHead className="cursor-pointer select-none" onClick={() => toggleSort("totalOrders")}>
+                    <span className="flex items-center gap-1">Orders {sortKey === "totalOrders" ? (sortDir === "asc" ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />) : <ChevronUp className="w-3 h-3 opacity-20" />}</span>
+                  </TableHead>
+                  <TableHead className="cursor-pointer select-none" onClick={() => toggleSort("lifetimeValue")}>
+                    <span className="flex items-center gap-1">Lifetime Value {sortKey === "lifetimeValue" ? (sortDir === "asc" ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />) : <ChevronUp className="w-3 h-3 opacity-20" />}</span>
+                  </TableHead>
+                  <TableHead>Actions</TableHead>
+                </>
+              ) : null}
             </TableRow></TableHeader>
             <TableBody>
-              {list.map((c) => (
+              {sorted.map((c) => (
                 <TableRow key={c.id}>
                   <TableCell><div className="flex items-center gap-2"><div className="w-8 h-8 rounded-full bg-primary/10 text-primary text-xs font-bold flex items-center justify-center shrink-0">{c.name[0]}</div><p className="font-medium text-sm">{c.name}</p></div></TableCell>
                   <TableCell className="text-sm">{c.email}</TableCell>
