@@ -1,13 +1,13 @@
 import { useMemo, useState } from "react";
 import { useLocation, useParams } from "wouter";
 import { Card, CardContent } from "@/components/ui/card";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
 import { Filter, ChevronRight, ChevronLeft } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 import { ProductCard } from "@/components/ProductCard";
 import { products } from "@/data/products";
 import { categories } from "@/data/categories";
@@ -23,25 +23,24 @@ export function ProductListingPage({ scope = "all" }: Props) {
   const params = useParams();
   const [location] = useLocation();
   const queryString = location.split("?")[1] ?? "";
-  const search = new URLSearchParams(queryString);
-  const q = search.get("q")?.toLowerCase() ?? "";
-  const initialBrand = search.get("brand") ?? undefined;
+  const searchParams = new URLSearchParams(queryString);
+  const q = searchParams.get("q")?.toLowerCase() ?? "";
+  const initialBrand = searchParams.get("brand") ?? undefined;
 
-  const categoryId = scope === "category" ? params.slug : undefined;
-  const category = categoryId ? categories.find((c) => c.slug === categoryId) : undefined;
+  const urlCategoryId = scope === "category" ? params.slug : undefined;
 
+  const [activeCategory, setActiveCategory] = useState<string>(urlCategoryId ?? "");
   const [selectedBrands, setSelectedBrands] = useState<string[]>(initialBrand ? [initialBrand] : []);
-  const [selectedCategories, setSelectedCategories] = useState<string[]>(categoryId ? [categoryId] : []);
   const [selectedAvailability, setSelectedAvailability] = useState<string[]>([]);
   const [priceRange, setPriceRange] = useState<[number, number]>([0, 600]);
   const [sortBy, setSortBy] = useState("relevance");
 
+  const activeCat = categories.find((c) => c.id === activeCategory || c.slug === activeCategory);
+
   const filtered = useMemo(() => {
     let list = products;
-    if (categoryId) {
-      list = list.filter((p) => p.categoryId === categoryId);
-    } else if (selectedCategories.length) {
-      list = list.filter((p) => selectedCategories.includes(p.categoryId));
+    if (activeCategory) {
+      list = list.filter((p) => p.categoryId === activeCategory || p.categoryId === activeCat?.id);
     }
     if (q) list = list.filter((p) => p.enName.toLowerCase().includes(q) || p.arName.includes(q));
     if (selectedBrands.length) list = list.filter((p) => selectedBrands.includes(p.brandId));
@@ -51,18 +50,20 @@ export function ProductListingPage({ scope = "all" }: Props) {
     if (sortBy === "price-asc") list = [...list].sort((a, b) => a.b2cPrice - b.b2cPrice);
     if (sortBy === "price-desc") list = [...list].sort((a, b) => b.b2cPrice - a.b2cPrice);
     return list;
-  }, [categoryId, selectedCategories, q, selectedBrands, selectedAvailability, priceRange, sortBy]);
+  }, [activeCategory, activeCat, q, selectedBrands, selectedAvailability, priceRange, sortBy]);
 
-  const toggle = (val: string, list: string[], setter: (v: string[]) => void) => {
-    setter(list.includes(val) ? list.filter((v) => v !== val) : [...list, val]);
+  const toggleBrand = (val: string) => {
+    setSelectedBrands((prev) => prev.includes(val) ? prev.filter((v) => v !== val) : [...prev, val]);
+  };
+  const toggleAvail = (val: string) => {
+    setSelectedAvailability((prev) => prev.includes(val) ? prev.filter((v) => v !== val) : [...prev, val]);
   };
 
   const Chev = isRTL ? ChevronLeft : ChevronRight;
-  const heading = category ? t(`category.${category.id}`) : q ? `"${q}"` : t("listing.all_products");
+  const heading = activeCat ? t(`category.${activeCat.id}`) : q ? `"${q}"` : t("listing.all_products");
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-6">
-      {/* Breadcrumb */}
       <nav className="flex items-center gap-1 text-sm text-muted-foreground mb-4">
         <span className="hover:text-foreground cursor-pointer" onClick={() => window.history.back()}>{t("nav.home")}</span>
         <Chev className="w-3.5 h-3.5" />
@@ -71,7 +72,7 @@ export function ProductListingPage({ scope = "all" }: Props) {
 
       <div className="flex items-end justify-between mb-6 flex-wrap gap-3">
         <div>
-          <h1 className="text-3xl font-bold">{heading}</h1>
+          <h1 className="text-3xl font-bold text-primary">{heading}</h1>
           <p className="text-sm text-muted-foreground mt-1">{filtered.length} {t("common.results")}</p>
         </div>
         <div className="flex items-center gap-2">
@@ -90,46 +91,59 @@ export function ProductListingPage({ scope = "all" }: Props) {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-[260px_1fr] gap-6">
-        {/* Filters */}
-        <aside className="space-y-4">
-          <Card>
+      <div className="grid grid-cols-1 lg:grid-cols-[240px_1fr] gap-6">
+        {/* Sidebar Filters */}
+        <aside>
+          <Card className="sticky top-4">
             <CardContent className="p-4 space-y-5">
               <div className="flex items-center gap-2 text-sm font-semibold pb-2 border-b text-primary">
                 <Filter className="w-4 h-4" /> {t("common.filters")}
               </div>
 
-              {/* Category filter — only show on /products (all), not on /categories/slug */}
-              {!categoryId && (
-                <>
-                  <div>
-                    <Label className="text-sm font-semibold mb-3 block text-foreground">{t("home.categories.title")}</Label>
-                    <div className="space-y-1.5">
-                      {categories.map((c) => (
-                        <div key={c.id} className="flex items-center gap-2">
-                          <Checkbox
-                            id={`c-${c.id}`}
-                            checked={selectedCategories.includes(c.id)}
-                            onCheckedChange={() => toggle(c.id, selectedCategories, setSelectedCategories)}
-                            data-testid={`filter-cat-${c.id}`}
-                          />
-                          <Label htmlFor={`c-${c.id}`} className="text-sm font-normal cursor-pointer leading-tight">
-                            {t(`category.${c.id}`)}
-                          </Label>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                  <Separator />
-                </>
-              )}
-
+              {/* CATEGORIES — always visible, single-select */}
               <div>
-                <Label className="text-sm font-semibold mb-3 block text-foreground">{t("listing.brand")}</Label>
+                <Label className="text-xs font-bold uppercase tracking-wide mb-3 block text-muted-foreground">
+                  {t("home.categories.title")}
+                </Label>
+                <div className="space-y-0.5">
+                  <button
+                    type="button"
+                    onClick={() => setActiveCategory("")}
+                    className={`w-full text-start px-2 py-1.5 rounded text-sm transition-colors ${activeCategory === "" ? "bg-primary text-white font-semibold" : "hover:bg-muted text-foreground"}`}
+                    data-testid="filter-cat-all"
+                  >
+                    {language === "ar" ? "جميع الفئات" : "All categories"}
+                  </button>
+                  {categories.map((c) => (
+                    <button
+                      key={c.id}
+                      type="button"
+                      onClick={() => setActiveCategory(activeCategory === c.id ? "" : c.id)}
+                      className={`w-full text-start px-2 py-1.5 rounded text-sm transition-colors ${activeCategory === c.id ? "bg-primary text-white font-semibold" : "hover:bg-muted text-foreground"}`}
+                      data-testid={`filter-cat-${c.id}`}
+                    >
+                      {t(`category.${c.id}`)}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <Separator />
+
+              {/* BRANDS */}
+              <div>
+                <Label className="text-xs font-bold uppercase tracking-wide mb-3 block text-muted-foreground">
+                  {t("listing.brand")}
+                </Label>
                 <div className="space-y-1.5">
                   {brands.map((b) => (
                     <div key={b.id} className="flex items-center gap-2">
-                      <Checkbox id={`b-${b.id}`} checked={selectedBrands.includes(b.id)} onCheckedChange={() => toggle(b.id, selectedBrands, setSelectedBrands)} data-testid={`filter-brand-${b.id}`} />
+                      <Checkbox
+                        id={`b-${b.id}`}
+                        checked={selectedBrands.includes(b.id)}
+                        onCheckedChange={() => toggleBrand(b.id)}
+                        data-testid={`filter-brand-${b.id}`}
+                      />
                       <Label htmlFor={`b-${b.id}`} className="text-sm font-normal cursor-pointer">{b.name}</Label>
                     </div>
                   ))}
@@ -138,8 +152,11 @@ export function ProductListingPage({ scope = "all" }: Props) {
 
               <Separator />
 
+              {/* PRICE RANGE */}
               <div>
-                <Label className="text-sm font-semibold mb-3 block text-foreground">{t("listing.price_range")}</Label>
+                <Label className="text-xs font-bold uppercase tracking-wide mb-3 block text-muted-foreground">
+                  {t("listing.price_range")}
+                </Label>
                 <Slider value={priceRange} onValueChange={(v) => setPriceRange(v as [number, number])} min={0} max={600} step={10} className="my-3" />
                 <div className="flex justify-between text-xs text-muted-foreground">
                   <span>{priceRange[0]} {language === "ar" ? "ر.س" : "SAR"}</span>
@@ -149,15 +166,18 @@ export function ProductListingPage({ scope = "all" }: Props) {
 
               <Separator />
 
+              {/* AVAILABILITY */}
               <div>
-                <Label className="text-sm font-semibold mb-3 block text-foreground">{t("listing.availability")}</Label>
+                <Label className="text-xs font-bold uppercase tracking-wide mb-3 block text-muted-foreground">
+                  {t("listing.availability")}
+                </Label>
                 <div className="space-y-1.5">
                   {[
                     { id: "in-stock", label: t("product.in_stock") },
                     { id: "low-stock", label: t("product.low_stock") },
                   ].map((a) => (
                     <div key={a.id} className="flex items-center gap-2">
-                      <Checkbox id={`a-${a.id}`} checked={selectedAvailability.includes(a.id)} onCheckedChange={() => toggle(a.id, selectedAvailability, setSelectedAvailability)} />
+                      <Checkbox id={`a-${a.id}`} checked={selectedAvailability.includes(a.id)} onCheckedChange={() => toggleAvail(a.id)} />
                       <Label htmlFor={`a-${a.id}`} className="text-sm font-normal cursor-pointer">{a.label}</Label>
                     </div>
                   ))}
@@ -167,8 +187,8 @@ export function ProductListingPage({ scope = "all" }: Props) {
               <Button
                 variant="ghost"
                 size="sm"
-                className="w-full text-muted-foreground hover:text-foreground"
-                onClick={() => { setSelectedBrands([]); setSelectedCategories([]); setSelectedAvailability([]); setPriceRange([0, 600]); }}
+                className="w-full text-muted-foreground text-xs"
+                onClick={() => { setSelectedBrands([]); setActiveCategory(""); setSelectedAvailability([]); setPriceRange([0, 600]); }}
               >
                 {language === "ar" ? "مسح الفلاتر" : "Clear all filters"}
               </Button>
@@ -176,7 +196,7 @@ export function ProductListingPage({ scope = "all" }: Props) {
           </Card>
         </aside>
 
-        {/* Grid */}
+        {/* Product Grid */}
         {filtered.length === 0 ? (
           <Card>
             <CardContent className="py-20 text-center">

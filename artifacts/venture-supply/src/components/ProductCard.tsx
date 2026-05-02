@@ -8,6 +8,7 @@ import { useRole } from "@/contexts/RoleContext";
 import { useCart } from "@/contexts/CartContext";
 import { useToast } from "@/hooks/use-toast";
 import type { Product } from "@/data/products";
+import { brands } from "@/data/brands";
 
 const stockColors = {
   "in-stock": "text-emerald-700 dark:text-emerald-400",
@@ -26,6 +27,7 @@ export function ProductCard({ product }: { product: Product }) {
   const displayPrice = showB2BPrice ? product.b2bPrice : product.b2cPrice;
   const defaultPack = product.packs.find((p) => (showB2BPrice ? p.b2bPrice : p.b2cPrice)) ?? product.packs[0];
   const defaultPrice = showB2BPrice ? defaultPack?.b2bPrice ?? product.b2bPrice : defaultPack?.b2cPrice ?? product.b2cPrice;
+  const brand = brands.find((b) => b.id === product.brandId);
 
   const handleAdd = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -47,16 +49,30 @@ export function ProductCard({ product }: { product: Product }) {
     <Link href={`/products/${product.slug}`}>
       <Card className="group cursor-pointer overflow-hidden border-border/60 hover:border-secondary/60 hover-elevate active-elevate-2 transition-all duration-300 h-full" data-testid={`card-product-${product.id}`}>
         <div className="relative aspect-square overflow-hidden bg-muted">
-          <img src={product.image} alt={name} loading="lazy" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
-          {product.featured && (
-            <div className="absolute top-2 start-2 bg-secondary text-secondary-foreground text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-sm">
-              {t("listing.sort.rating").split(" ")[0] === "Highest" ? "Featured" : "مميز"}
-            </div>
+          <img
+            src={product.image}
+            alt={name}
+            loading="lazy"
+            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+            onError={(e) => { (e.target as HTMLImageElement).src = "https://images.unsplash.com/photo-1586201375761-83865001e31c?w=400&q=80"; }}
+          />
+          {/* Brand badge — top left */}
+          {brand && (
+            <span className="absolute top-2 start-2 bg-white/90 text-primary text-[10px] font-semibold px-2 py-0.5 rounded-full shadow-sm backdrop-blur-sm">
+              {brand.name}
+            </span>
           )}
+          {/* Featured badge */}
+          {product.featured && (
+            <span className="absolute top-2 end-2 bg-secondary text-white text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-sm">
+              Featured
+            </span>
+          )}
+          {/* B2B discount badge */}
           {isB2B && product.b2cPrice > 0 && product.b2bPrice < product.b2cPrice && (
-            <div className="absolute top-2 end-2 bg-emerald-600 text-white text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-sm">
+            <span className="absolute bottom-2 end-2 bg-emerald-600 text-white text-[10px] font-bold uppercase px-2 py-0.5 rounded-sm">
               {t("product.you_save")} {Math.round(((product.b2cPrice - product.b2bPrice) / product.b2cPrice) * 100)}%
-            </div>
+            </span>
           )}
         </div>
         <CardContent className="p-4 space-y-2">

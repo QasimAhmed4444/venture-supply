@@ -1,0 +1,75 @@
+Good effort, but some issues need fixing. Please update the current implementation without redesigning everything again.
+
+1. Category Card Size
+- The “Shop by category” cards became too small.
+- Increase the category card size and make them look premium like the product cards.
+- Category image area should be larger and consistent.
+- Use the same image/card sizing style everywhere category or product images are displayed.
+- Keep the section in one horizontal scrollable row.
+
+2. Category Navigation Bug
+- When I click any category from the homepage, it navigates to the product page, but then the category list disappears/hides.
+- Fix this issue.
+- Category list must always remain visible on the product page.
+- When selecting a category, only that selected category should be active.
+- Currently multiple categories are being selected at the same time. Fix it so only one category is selected.
+- If user clicks another category, previous category should be unselected automatically.
+
+3. Product Page Category Filter
+- Category filter/list should not hide after selecting any category.
+- Keep all categories visible all the time.
+- Selected category should have a clear active style.
+- Avoid multiple category selection unless the existing design intentionally supports multi-select. For now, use single category selection only.
+
+4. Homepage Banner Images
+- The first banner image is okay, but the other 2 banner images are not aligned with the business theme.
+- Replace them with professional HD B2B/B2C wholesale images.
+- Use images related to:
+  - wholesale products
+  - warehouse supply
+  - grocery distribution
+  - retail/business purchasing
+  - Saudi-style wholesale supply chain
+- Images should fit properly with object-cover/object-position.
+- Make sure all banner images align nicely with the website layout and text overlay.
+
+5. Add Brand/Category Tag on Images
+- On category/product image cards, add a small clean tag/badge showing which brand or category the item belongs to.
+- Example:
+  - Chef Flavor
+  - Malka
+  - Vital
+  - Almari
+  - Rice
+  - Oils
+  - Beverages
+- Badge should be small, modern, readable, and not disturb the image.
+
+6. B2B Business Section UI Issue
+- The business CTA section currently looks visually heavy and the image/layout area looks bad.
+- Improve the UI/UX of this section.
+- Keep the same content:
+  - For Businesses
+  - Partner with Venture Supply for your commercial needs.
+  - Dedicated Account Manager
+  - Volume Discounts & Custom Pricing
+  - Priority Delivery & Credit Terms
+  - Open Corporate Account
+  - Retailer Registration
+- Make the section cleaner, better spaced, and more professional.
+- Reduce excessive blue feeling.
+- Buttons should match the brand style and look consistent.
+
+7. Brands Slider Issue
+- In the “Our brands” section, when clicking/changing brand, the same brand/card appears again.
+- Fix the carousel/slider logic.
+- Brands should not duplicate incorrectly.
+- Each brand should link to its correct brand/products page.
+- Brand carousel should auto-move smoothly and remain clickable.
+
+8. General Fix
+- Do not change header and footer.
+- Do not remove existing working sections unless mentioned.
+- Fix responsive layout for desktop, tablet, and mobile.
+- Make sure there are no console errors.
+- Keep the design professional, clean, and aligned with Venture Supply.

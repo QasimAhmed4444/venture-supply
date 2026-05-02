@@ -19,14 +19,14 @@ const heroSlides = [
     arSubtitle: "تقدم فينتشر سبلاي أفضل المنتجات الغذائية بأسعار جملة تنافسية في جميع أنحاء المملكة.",
   },
   {
-    image: "https://images.unsplash.com/photo-1578575437130-527eed3abbec?w=1800&q=80",
-    enTitle: "Authentic spices &\nrecipe blends",
-    arTitle: "بهارات أصيلة\nوخلطات وصفات",
-    enSubtitle: "From Malka and Chef Flavor — premium quality, consistent every time.",
-    arSubtitle: "من ملكة وشِف فلايفور — جودة فاخرة وثبات في كل مرة.",
+    image: "https://images.unsplash.com/photo-1542838132-92c53300491e?w=1800&q=80",
+    enTitle: "Trusted by retail chains\nand HORECA partners",
+    arTitle: "موثوق من سلاسل التجزئة\nوشركاء الضيافة",
+    enSubtitle: "Wholesale food distribution built for Saudi retailers, restaurants, hotels, and catering businesses.",
+    arSubtitle: "توزيع غذائي بالجملة لتجار التجزئة والمطاعم والفنادق وشركات التموين السعودية.",
   },
   {
-    image: "https://images.unsplash.com/photo-1566576912321-d58ddd7a6088?w=1800&q=80",
+    image: "https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=1800&q=80",
     enTitle: "Your trusted\nfood distribution partner",
     arTitle: "شريككم الموثوق\nفي توزيع الغذاء",
     enSubtitle: "Serving retail chains and the HORECA sector across Saudi Arabia since 2019.",
@@ -39,8 +39,8 @@ export function HomePage() {
   const { role } = useRole();
   const popular = products.slice(0, 4);
   const [slideIdx, setSlideIdx] = useState(0);
-  const [brandIdx, setBrandIdx] = useState(0);
-  const brandTrackRef = useRef<HTMLDivElement>(null);
+  const [brandPage, setBrandPage] = useState(0);
+  const brandScrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const id = setInterval(() => setSlideIdx((i) => (i + 1) % heroSlides.length), 5000);
@@ -48,7 +48,16 @@ export function HomePage() {
   }, []);
 
   useEffect(() => {
-    const id = setInterval(() => setBrandIdx((i) => (i + 1) % brands.length), 3000);
+    const id = setInterval(() => {
+      setBrandPage((p) => {
+        const next = (p + 1) % brands.length;
+        if (brandScrollRef.current) {
+          const card = brandScrollRef.current.children[next] as HTMLElement;
+          if (card) card.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
+        }
+        return next;
+      });
+    }, 3000);
     return () => clearInterval(id);
   }, []);
 
@@ -58,8 +67,8 @@ export function HomePage() {
   return (
     <div className="pb-8">
 
-      {/* ── HERO SLIDER ─────────────────────────────────────────── */}
-      <section className="relative overflow-hidden" style={{ height: "520px" }}>
+      {/* ── HERO SLIDER ──────────────────────────────────────────── */}
+      <section className="relative overflow-hidden" style={{ height: 520 }}>
         {heroSlides.map((s, i) => (
           <div
             key={i}
@@ -72,14 +81,14 @@ export function HomePage() {
             }}
           />
         ))}
-        <div className="absolute inset-0" style={{ background: "linear-gradient(to right, rgba(6,30,58,0.82) 50%, rgba(6,30,58,0.35) 100%)" }} />
+        <div className="absolute inset-0" style={{ background: "linear-gradient(to right, rgba(6,30,58,0.85) 45%, rgba(6,30,58,0.25) 100%)" }} />
 
         <div className="relative h-full max-w-7xl mx-auto px-6 flex flex-col justify-center">
-          <div className="max-w-xl space-y-5">
+          <div className="max-w-lg space-y-5">
             <h1
               key={slideIdx}
               className="text-4xl md:text-5xl font-bold leading-tight text-white whitespace-pre-line"
-              style={{ textShadow: "0 2px 8px rgba(0,0,0,0.3)" }}
+              style={{ textShadow: "0 2px 12px rgba(0,0,0,0.3)" }}
             >
               {isRTL ? slide.arTitle : slide.enTitle}
             </h1>
@@ -88,7 +97,7 @@ export function HomePage() {
             </p>
             <div className="flex flex-wrap gap-3 pt-1">
               <Link href="/products">
-                <Button size="lg" className="font-semibold gap-2 text-sm px-6 h-11" style={{ background: "#18B8E0", color: "#fff" }} data-testid="button-hero-shop">
+                <Button size="lg" className="font-semibold gap-2 text-sm px-6 h-11 text-white" style={{ background: "#18B8E0" }} data-testid="button-hero-shop">
                   {t("hero.cta")} <ArrowRight className="w-4 h-4" />
                 </Button>
               </Link>
@@ -117,9 +126,9 @@ export function HomePage() {
         </div>
       </section>
 
-      {/* ── TRUST STRIP ─────────────────────────────────────────── */}
-      <section className="border-y border-border/50 bg-white">
-        <div className="max-w-7xl mx-auto px-4 py-5 grid grid-cols-2 md:grid-cols-4 divide-x divide-border/50">
+      {/* ── TRUST STRIP ──────────────────────────────────────────── */}
+      <section className="border-b border-border/50 bg-white">
+        <div className="max-w-7xl mx-auto px-4 py-4 grid grid-cols-2 md:grid-cols-4 divide-x divide-border/40">
           {[
             { icon: Truck, en: "Nationwide delivery", ar: "توصيل لجميع المناطق" },
             { icon: ShieldCheck, en: "Authentic brands", ar: "علامات أصلية" },
@@ -127,14 +136,14 @@ export function HomePage() {
             { icon: Headphones, en: "Saudi-based support", ar: "دعم سعودي" },
           ].map((b, i) => (
             <div key={i} className="flex items-center gap-3 px-5 py-2 first:ps-0 last:pe-0">
-              <b.icon className="w-5 h-5 shrink-0 text-secondary" />
+              <b.icon className="w-4 h-4 shrink-0 text-secondary" />
               <p className="text-sm font-semibold text-primary">{isRTL ? b.ar : b.en}</p>
             </div>
           ))}
         </div>
       </section>
 
-      {/* ── CATEGORIES ──────────────────────────────────────────── */}
+      {/* ── CATEGORIES ───────────────────────────────────────────── */}
       <section className="max-w-7xl mx-auto px-4 mt-12">
         <div className="flex items-end justify-between mb-5">
           <div>
@@ -148,11 +157,15 @@ export function HomePage() {
           </Link>
         </div>
 
-        <div className="flex gap-3 overflow-x-auto pb-3 scrollbar-hide" style={{ scrollbarWidth: "none" }}>
+        <div className="flex gap-4 overflow-x-auto pb-3" style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}>
           {categories.map((c) => (
-            <Link key={c.id} href={`/categories/${c.slug}`}>
-              <div className="group flex-shrink-0 w-36 cursor-pointer rounded-lg overflow-hidden bg-card border border-border/60 hover:border-secondary/60 hover:shadow-md transition-all" data-testid={`card-category-${c.id}`}>
-                <div className="h-24 overflow-hidden bg-muted">
+            <Link key={c.id} href={`/products`} onClick={() => {}}>
+              <div
+                className="group flex-shrink-0 cursor-pointer rounded-xl overflow-hidden bg-card border border-border/60 hover:border-secondary/60 hover:shadow-md transition-all"
+                style={{ width: 170 }}
+                data-testid={`card-category-${c.id}`}
+              >
+                <div className="relative overflow-hidden bg-muted" style={{ height: 130 }}>
                   <img
                     src={c.image}
                     alt={t(`category.${c.id}`)}
@@ -160,10 +173,14 @@ export function HomePage() {
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                     onError={(e) => { (e.target as HTMLImageElement).src = "https://images.unsplash.com/photo-1604908176997-125f25cc6f3d?w=400&q=80"; }}
                   />
+                  {/* Category badge */}
+                  <span className="absolute bottom-2 start-2 bg-primary/85 text-white text-[10px] font-semibold px-2 py-0.5 rounded-full backdrop-blur-sm">
+                    {t(`category.${c.id}`)}
+                  </span>
                 </div>
-                <div className="p-2.5 text-center">
-                  <h3 className="font-semibold text-xs text-primary leading-tight">{t(`category.${c.id}`)}</h3>
-                  <p className="text-[10px] text-muted-foreground mt-0.5">{c.productCount} products</p>
+                <div className="p-3 text-center">
+                  <h3 className="font-semibold text-sm text-primary leading-tight">{t(`category.${c.id}`)}</h3>
+                  <p className="text-xs text-muted-foreground mt-0.5">{c.productCount} products</p>
                 </div>
               </div>
             </Link>
@@ -171,7 +188,7 @@ export function HomePage() {
         </div>
       </section>
 
-      {/* ── WHY VENTURE SUPPLY ──────────────────────────────────── */}
+      {/* ── WHY VENTURE SUPPLY ───────────────────────────────────── */}
       <section className="bg-slate-50 border-y border-border/40 mt-14">
         <div className="max-w-7xl mx-auto px-4 py-14">
           <div className="text-center max-w-2xl mx-auto mb-10">
@@ -209,7 +226,7 @@ export function HomePage() {
         </div>
       </section>
 
-      {/* ── POPULAR PRODUCTS ────────────────────────────────────── */}
+      {/* ── POPULAR PRODUCTS ─────────────────────────────────────── */}
       <section className="max-w-7xl mx-auto px-4 mt-14">
         <div className="flex items-end justify-between mb-5">
           <div>
@@ -227,7 +244,7 @@ export function HomePage() {
         </div>
       </section>
 
-      {/* ── BRANDS AUTO-CAROUSEL ────────────────────────────────── */}
+      {/* ── BRANDS CAROUSEL ──────────────────────────────────────── */}
       <section className="max-w-7xl mx-auto px-4 mt-14">
         <div className="flex items-end justify-between mb-5">
           <div>
@@ -235,57 +252,78 @@ export function HomePage() {
             <p className="text-sm text-muted-foreground mt-1">{t("home.brands.subtitle")}</p>
           </div>
         </div>
-        <div className="relative overflow-hidden" ref={brandTrackRef}>
-          <div className="flex gap-4" style={{ transition: "transform 0.6s ease", transform: `translateX(${isRTL ? "" : "-"}${brandIdx * 0}px)` }}>
-            {[...brands, ...brands].map((b, i) => (
-              <Link key={`${b.id}-${i}`} href={`/brands/${b.id}`}>
-                <Card className="hover:shadow-lg active-elevate-2 cursor-pointer border-border/60 overflow-hidden group flex-shrink-0 w-60 transition-all hover:border-secondary/60">
-                  <div className="h-36 flex items-center justify-center bg-white border-b border-border/50 p-5">
-                    {b.logo ? (
-                      <img src={b.logo} alt={b.name} className="max-h-full max-w-full object-contain group-hover:scale-105 transition-transform duration-300" />
-                    ) : (
-                      <div className="w-20 h-20 rounded-full flex items-center justify-center text-white text-3xl font-extrabold shadow" style={{ background: b.accent }}>
-                        {b.name[0]}
-                      </div>
-                    )}
-                  </div>
-                  <CardContent className="p-4 text-center space-y-1">
-                    <h3 className="font-bold text-primary">{b.name}</h3>
-                    <p className="text-xs text-muted-foreground">{isRTL ? b.arTagline : b.enTagline}</p>
-                    <span className="inline-flex items-center gap-1 text-xs font-semibold text-secondary pt-1">
-                      {t("common.see_more")} {Chevron}
-                    </span>
-                  </CardContent>
-                </Card>
-              </Link>
-            ))}
-          </div>
-          <div className="flex gap-3 mt-5 justify-center">
-            {brands.map((_, i) => (
-              <button
-                key={i}
-                type="button"
-                aria-label={`Brand ${i + 1}`}
-                onClick={() => setBrandIdx(i)}
-                className="h-1.5 rounded-full transition-all"
-                style={{ width: i === brandIdx % brands.length ? 24 : 8, background: i === brandIdx % brands.length ? "#085890" : "#CBD5E1" }}
-              />
-            ))}
-          </div>
+
+        <div
+          ref={brandScrollRef}
+          className="flex gap-4 overflow-x-auto pb-2 snap-x snap-mandatory"
+          style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
+        >
+          {brands.map((b, i) => (
+            <Link key={b.id} href={`/brands/${b.id}`}>
+              <Card
+                className="cursor-pointer border-2 overflow-hidden group flex-shrink-0 snap-start transition-all duration-300 hover:shadow-lg"
+                style={{
+                  width: 240,
+                  borderColor: i === brandPage ? "#085890" : "transparent",
+                }}
+              >
+                <div className="h-40 flex items-center justify-center bg-white border-b border-border/40 p-6">
+                  {b.logo ? (
+                    <img src={b.logo} alt={b.name} className="max-h-full max-w-full object-contain group-hover:scale-105 transition-transform duration-300" />
+                  ) : (
+                    <div
+                      className="w-20 h-20 rounded-full flex items-center justify-center text-white text-3xl font-extrabold shadow"
+                      style={{ background: b.accent }}
+                    >
+                      {b.name[0]}
+                    </div>
+                  )}
+                </div>
+                <CardContent className="p-4 text-center space-y-1.5">
+                  <h3 className="font-bold text-primary">{b.name}</h3>
+                  <p className="text-xs text-muted-foreground">{isRTL ? b.arTagline : b.enTagline}</p>
+                  <span className="inline-flex items-center gap-1 text-xs font-semibold text-secondary">
+                    {t("common.see_more")} {Chevron}
+                  </span>
+                </CardContent>
+              </Card>
+            </Link>
+          ))}
+        </div>
+
+        {/* Dots */}
+        <div className="flex gap-2 mt-4 justify-center">
+          {brands.map((_, i) => (
+            <button
+              key={i}
+              type="button"
+              aria-label={`Brand ${i + 1}`}
+              onClick={() => {
+                setBrandPage(i);
+                const card = brandScrollRef.current?.children[i] as HTMLElement;
+                if (card) card.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
+              }}
+              className="h-1.5 rounded-full transition-all"
+              style={{ width: i === brandPage ? 24 : 8, background: i === brandPage ? "#085890" : "#CBD5E1" }}
+            />
+          ))}
         </div>
       </section>
 
-      {/* ── B2B CTA ─────────────────────────────────────────────── */}
+      {/* ── B2B CTA ──────────────────────────────────────────────── */}
       <section className="max-w-7xl mx-auto px-4 mt-14">
-        <div className="rounded-2xl overflow-hidden border-0 px-8 md:px-14 py-10 md:py-12" style={{ background: "linear-gradient(135deg, #06243f 0%, #085890 100%)" }}>
-          <div className="grid md:grid-cols-[1fr_auto] gap-8 items-center">
-            <div className="space-y-5">
-              <div className="inline-flex items-center gap-2 bg-yellow-400/20 border border-yellow-400/40 rounded-full px-3 py-1 text-xs font-bold text-yellow-300 uppercase tracking-wider">
+        <div
+          className="rounded-2xl overflow-hidden px-8 md:px-14 py-10 md:py-12 border border-[#0a3260]/20"
+          style={{ background: "linear-gradient(135deg, #06243f 0%, #0c3d6e 100%)" }}
+        >
+          <div className="grid md:grid-cols-[1fr_auto] gap-8 items-start">
+            <div className="space-y-5 max-w-xl">
+              <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider" style={{ background: "#F59E0B22", color: "#FCD34D", border: "1px solid #F59E0B44" }}>
                 {isRTL ? "للشركات" : "For Businesses"}
-              </div>
+              </span>
               <h2 className="text-2xl md:text-3xl font-bold text-white leading-snug">
                 {isRTL
-                  ? "تعاون مع فينتشر سبلاي لاحتياجاتك التجارية"
+                  ? "تعاون مع فينتشر سبلاي لاحتياجاتك التجارية."
                   : "Partner with Venture Supply for your commercial needs."}
               </h2>
               <ul className="space-y-2.5">
@@ -293,21 +331,21 @@ export function HomePage() {
                   ? ["مدير حساب مخصص", "خصومات الحجم وأسعار مخصصة", "توصيل أولوية وشروط ائتمان"]
                   : ["Dedicated Account Manager", "Volume Discounts & Custom Pricing", "Priority Delivery & Credit Terms"]
                 ).map((item) => (
-                  <li key={item} className="flex items-center gap-2.5 text-white/90 text-sm font-medium">
-                    <CheckCircle className="w-4 h-4 text-secondary shrink-0" />
+                  <li key={item} className="flex items-center gap-2.5 text-white/90 text-sm">
+                    <CheckCircle className="w-4 h-4 shrink-0" style={{ color: "#18B8E0" }} />
                     {item}
                   </li>
                 ))}
               </ul>
               <div className="flex flex-wrap gap-3 pt-1">
                 <Link href="/login">
-                  <Button size="lg" className="font-semibold gap-2 text-sm h-11" style={{ background: "#18B8E0", color: "#fff" }} data-testid="button-b2b-corporate">
+                  <Button size="default" className="font-semibold gap-2 text-sm h-10 text-white" style={{ background: "#18B8E0" }} data-testid="button-b2b-corporate">
                     <Building2 className="w-4 h-4" />
                     {isRTL ? "فتح حساب مؤسسي" : "Open Corporate Account"}
                   </Button>
                 </Link>
                 <Link href="/login">
-                  <Button size="lg" variant="outline" className="border-white/40 bg-white/10 text-white hover:bg-white/20 font-semibold text-sm h-11" data-testid="button-b2b-retailer">
+                  <Button size="default" variant="outline" className="border-white/30 bg-white/10 text-white hover:bg-white/15 font-semibold text-sm h-10 gap-2" data-testid="button-b2b-retailer">
                     <Store className="w-4 h-4" />
                     {isRTL ? "تسجيل كبائع تجزئة" : "Retailer Registration"}
                   </Button>
