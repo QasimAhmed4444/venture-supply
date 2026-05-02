@@ -40,6 +40,7 @@ export interface Order {
   vat: number;
   deliveryCharge: number;
   total: number;
+  notes?: string;
   cancellationReason?: string;
   history: Array<{ status: OrderStatus; at: string }>;
 }

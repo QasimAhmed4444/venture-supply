@@ -24,6 +24,7 @@ function toCamel(row: Record<string, unknown>) {
     vat: Number(row.vat),
     deliveryCharge: Number(row.delivery_charge),
     total: Number(row.total),
+    notes: row.notes ?? null,
     cancellationReason: row.cancellation_reason,
     history: row.history ?? [],
   };
@@ -80,6 +81,7 @@ router.post("/orders", async (req, res) => {
       estimated_at: b.estimatedAt ?? null,
       delivery_address: b.deliveryAddress,
       city: b.city,
+      notes: b.notes ?? null,
       items: b.items ?? [],
       subtotal: b.subtotal ?? 0,
       vat: b.vat ?? 0,
@@ -104,6 +106,7 @@ router.put("/orders/:id", async (req, res) => {
     if (b.status !== undefined) updates.status = b.status;
     if (b.deliveryAddress !== undefined) updates.delivery_address = b.deliveryAddress;
     if (b.estimatedAt !== undefined) updates.estimated_at = b.estimatedAt;
+    if (b.notes !== undefined) updates.notes = b.notes;
     if (b.cancellationReason !== undefined) updates.cancellation_reason = b.cancellationReason;
     if (b.history !== undefined) updates.history = b.history;
     const { data, error } = await sb.from("orders").update(updates).eq("id", req.params.id).select().single();

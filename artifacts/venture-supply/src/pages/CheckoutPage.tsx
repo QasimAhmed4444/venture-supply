@@ -67,6 +67,7 @@ export function CheckoutPage() {
         estimatedAt,
         deliveryAddress,
         city: orderType === "pickup" ? "Riyadh" : city,
+        notes: notes.trim() || null,
         items,
         subtotal,
         vat,

@@ -220,6 +220,7 @@ export function SalesCreateOrderPage() {
   const [search, setSearch] = useState("");
   const [cat, setCat] = useState("all");
   const [paymentMethod, setPaymentMethod] = useState("credit");
+  const [notes, setNotes] = useState("");
   const [cart, setCart] = useState<{
     productId: string; packSize: string; qty: number;
     unitPrice: number; enName: string; arName: string; image: string;
@@ -291,6 +292,7 @@ export function SalesCreateOrderPage() {
         estimatedAt,
         deliveryAddress,
         city: selectedCustomer.city ?? "Riyadh",
+        notes: notes.trim() || null,
         items: cart.map((it) => ({ ...it })),
         subtotal,
         vat,
@@ -388,6 +390,16 @@ export function SalesCreateOrderPage() {
               <div className="flex justify-between"><span className="text-muted-foreground">Delivery</span><span className="text-emerald-600 font-medium text-xs">Free</span></div>
               <Separator className="my-1" />
               <div className="flex justify-between items-baseline"><span className="font-bold">{t("common.total")}</span><PriceTag amount={total} size="lg" /></div>
+            </div>
+            <div className="space-y-1.5">
+              <p className="text-xs font-medium text-muted-foreground">Delivery notes</p>
+              <textarea
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                rows={2}
+                placeholder="Special handling, access instructions…"
+                className="w-full text-sm border rounded-md px-3 py-2 resize-none bg-background placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+              />
             </div>
             <div className="space-y-1.5">
               <p className="text-xs font-medium text-muted-foreground">Payment method</p>
