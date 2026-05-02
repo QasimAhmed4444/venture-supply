@@ -8,6 +8,7 @@ import ordersRouter from "./orders.js";
 import customersRouter from "./customers.js";
 import dashboardRouter from "./dashboard.js";
 import authRouter from "./auth.js";
+import realtimeRouter from "./realtime.js";
 
 const router: IRouter = Router();
 
@@ -20,5 +21,6 @@ router.use(adminRouter);
 router.use(ordersRouter);
 router.use(customersRouter);
 router.use(dashboardRouter);
+router.use(realtimeRouter);
 
 export default router;
