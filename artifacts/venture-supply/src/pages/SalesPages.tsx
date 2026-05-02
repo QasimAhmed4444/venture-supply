@@ -8,13 +8,13 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Separator } from "@/components/ui/separator";
-import { Users, ShoppingBag, Wallet, Target, Phone, Eye, Plus, Minus, Search, ShoppingCart } from "lucide-react";
+import { Users, ShoppingBag, Wallet, Target, Phone, Eye, Plus, Minus, Search, ShoppingCart, Loader2, CreditCard, Banknote, Building2 } from "lucide-react";
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from "recharts";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useRole } from "@/contexts/RoleContext";
 import { useToast } from "@/hooks/use-toast";
 import { useCustomers } from "@/hooks/useCustomers";
-import { useOrders } from "@/hooks/useOrders";
+import { useOrders, useCreateOrder } from "@/hooks/useOrders";
 import { useProducts } from "@/hooks/useProducts";
 import { useCategories } from "@/hooks/useCategories";
 import { StatusBadge } from "@/components/StatusBadge";
@@ -203,9 +203,13 @@ export function SalesCreateOrderPage() {
   const { t, language } = useLanguage();
   const { salesperson } = useRole();
   const { toast } = useToast();
-  const [location, setLocation] = useLocation();
-  const queryString = location.split("?")[1] ?? "";
-  const initialCustomerId = new URLSearchParams(queryString).get("customerId") ?? "";
+  const [, setLocation] = useLocation();
+  const createOrder = useCreateOrder();
+
+  const initialCustomerId =
+    typeof window !== "undefined"
+      ? new URLSearchParams(window.location.search).get("customerId") ?? ""
+      : "";
 
   const { data: allCustomers = [] } = useCustomers();
   const { data: products = [] } = useProducts();
@@ -215,7 +219,11 @@ export function SalesCreateOrderPage() {
   const [customerId, setCustomerId] = useState(initialCustomerId || myCustomers[0]?.id || "");
   const [search, setSearch] = useState("");
   const [cat, setCat] = useState("all");
-  const [cart, setCart] = useState<{ productId: string; packSize: string; qty: number; unitPrice: number; enName: string; arName: string }[]>([]);
+  const [paymentMethod, setPaymentMethod] = useState("credit");
+  const [cart, setCart] = useState<{
+    productId: string; packSize: string; qty: number;
+    unitPrice: number; enName: string; arName: string; image: string;
+  }[]>([]);
 
   const filteredProducts = useMemo(() => {
     return products.filter((p) => {
@@ -231,7 +239,15 @@ export function SalesCreateOrderPage() {
     setCart((c) => {
       const existing = c.find((it) => it.productId === p.id && it.packSize === pack?.size);
       if (existing) return c.map((it) => it === existing ? { ...it, qty: it.qty + 1 } : it);
-      return [...c, { productId: p.id, packSize: pack?.size ?? "", qty: p.minOrderQty, unitPrice: pack?.b2bPrice ?? p.b2bPrice, enName: p.enName, arName: p.arName }];
+      return [...c, {
+        productId: p.id,
+        packSize: pack?.size ?? "",
+        qty: p.minOrderQty,
+        unitPrice: pack?.b2bPrice ?? p.b2bPrice,
+        enName: p.enName,
+        arName: p.arName,
+        image: p.image ?? "",
+      }];
     });
   };
 
@@ -249,10 +265,50 @@ export function SalesCreateOrderPage() {
       toast({ title: t("sales.create_order"), description: "Add a customer and items first", variant: "destructive" });
       return;
     }
-    const tid = `VS-O-${Math.floor(2000 + Math.random() * 8000)}`;
-    toast({ title: t("sales.order_created"), description: tid });
-    setCart([]);
-    setLocation("/sales/orders");
+
+    const selectedCustomer = myCustomers.find((c) => c.id === customerId);
+    if (!selectedCustomer) return;
+
+    const id = `o-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+    const trackingId = `VS-O-${Math.floor(1000 + Math.random() * 9000)}`;
+    const placedAt = new Date().toISOString();
+    const estimatedAt = new Date(Date.now() + 4 * 86_400_000).toISOString();
+    const deliveryAddress =
+      selectedCustomer.addresses?.[0]?.fullAddress ?? selectedCustomer.city ?? "TBD";
+
+    createOrder.mutate(
+      {
+        id,
+        trackingId,
+        customerId: selectedCustomer.id,
+        customerName: selectedCustomer.business?.name ?? selectedCustomer.name,
+        customerType: "b2b",
+        salespersonId: salesperson?.id ?? null,
+        status: "new",
+        orderType: "delivery",
+        paymentMethod,
+        placedAt,
+        estimatedAt,
+        deliveryAddress,
+        city: selectedCustomer.city ?? "Riyadh",
+        items: cart.map((it) => ({ ...it })),
+        subtotal,
+        vat,
+        deliveryCharge: 0,
+        total,
+        history: [{ status: "new", at: placedAt }],
+      },
+      {
+        onSuccess: (saved) => {
+          toast({ title: t("sales.order_created"), description: saved.trackingId });
+          setCart([]);
+          setLocation("/sales/orders");
+        },
+        onError: (err: Error) => {
+          toast({ title: "Order failed", description: err.message, variant: "destructive" });
+        },
+      }
+    );
   };
 
   return (
@@ -329,10 +385,40 @@ export function SalesCreateOrderPage() {
             <div className="space-y-1.5 text-sm">
               <div className="flex justify-between"><span className="text-muted-foreground">{t("common.subtotal")}</span><PriceTag amount={subtotal} size="sm" /></div>
               <div className="flex justify-between"><span className="text-muted-foreground">{t("common.vat")}</span><PriceTag amount={vat} size="sm" /></div>
+              <div className="flex justify-between"><span className="text-muted-foreground">Delivery</span><span className="text-emerald-600 font-medium text-xs">Free</span></div>
               <Separator className="my-1" />
               <div className="flex justify-between items-baseline"><span className="font-bold">{t("common.total")}</span><PriceTag amount={total} size="lg" /></div>
             </div>
-            <Button onClick={submit} className="w-full bg-primary hover:bg-primary/90" disabled={cart.length === 0} data-testid="button-submit-sales-order">{t("sales.submit_order")}</Button>
+            <div className="space-y-1.5">
+              <p className="text-xs font-medium text-muted-foreground">Payment method</p>
+              <div className="grid grid-cols-3 gap-1.5">
+                {[
+                  { value: "credit", label: "Credit", Icon: CreditCard },
+                  { value: "bank", label: "Bank", Icon: Building2 },
+                  { value: "cod", label: "Cash", Icon: Banknote },
+                ].map(({ value, label, Icon }) => (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={() => setPaymentMethod(value)}
+                    className={`flex flex-col items-center gap-1 border rounded-md py-2 text-xs font-medium transition-colors ${paymentMethod === value ? "border-primary bg-primary/5 text-primary" : "border-border text-muted-foreground hover:border-primary/50"}`}
+                  >
+                    <Icon className="w-4 h-4" />
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <Button
+              onClick={submit}
+              className="w-full bg-primary hover:bg-primary/90"
+              disabled={cart.length === 0 || createOrder.isPending}
+              data-testid="button-submit-sales-order"
+            >
+              {createOrder.isPending
+                ? <><Loader2 className="w-4 h-4 me-2 animate-spin" />Placing order…</>
+                : t("sales.submit_order")}
+            </Button>
           </CardContent>
         </Card>
       </div>
