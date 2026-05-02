@@ -41,6 +41,8 @@ export interface Order {
   deliveryCharge: number;
   total: number;
   notes?: string;
+  couponCode?: string | null;
+  discount?: number;
   cancellationReason?: string;
   history: Array<{ status: OrderStatus; at: string }>;
 }

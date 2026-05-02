@@ -13,40 +13,46 @@ import { useRole } from "@/contexts/RoleContext";
 import { useToast } from "@/hooks/use-toast";
 import { useOrders } from "@/hooks/useOrders";
 import { useRealtimeOrders, type RealtimeNotification } from "@/hooks/useRealtimeOrders";
-import { products } from "@/data/products";
+import { useProducts } from "@/hooks/useProducts";
+import { useSalespersons } from "@/hooks/useSalespersons";
 import { ProductCard } from "@/components/ProductCard";
 import { StatusBadge } from "@/components/StatusBadge";
 import { PriceTag } from "@/components/PriceTag";
-import { getSalespersonById } from "@/data/salespersons";
 import { useMemo, useState, useCallback, useRef } from "react";
 import type { Order } from "@/data/orders";
 
 // ─── status → human-readable notification copy ───────────────────────────────
 const STATUS_NOTIF: Record<string, { en: string; ar: string; enBody: string; arBody: string }> = {
-  new:              { en: "Order placed successfully",         ar: "تم استلام طلبك",                enBody: "We've received your order and it's being reviewed.", arBody: "لقد استلمنا طلبك وهو قيد المراجعة." },
-  confirmed:        { en: "Order confirmed",                   ar: "تم تأكيد طلبك",                 enBody: "Your order has been confirmed and is in the queue.",  arBody: "تم تأكيد طلبك وهو في قائمة الانتظار." },
-  preparing:        { en: "Order is being prepared",          ar: "جارٍ تجهيز طلبك",               enBody: "Our team is packing your items.",                      arBody: "يقوم فريقنا بتعبئة عناصر طلبك." },
-  out_for_delivery: { en: "Out for delivery",                 ar: "طلبك في الطريق إليك",            enBody: "Estimated arrival within a few hours.",               arBody: "الوصول المتوقع خلال ساعات قليلة." },
-  delivered:        { en: "Order delivered",                  ar: "تم تسليم طلبك",                 enBody: "We hope you enjoy your purchase!",                    arBody: "نتمنى أن تكون سعيدًا بطلبك!" },
-  cancelled:        { en: "Order cancelled",                  ar: "تم إلغاء طلبك",                 enBody: "Your order has been cancelled.",                      arBody: "تم إلغاء طلبك." },
+  new:                { en: "Order placed successfully",         ar: "تم استلام طلبك",                enBody: "We've received your order and it's being reviewed.", arBody: "لقد استلمنا طلبك وهو قيد المراجعة." },
+  confirmed:          { en: "Order confirmed",                   ar: "تم تأكيد طلبك",                 enBody: "Your order has been confirmed and is in the queue.",  arBody: "تم تأكيد طلبك وهو في قائمة الانتظار." },
+  preparing:          { en: "Order is being prepared",           ar: "جارٍ تجهيز طلبك",               enBody: "Our team is packing your items.",                      arBody: "يقوم فريقنا بتعبئة عناصر طلبك." },
+  packed:             { en: "Order packed",                      ar: "تم تعبئة طلبك",                  enBody: "Your order is packed and ready for dispatch.",         arBody: "تم تعبئة طلبك وهو جاهز للشحن." },
+  "out-for-delivery": { en: "Out for delivery",                  ar: "طلبك في الطريق إليك",            enBody: "Estimated arrival within a few hours.",               arBody: "الوصول المتوقع خلال ساعات قليلة." },
+  "ready-for-pickup": { en: "Ready for pickup",                  ar: "طلبك جاهز للاستلام",             enBody: "Visit our hub to collect your order.",                 arBody: "تفضل بزيارة مستودعنا لاستلام طلبك." },
+  delivered:          { en: "Order delivered",                   ar: "تم تسليم طلبك",                 enBody: "We hope you enjoy your purchase!",                    arBody: "نتمنى أن تكون سعيدًا بطلبك!" },
+  cancelled:          { en: "Order cancelled",                   ar: "تم إلغاء طلبك",                 enBody: "Your order has been cancelled.",                      arBody: "تم إلغاء طلبك." },
 };
 
 const STATUS_ICON: Record<string, typeof ShoppingCart> = {
-  new:              ShoppingCart,
-  confirmed:        CheckCircle2,
-  preparing:        Package,
-  out_for_delivery: ShoppingBag,
-  delivered:        CheckCircle2,
-  cancelled:        RefreshCw,
+  new:                ShoppingCart,
+  confirmed:          CheckCircle2,
+  preparing:          Package,
+  packed:             Package,
+  "out-for-delivery": ShoppingBag,
+  "ready-for-pickup": MapPin,
+  delivered:          CheckCircle2,
+  cancelled:          RefreshCw,
 };
 
 const STATUS_COLOR: Record<string, string> = {
-  new:              "bg-blue-100 text-blue-700",
-  confirmed:        "bg-emerald-100 text-emerald-700",
-  preparing:        "bg-amber-100 text-amber-700",
-  out_for_delivery: "bg-violet-100 text-violet-700",
-  delivered:        "bg-emerald-100 text-emerald-700",
-  cancelled:        "bg-red-100 text-red-700",
+  new:                "bg-blue-100 text-blue-700",
+  confirmed:          "bg-emerald-100 text-emerald-700",
+  preparing:          "bg-amber-100 text-amber-700",
+  packed:             "bg-sky-100 text-sky-700",
+  "out-for-delivery": "bg-violet-100 text-violet-700",
+  "ready-for-pickup": "bg-teal-100 text-teal-700",
+  delivered:          "bg-emerald-100 text-emerald-700",
+  cancelled:          "bg-red-100 text-red-700",
 };
 
 // Static non-order notifications appended at the bottom
@@ -97,13 +103,17 @@ export function AccountDashboardPage() {
   const { t, language } = useLanguage();
   const { customer, role } = useRole();
   const { data: orders = [] } = useOrders({ customerId: customer?.id ?? "" });
+  const { data: allProducts = [] } = useProducts();
+  const { data: salespersons = [] } = useSalespersons();
   const [, setLocation] = useLocation();
   if (!customer) return null;
 
   const active = orders.filter((o) => !["delivered", "cancelled"].includes(o.status));
-  const recommended = products.slice(0, 4);
+  const recommended = allProducts.slice(0, 4);
   const isB2B = role === "b2b";
-  const sp = customer.assignedSalespersonId ? getSalespersonById(customer.assignedSalespersonId) : null;
+  const sp = customer.assignedSalespersonId
+    ? salespersons.find((s) => s.id === customer.assignedSalespersonId) ?? null
+    : null;
 
   return (
     <div className="space-y-6">

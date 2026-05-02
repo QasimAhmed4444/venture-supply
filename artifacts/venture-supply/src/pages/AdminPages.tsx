@@ -660,7 +660,7 @@ export function AdminInventoryPage() {
                   <TableCell className="text-xs">{t(`category.${p.categoryId}`)}</TableCell>
                   <TableCell className="text-xs">{brands.find((b) => b.id === p.brandId)?.name ?? "—"}</TableCell>
                   <TableCell><span className={`font-bold ${p.stockStatus === "low-stock" ? "text-amber-700" : p.stockStatus === "out-of-stock" ? "text-rose-700" : "text-emerald-700"}`}>{p.stockQty ?? "—"}</span></TableCell>
-                  <TableCell className="text-xs text-muted-foreground">20</TableCell>
+                  <TableCell className="text-xs text-muted-foreground">{p.minStockQty ?? 20}</TableCell>
                   <TableCell><Badge variant={p.stockStatus === "in-stock" ? "default" : p.stockStatus === "low-stock" ? "secondary" : "destructive"}>{t(`product.${p.stockStatus.replace("-", "_")}`)}</Badge></TableCell>
                   <TableCell className="text-xs text-muted-foreground">—</TableCell>
                   <TableCell className="text-end"><Button size="sm" variant="outline" onClick={() => { setAdjustProd(p); setAdjustQty(String(p.stockQty ?? 0)); setAdjustStatus(p.stockStatus); setAdjustMode("set"); }}>{t("admin.adjust_stock")}</Button></TableCell>
