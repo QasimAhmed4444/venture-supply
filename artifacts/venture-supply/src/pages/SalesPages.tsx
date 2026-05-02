@@ -19,7 +19,7 @@ import { useProducts } from "@/hooks/useProducts";
 import { useCategories } from "@/hooks/useCategories";
 import { StatusBadge } from "@/components/StatusBadge";
 import { PriceTag } from "@/components/PriceTag";
-import { useLocation } from "wouter";
+import { useLocation, Link } from "wouter";
 
 const PRIMARY = "hsl(25, 47%, 24%)";
 const SECONDARY = "hsl(42, 82%, 50%)";
@@ -162,6 +162,7 @@ export function SalesMyOrdersPage() {
   const { data: allCustomers = [] } = useCustomers();
   const { data: allOrders = [] } = useOrders();
 
+  const [, setLocation] = useLocation();
   if (!salesperson) return null;
   const myCustomers = allCustomers.filter((c) => c.assignedSalespersonId === salesperson.id);
   const myOrders = allOrders.filter((o) => myCustomers.some((c) => c.id === o.customerId));
@@ -172,15 +173,22 @@ export function SalesMyOrdersPage() {
       <Card>
         <CardContent className="p-5">
           <Table>
-            <TableHeader><TableRow><TableHead>{t("order.tracking_id")}</TableHead><TableHead>Customer</TableHead><TableHead>{t("order.placed_on")}</TableHead><TableHead>{t("common.total")}</TableHead><TableHead>{t("common.status")}</TableHead></TableRow></TableHeader>
+            <TableHeader><TableRow><TableHead>{t("order.tracking_id")}</TableHead><TableHead>Customer</TableHead><TableHead>{t("order.placed_on")}</TableHead><TableHead>{t("common.total")}</TableHead><TableHead>{t("common.status")}</TableHead><TableHead className="text-end">Track</TableHead></TableRow></TableHeader>
             <TableBody>
               {myOrders.map((o) => (
-                <TableRow key={o.id}>
-                  <TableCell className="font-mono text-xs">{o.trackingId}</TableCell>
+                <TableRow key={o.id} className="cursor-pointer hover:bg-muted/60" onClick={() => setLocation(`/track/${o.trackingId}`)}>
+                  <TableCell className="font-mono text-xs font-semibold text-primary">{o.trackingId}</TableCell>
                   <TableCell className="text-sm font-medium">{o.customerName}</TableCell>
                   <TableCell className="text-xs">{new Date(o.placedAt).toLocaleDateString(language === "ar" ? "ar-SA" : "en-GB")}</TableCell>
                   <TableCell><PriceTag amount={o.total} size="sm" /></TableCell>
                   <TableCell><StatusBadge status={o.status} /></TableCell>
+                  <TableCell className="text-end">
+                    <Link href={`/track/${o.trackingId}`} onClick={(e) => e.stopPropagation()}>
+                      <Button size="sm" variant="ghost" className="text-primary hover:text-primary">
+                        <Eye className="w-3.5 h-3.5 me-1" /> Live
+                      </Button>
+                    </Link>
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>

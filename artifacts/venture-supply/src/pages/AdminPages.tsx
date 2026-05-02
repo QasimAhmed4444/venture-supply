@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { Link } from "wouter";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -442,7 +443,11 @@ export function AdminOrdersPage() {
             <TableBody>
               {filtered.map((o) => (
                 <TableRow key={o.id}>
-                  <TableCell className="font-mono text-xs">{o.trackingId}</TableCell>
+                  <TableCell>
+                    <Link href={`/track/${o.trackingId}`} onClick={(e) => e.stopPropagation()} className="font-mono text-xs font-semibold text-primary hover:underline">
+                      {o.trackingId}
+                    </Link>
+                  </TableCell>
                   <TableCell className="text-sm font-medium">{o.customerName}</TableCell>
                   <TableCell><Badge variant="outline" className="text-xs">{o.customerType.toUpperCase()}</Badge></TableCell>
                   <TableCell className="text-xs">{new Date(o.placedAt).toLocaleDateString(language === "ar" ? "ar-SA" : "en-GB")}</TableCell>

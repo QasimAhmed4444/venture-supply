@@ -1,4 +1,4 @@
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -97,6 +97,7 @@ export function AccountDashboardPage() {
   const { t, language } = useLanguage();
   const { customer, role } = useRole();
   const { data: orders = [] } = useOrders({ customerId: customer?.id ?? "" });
+  const [, setLocation] = useLocation();
   if (!customer) return null;
 
   const active = orders.filter((o) => !["delivered", "cancelled"].includes(o.status));
@@ -142,15 +143,14 @@ export function AccountDashboardPage() {
             <p className="text-sm text-muted-foreground py-8 text-center">{t("account.empty_orders")}</p>
           ) : (
             <Table>
-              <TableHeader><TableRow><TableHead>{t("order.tracking_id")}</TableHead><TableHead>{t("order.placed_on")}</TableHead><TableHead>{t("common.total")}</TableHead><TableHead>{t("common.status")}</TableHead><TableHead></TableHead></TableRow></TableHeader>
+              <TableHeader><TableRow><TableHead>{t("order.tracking_id")}</TableHead><TableHead>{t("order.placed_on")}</TableHead><TableHead>{t("common.total")}</TableHead><TableHead>{t("common.status")}</TableHead></TableRow></TableHeader>
               <TableBody>
                 {orders.slice(0, 5).map((o) => (
-                  <TableRow key={o.id} data-testid={`row-account-order-${o.id}`}>
-                    <TableCell className="font-mono text-xs">{o.trackingId}</TableCell>
+                  <TableRow key={o.id} data-testid={`row-account-order-${o.id}`} className="cursor-pointer hover:bg-muted/60" onClick={() => setLocation(`/track/${o.trackingId}`)}>
+                    <TableCell className="font-mono text-xs font-semibold text-primary">{o.trackingId}</TableCell>
                     <TableCell className="text-sm">{new Date(o.placedAt).toLocaleDateString(language === "ar" ? "ar-SA" : "en-GB")}</TableCell>
                     <TableCell><PriceTag amount={o.total} size="sm" /></TableCell>
                     <TableCell><StatusBadge status={o.status} /></TableCell>
-                    <TableCell><Link href={`/track/${o.trackingId}`}><Button size="sm" variant="ghost"><Eye className="w-3.5 h-3.5" /></Button></Link></TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -190,6 +190,7 @@ export function AccountOrdersPage() {
   const { t, language } = useLanguage();
   const { customer } = useRole();
   const { data: orders = [], isLoading } = useOrders({ customerId: customer?.id ?? "" });
+  const [, setLocation] = useLocation();
   if (!customer) return null;
 
   return (
