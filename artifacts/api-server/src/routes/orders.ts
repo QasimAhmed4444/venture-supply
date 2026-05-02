@@ -25,6 +25,8 @@ function toCamel(row: Record<string, unknown>) {
     deliveryCharge: Number(row.delivery_charge),
     total: Number(row.total),
     notes: row.notes ?? null,
+    couponCode: (row.coupon_code as string | null) ?? null,
+    discount: row.discount ? Number(row.discount) : undefined,
     cancellationReason: row.cancellation_reason,
     history: row.history ?? [],
   };
@@ -32,17 +34,36 @@ function toCamel(row: Record<string, unknown>) {
 
 router.get("/orders", async (req, res) => {
   const sb = getSupabase();
-  if (!sb) return res.json(seedOrders);
+  // Determine whether any scoping filters are active
+  const hasFilter = !!(req.query.customerId || req.query.salespersonId);
+  if (!sb) {
+    // When filtered, return only matching seed rows (or empty)
+    if (hasFilter) {
+      let rows = seedOrders as any[];
+      if (req.query.customerId) rows = rows.filter((o) => o.customerId === req.query.customerId);
+      if (req.query.salespersonId) rows = rows.filter((o) => o.salespersonId === req.query.salespersonId);
+      if (req.query.status && req.query.status !== "all") rows = rows.filter((o) => o.status === req.query.status);
+      return res.json(rows);
+    }
+    return res.json(seedOrders);
+  }
   try {
     let q = sb.from("orders").select("*").order("placed_at", { ascending: false });
     if (req.query.status && req.query.status !== "all") q = q.eq("status", req.query.status as string);
     if (req.query.customerId) q = q.eq("customer_id", req.query.customerId as string);
     if (req.query.salespersonId) q = q.eq("salesperson_id", req.query.salespersonId as string);
     const { data, error } = await q;
-    if (error || !data) return res.json(seedOrders);
-    return res.json(data.length ? data.map(toCamel) : seedOrders);
+    if (error || !data) {
+      // On DB error, fall back to seed only for unfiltered admin queries
+      return hasFilter ? res.json([]) : res.json(seedOrders);
+    }
+    // Empty result: respect the filter — don't leak other customers' orders
+    if (data.length === 0) {
+      return hasFilter ? res.json([]) : res.json(seedOrders);
+    }
+    return res.json(data.map(toCamel));
   } catch {
-    return res.json(seedOrders);
+    return hasFilter ? res.json([]) : res.json(seedOrders);
   }
 });
 

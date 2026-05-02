@@ -198,35 +198,115 @@ function KpiCard({ icon: Icon, label, value }: { icon: any; label: string; value
 }
 
 // ─── AccountOrdersPage ────────────────────────────────────────────────────────
+const ORDER_FILTER_TABS = [
+  { key: "all",       label: "All" },
+  { key: "active",    label: "Active" },
+  { key: "delivered", label: "Delivered" },
+  { key: "cancelled", label: "Cancelled" },
+] as const;
+
+type OrderFilterKey = typeof ORDER_FILTER_TABS[number]["key"];
+
+const ACTIVE_STATUSES = new Set(["new", "confirmed", "preparing", "packed", "out-for-delivery", "ready-for-pickup"]);
+
 export function AccountOrdersPage() {
   const { t, language } = useLanguage();
   const { customer } = useRole();
-  const { data: orders = [], isLoading } = useOrders({ customerId: customer?.id ?? "" });
-  const [, setLocation] = useLocation();
+  const [filter, setFilter] = useState<OrderFilterKey>("all");
+  const { data: allOrders = [], isLoading } = useOrders({ customerId: customer?.id ?? "" });
   if (!customer) return null;
+
+  const orders = allOrders.filter((o) => {
+    if (filter === "all") return true;
+    if (filter === "active") return ACTIVE_STATUSES.has(o.status);
+    if (filter === "delivered") return o.status === "delivered";
+    if (filter === "cancelled") return o.status === "cancelled";
+    return true;
+  });
+
+  const counts: Record<OrderFilterKey, number> = {
+    all:       allOrders.length,
+    active:    allOrders.filter((o) => ACTIVE_STATUSES.has(o.status)).length,
+    delivered: allOrders.filter((o) => o.status === "delivered").length,
+    cancelled: allOrders.filter((o) => o.status === "cancelled").length,
+  };
 
   return (
     <Card>
       <CardContent className="p-5 space-y-4">
         <h1 className="font-bold text-xl">{t("account.orders")}</h1>
+
+        {/* Filter tabs */}
+        <div className="flex gap-1 border-b pb-0 -mx-5 px-5 overflow-x-auto">
+          {ORDER_FILTER_TABS.map((tab) => (
+            <button
+              key={tab.key}
+              onClick={() => setFilter(tab.key)}
+              className={`px-3 py-2 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${
+                filter === tab.key
+                  ? "border-primary text-primary"
+                  : "border-transparent text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              {tab.label}
+              {counts[tab.key] > 0 && (
+                <span className={`ms-1.5 text-xs px-1.5 py-0.5 rounded-full font-semibold ${
+                  filter === tab.key ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"
+                }`}>
+                  {counts[tab.key]}
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
+
         {isLoading ? (
           <div className="flex justify-center py-12">
             <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
           </div>
         ) : orders.length === 0 ? (
-          <p className="text-sm text-muted-foreground py-12 text-center">{t("account.empty_orders")}</p>
+          <div className="text-center py-12 space-y-2">
+            <ShoppingBag className="w-10 h-10 text-muted-foreground/40 mx-auto" />
+            <p className="text-sm font-medium text-muted-foreground">
+              {filter === "all"
+                ? t("account.empty_orders")
+                : `No ${filter} orders`}
+            </p>
+            {filter === "all" && (
+              <Link href="/products">
+                <Button size="sm" variant="outline" className="mt-2">Browse products</Button>
+              </Link>
+            )}
+          </div>
         ) : (
           <Table>
-            <TableHeader><TableRow><TableHead>{t("order.tracking_id")}</TableHead><TableHead>{t("order.placed_on")}</TableHead><TableHead>Items</TableHead><TableHead>{t("common.total")}</TableHead><TableHead>{t("common.status")}</TableHead><TableHead></TableHead></TableRow></TableHeader>
+            <TableHeader>
+              <TableRow>
+                <TableHead>{t("order.tracking_id")}</TableHead>
+                <TableHead>{t("order.placed_on")}</TableHead>
+                <TableHead>Items</TableHead>
+                <TableHead>{t("common.total")}</TableHead>
+                <TableHead>{t("common.status")}</TableHead>
+                <TableHead></TableHead>
+              </TableRow>
+            </TableHeader>
             <TableBody>
               {orders.map((o) => (
-                <TableRow key={o.id}>
-                  <TableCell className="font-mono text-xs">{o.trackingId}</TableCell>
-                  <TableCell className="text-sm">{new Date(o.placedAt).toLocaleDateString(language === "ar" ? "ar-SA" : "en-GB")}</TableCell>
-                  <TableCell className="text-sm">{o.items.length}</TableCell>
+                <TableRow key={o.id} className="hover:bg-muted/30">
+                  <TableCell className="font-mono text-xs text-secondary font-semibold">{o.trackingId}</TableCell>
+                  <TableCell className="text-sm text-muted-foreground">
+                    {new Date(o.placedAt).toLocaleDateString(language === "ar" ? "ar-SA" : "en-GB", { day: "numeric", month: "short", year: "numeric" })}
+                  </TableCell>
+                  <TableCell className="text-sm">{o.items.length} {o.items.length === 1 ? "item" : "items"}</TableCell>
                   <TableCell><PriceTag amount={o.total} size="sm" /></TableCell>
                   <TableCell><StatusBadge status={o.status} /></TableCell>
-                  <TableCell><Link href={`/track/${o.trackingId}`}><Button size="sm" variant="ghost"><Eye className="w-3.5 h-3.5 me-1" /> {t("common.view")}</Button></Link></TableCell>
+                  <TableCell>
+                    <Link href={`/track/${o.trackingId}`}>
+                      <Button size="sm" variant="ghost" className="text-secondary hover:text-secondary/80">
+                        <Eye className="w-3.5 h-3.5 me-1" /> {t("common.view")}
+                      </Button>
+                    </Link>
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>
