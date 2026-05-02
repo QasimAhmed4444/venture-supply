@@ -8,7 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Separator } from "@/components/ui/separator";
-import { Users, ShoppingBag, Wallet, Target, Phone, Eye, Plus, Minus, Search, ShoppingCart, Loader2, CreditCard, Banknote, Building2 } from "lucide-react";
+import { Users, ShoppingBag, Wallet, Target, Phone, Eye, Plus, Minus, Search, ShoppingCart, Loader2, CreditCard, Banknote, Building2, ArrowLeft, MapPin, Package } from "lucide-react";
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from "recharts";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useRole } from "@/contexts/RoleContext";
@@ -19,7 +19,7 @@ import { useProducts } from "@/hooks/useProducts";
 import { useCategories } from "@/hooks/useCategories";
 import { StatusBadge } from "@/components/StatusBadge";
 import { PriceTag } from "@/components/PriceTag";
-import { useLocation, Link } from "wouter";
+import { useLocation } from "wouter";
 
 const PRIMARY = "hsl(25, 47%, 24%)";
 const SECONDARY = "hsl(42, 82%, 50%)";
@@ -72,8 +72,8 @@ export function SalesDashboardPage() {
               <LineChart data={trend}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
                 <XAxis dataKey="day" tick={{ fontSize: 11 }} />
-                <YAxis tick={{ fontSize: 11 }} />
-                <Tooltip />
+                <YAxis tick={{ fontSize: 11 }} tickFormatter={(v: number) => v >= 1000 ? `${(v / 1000).toFixed(0)}K` : String(v)} />
+                <Tooltip formatter={(v: number) => [`SAR ${v.toLocaleString()}`, "Sales"]} />
                 <Line type="monotone" dataKey="sales" stroke={PRIMARY} strokeWidth={2.5} dot={{ r: 0 }} />
               </LineChart>
             </ResponsiveContainer>
@@ -161,11 +161,99 @@ export function SalesMyOrdersPage() {
   const { salesperson } = useRole();
   const { data: allCustomers = [] } = useCustomers();
   const { data: allOrders = [] } = useOrders();
+  const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
 
-  const [, setLocation] = useLocation();
   if (!salesperson) return null;
   const myCustomers = allCustomers.filter((c) => c.assignedSalespersonId === salesperson.id);
   const myOrders = allOrders.filter((o) => myCustomers.some((c) => c.id === o.customerId));
+  const selectedOrder = myOrders.find((o) => o.id === selectedOrderId) ?? null;
+
+  if (selectedOrder) {
+    return (
+      <div className="space-y-4">
+        <Button variant="ghost" className="gap-2 -ms-2 text-muted-foreground hover:text-foreground" onClick={() => setSelectedOrderId(null)}>
+          <ArrowLeft className="w-4 h-4" /> {t("common.back")}
+        </Button>
+        <div className="flex items-center justify-between flex-wrap gap-2">
+          <div>
+            <h1 className="text-2xl font-bold font-mono">{selectedOrder.trackingId}</h1>
+            <p className="text-sm text-muted-foreground">{selectedOrder.customerName} · {new Date(selectedOrder.placedAt).toLocaleDateString(language === "ar" ? "ar-SA" : "en-GB")}</p>
+          </div>
+          <StatusBadge status={selectedOrder.status} />
+        </div>
+
+        <div className="grid lg:grid-cols-3 gap-4">
+          <Card className="lg:col-span-2">
+            <CardContent className="p-5 space-y-3">
+              <h2 className="font-bold flex items-center gap-2"><Package className="w-4 h-4" /> Order Items</h2>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Product</TableHead>
+                    <TableHead>Pack</TableHead>
+                    <TableHead className="text-center">Qty</TableHead>
+                    <TableHead className="text-end">Unit Price</TableHead>
+                    <TableHead className="text-end">Total</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {selectedOrder.items.map((item, i) => (
+                    <TableRow key={i}>
+                      <TableCell className="font-medium text-sm">{language === "ar" ? item.arName : item.enName}</TableCell>
+                      <TableCell className="text-xs text-muted-foreground">{item.packSize}</TableCell>
+                      <TableCell className="text-center">{item.qty}</TableCell>
+                      <TableCell className="text-end"><PriceTag amount={item.unitPrice} size="sm" /></TableCell>
+                      <TableCell className="text-end"><PriceTag amount={item.unitPrice * item.qty} size="sm" /></TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+              <Separator />
+              <div className="space-y-1.5 text-sm max-w-xs ms-auto">
+                <div className="flex justify-between"><span className="text-muted-foreground">{t("common.subtotal")}</span><PriceTag amount={selectedOrder.subtotal} size="sm" /></div>
+                <div className="flex justify-between"><span className="text-muted-foreground">{t("common.vat")} (15%)</span><PriceTag amount={selectedOrder.vat} size="sm" /></div>
+                {selectedOrder.deliveryCharge > 0 && (
+                  <div className="flex justify-between"><span className="text-muted-foreground">Delivery</span><PriceTag amount={selectedOrder.deliveryCharge} size="sm" /></div>
+                )}
+                <Separator />
+                <div className="flex justify-between font-bold"><span>{t("common.total")}</span><PriceTag amount={selectedOrder.total} size="md" /></div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <div className="space-y-4">
+            <Card>
+              <CardContent className="p-5 space-y-3">
+                <h2 className="font-bold flex items-center gap-2"><MapPin className="w-4 h-4" /> Delivery</h2>
+                <p className="text-sm">{selectedOrder.deliveryAddress}</p>
+                <Separator />
+                <div className="text-sm space-y-1">
+                  <div className="flex justify-between"><span className="text-muted-foreground">Payment</span><span className="capitalize font-medium">{selectedOrder.paymentMethod}</span></div>
+                  <div className="flex justify-between"><span className="text-muted-foreground">Type</span><span className="capitalize font-medium">{selectedOrder.orderType}</span></div>
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-5 space-y-3">
+                <h2 className="font-bold">Status History</h2>
+                <div className="space-y-2">
+                  {[...(selectedOrder.history ?? [])].reverse().map((h, i) => (
+                    <div key={i} className="flex items-center gap-3 text-sm">
+                      <div className={`w-2 h-2 rounded-full shrink-0 ${i === 0 ? "bg-primary" : "bg-muted-foreground/40"}`} />
+                      <div>
+                        <StatusBadge status={h.status} />
+                        <p className="text-xs text-muted-foreground mt-0.5">{new Date(h.at).toLocaleString(language === "ar" ? "ar-SA" : "en-GB")}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">
@@ -173,21 +261,19 @@ export function SalesMyOrdersPage() {
       <Card>
         <CardContent className="p-5">
           <Table>
-            <TableHeader><TableRow><TableHead>{t("order.tracking_id")}</TableHead><TableHead>Customer</TableHead><TableHead>{t("order.placed_on")}</TableHead><TableHead>{t("common.total")}</TableHead><TableHead>{t("common.status")}</TableHead><TableHead className="text-end">Track</TableHead></TableRow></TableHeader>
+            <TableHeader><TableRow><TableHead>{t("order.tracking_id")}</TableHead><TableHead>Customer</TableHead><TableHead>{t("order.placed_on")}</TableHead><TableHead>{t("common.total")}</TableHead><TableHead>{t("common.status")}</TableHead><TableHead className="text-end">{t("common.actions")}</TableHead></TableRow></TableHeader>
             <TableBody>
               {myOrders.map((o) => (
-                <TableRow key={o.id} className="cursor-pointer hover:bg-muted/60" onClick={() => setLocation(`/track/${o.trackingId}`)}>
+                <TableRow key={o.id} className="cursor-pointer hover:bg-muted/60" onClick={() => setSelectedOrderId(o.id)}>
                   <TableCell className="font-mono text-xs font-semibold text-primary">{o.trackingId}</TableCell>
                   <TableCell className="text-sm font-medium">{o.customerName}</TableCell>
                   <TableCell className="text-xs">{new Date(o.placedAt).toLocaleDateString(language === "ar" ? "ar-SA" : "en-GB")}</TableCell>
                   <TableCell><PriceTag amount={o.total} size="sm" /></TableCell>
                   <TableCell><StatusBadge status={o.status} /></TableCell>
                   <TableCell className="text-end">
-                    <Link href={`/track/${o.trackingId}`} onClick={(e) => e.stopPropagation()}>
-                      <Button size="sm" variant="ghost" className="text-primary hover:text-primary">
-                        <Eye className="w-3.5 h-3.5 me-1" /> Live
-                      </Button>
-                    </Link>
+                    <Button size="sm" variant="ghost" className="text-primary hover:text-primary" onClick={(e) => { e.stopPropagation(); setSelectedOrderId(o.id); }}>
+                      <Eye className="w-3.5 h-3.5 me-1" /> View
+                    </Button>
                   </TableCell>
                 </TableRow>
               ))}

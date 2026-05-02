@@ -26,7 +26,7 @@ const heroSlides = [
     arSubtitle: "توزيع غذائي بالجملة لتجار التجزئة والمطاعم والفنادق وشركات التموين السعودية.",
   },
   {
-    image: "https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=1800&q=80",
+    image: "https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?w=1800&q=80",
     enTitle: "Your trusted\nfood distribution partner",
     arTitle: "شريككم الموثوق\nفي توزيع الغذاء",
     enSubtitle: "Serving retail chains and the HORECA sector across Saudi Arabia since 2019.",

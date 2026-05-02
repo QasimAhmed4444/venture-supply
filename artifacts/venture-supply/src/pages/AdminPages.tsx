@@ -137,10 +137,32 @@ export function AdminDashboardPage() {
             <div className="h-64">
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
-                  <Pie data={statusData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={75} label={(e) => e.name}>
+                  <Pie
+                    data={statusData}
+                    dataKey="value"
+                    nameKey="name"
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={48}
+                    outerRadius={78}
+                    paddingAngle={2}
+                    label={({ cx, cy, midAngle, outerRadius: or, name, percent }) => {
+                      const RADIAN = Math.PI / 180;
+                      const radius = or + 22;
+                      const x = cx + radius * Math.cos(-midAngle * RADIAN);
+                      const y = cy + radius * Math.sin(-midAngle * RADIAN);
+                      return (
+                        <text x={x} y={y} textAnchor={x > cx ? "start" : "end"} dominantBaseline="central" fontSize={10} fill="#374151">
+                          <tspan x={x} dy="0">{name}</tspan>
+                          <tspan x={x} dy="13" fontWeight="600" fill={COLORS[statusData.findIndex((d) => d.name === name) % COLORS.length]}>{`${(percent * 100).toFixed(0)}%`}</tspan>
+                        </text>
+                      );
+                    }}
+                    labelLine={{ stroke: "#9ca3af", strokeWidth: 1 }}
+                  >
                     {statusData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
                   </Pie>
-                  <Tooltip />
+                  <Tooltip formatter={(v: number, name: string) => [v, name]} />
                 </PieChart>
               </ResponsiveContainer>
             </div>

@@ -3,6 +3,14 @@ import { getSupabase } from "../lib/supabase.js";
 
 const router = Router();
 
+const FALLBACK_COUPONS = [
+  { id: "cp-b2b500",    code: "B2B500",    en_title: "B2B Discount 500 SAR",  ar_title: "خصم الشركات 500 ر.س",   type: "fixed",        value: 500,  min_order: 1000, audience: "b2b",  max_uses: null, uses_count: 0, starts_at: null, ends_at: null, is_active: true },
+  { id: "cp-b2b1k",     code: "B2B1000",   en_title: "B2B Discount 1000 SAR", ar_title: "خصم الشركات 1000 ر.س",  type: "fixed",        value: 1000, min_order: 3000, audience: "b2b",  max_uses: null, uses_count: 0, starts_at: null, ends_at: null, is_active: true },
+  { id: "cp-welcome10", code: "WELCOME10",  en_title: "Welcome 10% Off",       ar_title: "خصم الترحيب 10%",       type: "percent",      value: 10,   min_order: 0,    audience: "both", max_uses: null, uses_count: 0, starts_at: null, ends_at: null, is_active: true },
+  { id: "cp-freeship",  code: "FREESHIP",   en_title: "Free Shipping",         ar_title: "شحن مجاني",             type: "free_delivery", value: 0,   min_order: 0,    audience: "b2c",  max_uses: null, uses_count: 0, starts_at: null, ends_at: null, is_active: true },
+  { id: "cp-ramadan20", code: "RAMADAN20",  en_title: "Ramadan 20% Off",       ar_title: "رمضان خصم 20%",         type: "percent",      value: 20,   min_order: 200,  audience: "both", max_uses: null, uses_count: 0, starts_at: null, ends_at: null, is_active: true },
+];
+
 function toCamel(row: Record<string, unknown>) {
   return {
     id: row.id,
@@ -43,9 +51,11 @@ router.get("/coupons/validate", async (req, res) => {
     .ilike("code", code)
     .single();
 
-  if (error || !data) return res.status(404).json({ error: "Coupon not found" });
+  const raw = data ?? FALLBACK_COUPONS.find((c) => c.code === code.toUpperCase()) ?? null;
+  if (error && !raw) return res.status(404).json({ error: "Coupon not found" });
+  if (!raw) return res.status(404).json({ error: "Coupon not found" });
 
-  const coupon = toCamel(data as Record<string, unknown>);
+  const coupon = toCamel(raw as Record<string, unknown>);
   const now = new Date();
 
   if (!coupon.isActive) return res.status(400).json({ error: "Coupon is inactive" });
