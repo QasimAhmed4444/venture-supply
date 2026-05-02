@@ -2,6 +2,7 @@ import { ReactNode } from "react";
 import { Link, useLocation } from "wouter";
 import { DemoSwitcher } from "@/components/DemoSwitcher";
 import { Logo } from "@/components/Logo";
+import { ScrollToTop } from "@/components/ScrollToTop";
 import { Button } from "@/components/ui/button";
 import { NotificationBell } from "@/components/NotificationBell";
 import { LayoutDashboard, FolderTree, Boxes, Package, ShoppingBag, Users, Briefcase, Tag, Sparkles, BarChart3, Settings, LogOut } from "lucide-react";
@@ -29,6 +30,7 @@ export function AdminLayout({ children }: { children: ReactNode }) {
 
   return (
     <div className="min-h-screen flex flex-col bg-muted/30">
+      <ScrollToTop />
       <DemoSwitcher />
       <div className="flex flex-1">
         <aside className={`w-64 bg-card border-${isRTL ? "l" : "r"} flex flex-col shrink-0 hidden lg:flex`}>

@@ -10,24 +10,17 @@ interface LogoProps {
 export function Logo({ size = "md", variant = "default", showText = false }: LogoProps) {
   const { t } = useLanguage();
 
-  const containerH =
-    size === "sm" ? 40 : size === "lg" ? 72 : size === "xl" ? 96 : 52;
-  const imgH = Math.round(containerH * 1.35);
+  const h = size === "sm" ? 44 : size === "lg" ? 68 : size === "xl" ? 96 : 56;
 
   return (
-    <div className="flex items-center gap-3" data-testid="logo">
-      <div
-        className="flex items-center justify-center overflow-hidden"
-        style={{ height: containerH, width: "auto" }}
-      >
-        <img
-          src={vsLogo}
-          alt={t("brand.name")}
-          style={{ height: imgH, width: "auto", objectFit: "contain" }}
-          className={variant === "light" ? "brightness-0 invert" : ""}
-          draggable={false}
-        />
-      </div>
+    <div className="flex items-center gap-2" data-testid="logo">
+      <img
+        src={vsLogo}
+        alt={t("brand.name")}
+        style={{ height: h, width: "auto", objectFit: "contain", display: "block" }}
+        className={variant === "light" ? "brightness-0 invert" : ""}
+        draggable={false}
+      />
       {showText && (
         <span
           className={`font-bold tracking-tight ${variant === "light" ? "text-white" : "text-primary"} ${size === "lg" || size === "xl" ? "text-xl" : "text-base"}`}

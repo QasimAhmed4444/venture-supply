@@ -6,9 +6,9 @@ import { ArrowRight, Truck, ShieldCheck, HandCoins, Headphones, Award, MapPin, L
 import { ProductCard } from "@/components/ProductCard";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useRole } from "@/contexts/RoleContext";
-import { categories } from "@/data/categories";
-import { brands } from "@/data/brands";
-import { products } from "@/data/products";
+import { useProducts } from "@/hooks/useProducts";
+import { useCategories } from "@/hooks/useCategories";
+import { useBrands } from "@/hooks/useBrands";
 
 const heroSlides = [
   {
@@ -37,7 +37,10 @@ const heroSlides = [
 export function HomePage() {
   const { t, isRTL } = useLanguage();
   const { role } = useRole();
-  const popular = products.slice(0, 4);
+  const { data: products = [] } = useProducts();
+  const { data: categories = [] } = useCategories();
+  const { data: brands = [] } = useBrands();
+  const popular = products.filter((p) => p.featured).slice(0, 4).concat(products.slice(0, 4)).slice(0, 4);
   const [slideIdx, setSlideIdx] = useState(0);
   const brandScrollRef = useRef<HTMLDivElement>(null);
 

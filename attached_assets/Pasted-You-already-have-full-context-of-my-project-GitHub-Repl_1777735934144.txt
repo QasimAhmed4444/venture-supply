@@ -1,0 +1,239 @@
+You already have full context of my project, GitHub, Replit, Supabase, existing UI, current theme/colors, and all previous instructions.
+
+This is now a REAL ecommerce platform, not a demo, not UI-only, and not mock-data work. I am not satisfied with the current output because many features are broken, incomplete, coming soon, or only visual placeholders.
+
+Your task is to audit everything and fix it properly while keeping the same theme, same color codes, same branding direction, and same overall UI identity.
+
+Important:
+Do not rebuild from scratch.
+Do not change the theme/colors.
+Do not destroy the existing UI.
+Improve UX, placement, flow, real functionality, and backend connection.
+
+Main Requirements:
+
+1. Full Real Data System
+- Remove all mock/dummy/static data from active pages.
+- Connect the full platform to Supabase real data.
+- All B2B and B2C flows must work with real records.
+- Admin changes must reflect on the frontend in real time or after refresh.
+- No “coming soon” feature should remain where the UI already shows that feature.
+
+2. Admin Panel Audit + Fix
+Review the entire admin panel carefully.
+
+Fix:
+- Left navbar items that are not working.
+- Broken routes.
+- Pages showing “coming soon”.
+- Buttons that do nothing.
+- Fixed/static notification system.
+- CRUD not working.
+- Dashboard dead data.
+- Poor navigation and confusing layout.
+
+Admin must be able to perform full CRUD on all available modules already present in the UI, including:
+- Products
+- Categories
+- Subcategories
+- Brands
+- Orders
+- Customers
+- B2B inquiries/customers if present
+- Coupons
+- Banners
+- Alerts/notifications
+- Any other module already shown in the admin UI
+
+3. Supabase Storage for Images
+Set up and use Supabase Storage for all images:
+- Product images
+- Category images
+- Subcategory images
+- Brand logos
+- Banner images
+- General uploads
+
+Requirements:
+- Upload images from admin.
+- Store image URLs/paths properly.
+- Load images from Supabase Storage across the site.
+- Use existing images I provided where available.
+- If an image is missing, use a realistic product-related image from the internet, not random clothing/irrelevant images.
+- Hero banner must match the actual business/products, not clothes or unrelated visuals.
+
+4. Real Categories, Subcategories, Products, and Pricing
+I will share an Excel file with my real menu, categories, subcategories, products, and pricing.
+
+Use that Excel as the source of truth.
+- Import/seed those categories, subcategories, products, and pricing into Supabase.
+- Structure them properly.
+- Ensure admin can add/edit/delete them later.
+- New items added from admin must appear on the website correctly.
+
+5. Homepage UI/UX Fix
+Improve the homepage view and placement.
+
+Fix:
+- Logo is cut off.
+- Hero/banner placement is poor.
+- Product/category sections are not visually clear.
+- Layout feels unprofessional.
+- Notification icon has green indicator but no actual notifications.
+- Hero image is irrelevant.
+- Spacing, alignment, hierarchy, and section flow need improvement.
+
+Keep the same theme/colors, but make it look like a polished real ecommerce platform.
+
+6. Routing + Scrolling Bugs
+There is a major UX issue:
+When I click checkout or other pages, it jumps to the footer instead of starting at the top.
+
+Fix:
+- Page routing.
+- Scroll restoration.
+- Smooth page scrolling.
+- Checkout navigation.
+- Product page navigation.
+- Admin page navigation.
+- All route transitions should start from the correct position.
+- No page should randomly open at the footer.
+
+7. Checkout + Payment UX
+Checkout must work properly.
+
+Fix:
+- When I select card payment, it should show card input fields.
+- Add proper payment method UI behavior.
+- Add validation before placing order.
+- Add required field validation.
+- Add clear error messages.
+- Add order confirmation.
+- Ensure order is saved to Supabase.
+- Ensure admin dashboard/order list receives the new order.
+
+8. Coupon Code System
+Introduce a real coupon code system for B2C checkout.
+
+Admin CRUD:
+- Create coupon
+- Edit coupon
+- Delete coupon
+- Enable/disable coupon
+- Set discount type: percentage/fixed
+- Set minimum order value
+- Set expiry date
+- Set usage limit
+- Validate coupon during checkout
+
+Customer side:
+- Apply coupon during checkout.
+- Show discount clearly.
+- Prevent invalid/expired/disabled coupons.
+- Prevent wrong calculations.
+- Save applied coupon with the order.
+
+9. Real Notification + Alert System
+Current notification system is dead/static.
+
+Build real notification behavior:
+- New order creates admin notification.
+- Low stock creates warning.
+- Failed/cancelled issue creates critical alert.
+- Normal updates are green.
+- Warnings are yellow.
+- Critical alerts are red.
+
+Standard colors:
+- Critical = red
+- Warning = yellow
+- Normal/success = green
+
+Notifications must be real, not generated fake alerts.
+
+10. Dashboard UI/UX + Data
+Dashboard currently looks dull and charts are wrong.
+
+Fix:
+- Use real Supabase data.
+- Improve dashboard cards, spacing, hierarchy, and readability.
+- Donut chart should not look like a full filled circle unless data actually means that.
+- Show meaningful analytics.
+- Show recent orders.
+- Show alerts.
+- Show sales/revenue.
+- Show products/customers/orders.
+- Show low stock.
+- Make dashboard feel like a real ecommerce admin dashboard.
+
+11. B2B + B2C Platform Readiness
+This platform will serve real B2C customers and B2B customers.
+
+Ensure:
+- B2C customer ordering works.
+- B2B flow/pages shown in UI are functional.
+- No fake forms.
+- No dead buttons.
+- No placeholder pages.
+- No “coming soon” on existing visible features.
+- All submitted data is stored in Supabase.
+
+12. Validation + Verification
+Add proper validation across the platform:
+- Required fields
+- Email format
+- Phone format where needed
+- Price validation
+- Stock validation
+- Coupon validation
+- Image upload validation
+- Order validation
+- Admin form validation
+
+Show clean user-friendly messages.
+
+13. UX Improvements Across Platform
+Act as a top UI/UX designer and senior full-stack engineer.
+
+Fix:
+- Feature discoverability.
+- Bad placement.
+- Difficult scrolling.
+- Confusing admin navigation.
+- Broken buttons.
+- Empty states.
+- Loading states.
+- Error states.
+- Success states.
+- Form UX.
+- Tables and filters.
+- Search where needed.
+- Clear action buttons.
+- Consistent spacing and alignment.
+
+14. GitHub + Code Quality
+- Maintain frontend and backend in the existing GitHub repo.
+- Push clean commits.
+- Do not create a new project.
+- Use clean service/API structure.
+- Keep Supabase keys safe.
+- Document required env variables.
+- Keep code maintainable and scalable.
+
+Final Output Required:
+Before saying done, provide:
+- What admin pages were broken and fixed.
+- What left navbar items were not working and fixed.
+- What mock data was removed.
+- What CRUD modules are now working.
+- What Supabase Storage buckets were created.
+- What checkout/payment/coupon fixes were completed.
+- What notification/alert logic was implemented.
+- What routing/scrolling bugs were fixed.
+- What dashboard improvements were made.
+- What Excel data was imported.
+- Test admin credentials.
+- Test sales credentials.
+- Any remaining limitation, only if truly unavoidable.
+
+This is a launch-ready real ecommerce platform. Treat it as production work, not demo work.

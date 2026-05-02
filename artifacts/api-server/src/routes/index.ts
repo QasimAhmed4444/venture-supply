@@ -9,6 +9,7 @@ import customersRouter from "./customers.js";
 import dashboardRouter from "./dashboard.js";
 import authRouter from "./auth.js";
 import realtimeRouter from "./realtime.js";
+import couponsRouter from "./coupons.js";
 
 const router: IRouter = Router();
 
@@ -22,5 +23,6 @@ router.use(ordersRouter);
 router.use(customersRouter);
 router.use(dashboardRouter);
 router.use(realtimeRouter);
+router.use(couponsRouter);
 
 export default router;

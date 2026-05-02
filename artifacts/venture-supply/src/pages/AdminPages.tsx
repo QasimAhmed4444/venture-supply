@@ -22,13 +22,13 @@ import { useCustomers } from "@/hooks/useCustomers";
 import { useOrders, useUpdateOrderStatus } from "@/hooks/useOrders";
 import { useDashboard } from "@/hooks/useDashboard";
 import {
-  useCreateProduct, useDeleteProduct,
-  useCreateCategory, useDeleteCategory,
-  useCreateBrand, useDeleteBrand,
+  useCreateProduct, useDeleteProduct, useUpdateProduct,
+  useCreateCategory, useDeleteCategory, useUpdateCategory,
+  useCreateBrand, useDeleteBrand, useUpdateBrand,
 } from "@/hooks/useMutations";
+import { useCoupons, useCreateCoupon, useUpdateCoupon, useDeleteCoupon, type Coupon } from "@/hooks/useCoupons";
 import { salespersons } from "@/data/salespersons";
 import { ORDER_STATUSES, type Order, type OrderStatus } from "@/data/orders";
-import { promotions } from "@/data/promotions";
 import { StatusBadge } from "@/components/StatusBadge";
 import { PriceTag } from "@/components/PriceTag";
 
@@ -47,10 +47,13 @@ export function AdminDashboardPage() {
   const pendingOrders = stats?.pendingOrders ?? orders.filter((o) => ["new", "confirmed", "preparing", "packed"].includes(o.status)).length;
   const lowStock = stats?.lowStock ?? products.filter((p) => p.stockStatus === "low-stock").length;
 
-  const revenueData = Array.from({ length: 30 }, (_, i) => ({
-    day: i + 1,
-    revenue: 8000 + Math.round(Math.sin(i / 3) * 2500 + Math.random() * 3000 + i * 200),
-  }));
+  const now = new Date();
+  const revenueData = Array.from({ length: 30 }, (_, i) => {
+    const d = new Date(now.getTime() - (29 - i) * 86_400_000);
+    const dayStr = d.toISOString().slice(0, 10);
+    const dayRevenue = orders.filter((o) => o.placedAt.slice(0, 10) === dayStr).reduce((s, o) => s + o.total, 0);
+    return { day: `${d.getMonth() + 1}/${d.getDate()}`, revenue: dayRevenue };
+  });
 
   const statusData = ORDER_STATUSES.slice(0, 6).map((s) => ({
     name: t(`status.${s}`),
@@ -177,8 +180,11 @@ export function AdminCategoriesPage() {
   const { data: categories = [] } = useCategories();
   const createCategory = useCreateCategory();
   const deleteCategory = useDeleteCategory();
+  const updateCategory = useUpdateCategory();
   const [addOpen, setAddOpen] = useState(false);
   const [newCat, setNewCat] = useState({ enName: "", image: "" });
+  const [editCat, setEditCat] = useState<{ id: string; image: string; productCount?: number } | null>(null);
+  const [editCatImage, setEditCatImage] = useState("");
 
   const handleCreate = () => {
     if (!newCat.enName) return;
@@ -228,7 +234,7 @@ export function AdminCategoriesPage() {
                   <TableCell className="font-medium">{t(`category.${c.id}`)}</TableCell>
                   <TableCell><Badge variant="secondary">{c.productCount}</Badge></TableCell>
                   <TableCell className="text-end space-x-1">
-                    <Button variant="ghost" size="sm"><Pencil className="w-3.5 h-3.5" /></Button>
+                    <Button variant="ghost" size="sm" onClick={() => { setEditCat(c); setEditCatImage(c.image || ""); }}><Pencil className="w-3.5 h-3.5" /></Button>
                     <Button variant="ghost" size="sm" className="text-rose-600" onClick={() => handleDelete(c.id)}><Trash2 className="w-3.5 h-3.5" /></Button>
                   </TableCell>
                 </TableRow>
@@ -237,6 +243,25 @@ export function AdminCategoriesPage() {
           </Table>
         </CardContent>
       </Card>
+
+      <Dialog open={!!editCat} onOpenChange={() => setEditCat(null)}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>{language === "ar" ? "تعديل الفئة" : "Edit Category"}</DialogTitle></DialogHeader>
+          <div className="space-y-3">
+            <div><Label>{t("common.image")} URL</Label><Input value={editCatImage} onChange={(e) => setEditCatImage(e.target.value)} placeholder="https://..." /></div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditCat(null)}>{language === "ar" ? "إلغاء" : "Cancel"}</Button>
+            <Button onClick={() => {
+              if (!editCat) return;
+              updateCategory.mutate({ id: editCat.id, image: editCatImage }, {
+                onSuccess: () => { toast({ title: language === "ar" ? "تم التحديث" : "Updated" }); setEditCat(null); },
+                onError: (e) => toast({ title: "Error", description: (e as Error).message, variant: "destructive" }),
+              });
+            }} disabled={updateCategory.isPending}>{updateCategory.isPending ? "Saving…" : t("common.save")}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -253,7 +278,10 @@ export function AdminProductsPage() {
   const { data: brands = [] } = useBrands();
   const createProduct = useCreateProduct();
   const deleteProduct = useDeleteProduct();
+  const updateProduct = useUpdateProduct();
   const [newProd, setNewProd] = useState({ enName: "", arName: "", sku: "", b2cPrice: "", b2bPrice: "", categoryId: "", brandId: "", image: "", stockQty: "100" });
+  const [editProd, setEditProd] = useState<(typeof products)[0] | null>(null);
+  const [editProdData, setEditProdData] = useState({ enName: "", arName: "", b2cPrice: "", b2bPrice: "", image: "", stockQty: "", stockStatus: "in-stock", featured: false });
 
   const filtered = useMemo(() => products.filter((p) => {
     const name = language === "ar" ? p.arName : p.enName;
@@ -357,7 +385,7 @@ export function AdminProductsPage() {
                   <TableCell>{p.b2bPrice > 0 ? <PriceTag amount={p.b2bPrice} size="sm" /> : <span className="text-xs text-muted-foreground">—</span>}</TableCell>
                   <TableCell><Badge variant={p.stockStatus === "in-stock" ? "default" : p.stockStatus === "low-stock" ? "secondary" : "destructive"}>{t(`product.${p.stockStatus.replace("-", "_")}`)}</Badge></TableCell>
                   <TableCell className="text-end space-x-1">
-                    <Button variant="ghost" size="sm"><Pencil className="w-3.5 h-3.5" /></Button>
+                    <Button variant="ghost" size="sm" onClick={() => { setEditProd(p); setEditProdData({ enName: p.enName, arName: p.arName, b2cPrice: String(p.b2cPrice), b2bPrice: String(p.b2bPrice), image: p.image || "", stockQty: String(p.stockQty), stockStatus: p.stockStatus, featured: p.featured ?? false }); }}><Pencil className="w-3.5 h-3.5" /></Button>
                     <Button variant="ghost" size="sm" className="text-rose-600" onClick={() => handleDelete(p.id)}><Trash2 className="w-3.5 h-3.5" /></Button>
                   </TableCell>
                 </TableRow>
@@ -366,6 +394,47 @@ export function AdminProductsPage() {
           </Table>
         </CardContent>
       </Card>
+
+      <Dialog open={!!editProd} onOpenChange={() => setEditProd(null)}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader><DialogTitle>{language === "ar" ? "تعديل المنتج" : "Edit Product"}</DialogTitle></DialogHeader>
+          <div className="space-y-3 max-h-[60vh] overflow-y-auto">
+            <div className="grid grid-cols-2 gap-3">
+              <div><Label>{t("common.name")} (EN)</Label><Input value={editProdData.enName} onChange={(e) => setEditProdData((p) => ({ ...p, enName: e.target.value }))} /></div>
+              <div><Label>{t("common.name")} (AR)</Label><Input value={editProdData.arName} onChange={(e) => setEditProdData((p) => ({ ...p, arName: e.target.value }))} /></div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div><Label>{t("admin.b2c_price")}</Label><Input type="number" value={editProdData.b2cPrice} onChange={(e) => setEditProdData((p) => ({ ...p, b2cPrice: e.target.value }))} /></div>
+              <div><Label>{t("admin.b2b_price")}</Label><Input type="number" value={editProdData.b2bPrice} onChange={(e) => setEditProdData((p) => ({ ...p, b2bPrice: e.target.value }))} /></div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div><Label>{language === "ar" ? "الكمية" : "Stock Qty"}</Label><Input type="number" value={editProdData.stockQty} onChange={(e) => setEditProdData((p) => ({ ...p, stockQty: e.target.value }))} /></div>
+              <div><Label>{t("common.status")}</Label>
+                <select className="w-full h-9 px-3 border rounded-md bg-background" value={editProdData.stockStatus} onChange={(e) => setEditProdData((p) => ({ ...p, stockStatus: e.target.value }))}>
+                  <option value="in-stock">In Stock</option>
+                  <option value="low-stock">Low Stock</option>
+                  <option value="out-of-stock">Out of Stock</option>
+                </select>
+              </div>
+            </div>
+            <div><Label>{t("common.image")} URL</Label><Input value={editProdData.image} onChange={(e) => setEditProdData((p) => ({ ...p, image: e.target.value }))} placeholder="https://..." /></div>
+            <div className="flex items-center gap-2">
+              <Switch checked={editProdData.featured} onCheckedChange={(v) => setEditProdData((p) => ({ ...p, featured: v }))} id="edit-featured" />
+              <Label htmlFor="edit-featured">{language === "ar" ? "مميز" : "Featured"}</Label>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditProd(null)}>{language === "ar" ? "إلغاء" : "Cancel"}</Button>
+            <Button onClick={() => {
+              if (!editProd) return;
+              updateProduct.mutate({ id: editProd.id, enName: editProdData.enName, arName: editProdData.arName, b2cPrice: Number(editProdData.b2cPrice), b2bPrice: Number(editProdData.b2bPrice), image: editProdData.image, stockQty: Number(editProdData.stockQty), stockStatus: editProdData.stockStatus as any, featured: editProdData.featured }, {
+                onSuccess: () => { toast({ title: language === "ar" ? "تم التحديث" : "Product updated" }); setEditProd(null); },
+                onError: (e) => toast({ title: "Error", description: (e as Error).message, variant: "destructive" }),
+              });
+            }} disabled={updateProduct.isPending}>{updateProduct.isPending ? "Saving…" : t("common.save")}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -374,6 +443,10 @@ export function AdminInventoryPage() {
   const { t, language } = useLanguage();
   const { toast } = useToast();
   const { data: products = [] } = useProducts();
+  const updateProduct = useUpdateProduct();
+  const [adjustProd, setAdjustProd] = useState<(typeof products)[0] | null>(null);
+  const [adjustQty, setAdjustQty] = useState("");
+  const [adjustStatus, setAdjustStatus] = useState("in-stock");
 
   return (
     <div className="space-y-4">
@@ -387,15 +460,41 @@ export function AdminInventoryPage() {
                 <TableRow key={p.id}>
                   <TableCell className="font-mono text-xs">{p.sku}</TableCell>
                   <TableCell className="font-medium text-sm">{language === "ar" ? p.arName : p.enName}</TableCell>
-                  <TableCell><span className={`font-bold ${p.stockStatus === "low-stock" ? "text-amber-700" : p.stockStatus === "out-of-stock" ? "text-rose-700" : "text-emerald-700"}`}>{p.stockQty}</span></TableCell>
+                  <TableCell><span className={`font-bold ${p.stockStatus === "low-stock" ? "text-amber-700" : p.stockStatus === "out-of-stock" ? "text-rose-700" : "text-emerald-700"}`}>{p.stockQty ?? "—"}</span></TableCell>
                   <TableCell><Badge variant={p.stockStatus === "in-stock" ? "default" : p.stockStatus === "low-stock" ? "secondary" : "destructive"}>{t(`product.${p.stockStatus.replace("-", "_")}`)}</Badge></TableCell>
-                  <TableCell className="text-end"><Button size="sm" variant="outline" onClick={() => toast({ title: t("admin.adjust_stock"), description: "Coming soon" })}>{t("admin.adjust_stock")}</Button></TableCell>
+                  <TableCell className="text-end"><Button size="sm" variant="outline" onClick={() => { setAdjustProd(p); setAdjustQty(String(p.stockQty ?? 0)); setAdjustStatus(p.stockStatus); }}>{t("admin.adjust_stock")}</Button></TableCell>
                 </TableRow>
               ))}
             </TableBody>
           </Table>
         </CardContent>
       </Card>
+
+      <Dialog open={!!adjustProd} onOpenChange={() => setAdjustProd(null)}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>{language === "ar" ? "تعديل المخزون" : "Adjust Stock"} — {adjustProd ? (language === "ar" ? adjustProd.arName : adjustProd.enName) : ""}</DialogTitle></DialogHeader>
+          <div className="space-y-3">
+            <div><Label>{language === "ar" ? "الكمية الجديدة" : "New Quantity"}</Label><Input type="number" min="0" value={adjustQty} onChange={(e) => setAdjustQty(e.target.value)} /></div>
+            <div><Label>{t("common.status")}</Label>
+              <select className="w-full h-9 px-3 border rounded-md bg-background" value={adjustStatus} onChange={(e) => setAdjustStatus(e.target.value)}>
+                <option value="in-stock">{language === "ar" ? "متوفر" : "In Stock"}</option>
+                <option value="low-stock">{language === "ar" ? "مخزون منخفض" : "Low Stock"}</option>
+                <option value="out-of-stock">{language === "ar" ? "غير متوفر" : "Out of Stock"}</option>
+              </select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAdjustProd(null)}>{language === "ar" ? "إلغاء" : "Cancel"}</Button>
+            <Button onClick={() => {
+              if (!adjustProd) return;
+              updateProduct.mutate({ id: adjustProd.id, stockQty: Number(adjustQty), stockStatus: adjustStatus as any }, {
+                onSuccess: () => { toast({ title: language === "ar" ? "تم تحديث المخزون" : "Stock updated" }); setAdjustProd(null); },
+                onError: (e) => toast({ title: "Error", description: (e as Error).message, variant: "destructive" }),
+              });
+            }} disabled={updateProduct.isPending}>{updateProduct.isPending ? "Saving…" : t("common.save")}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -576,36 +675,150 @@ export function AdminSalespersonsPage() {
   );
 }
 
+const BLANK_COUPON = { code: "", enTitle: "", arTitle: "", type: "percent" as const, value: "0", minOrder: "0", audience: "both" as const, maxUses: "", startsAt: "", endsAt: "", isActive: true };
+
 export function AdminPromotionsPage() {
   const { t, language } = useLanguage();
   const { toast } = useToast();
+  const { data: coupons = [], isLoading } = useCoupons();
+  const createCoupon = useCreateCoupon();
+  const updateCoupon = useUpdateCoupon();
+  const deleteCoupon = useDeleteCoupon();
+  const [addOpen, setAddOpen] = useState(false);
+  const [newCoupon, setNewCoupon] = useState(BLANK_COUPON);
+  const [editCoupon, setEditCoupon] = useState<Coupon | null>(null);
+  const [editData, setEditData] = useState(BLANK_COUPON);
+
+  const openEdit = (c: Coupon) => {
+    setEditCoupon(c);
+    setEditData({ code: c.code, enTitle: c.enTitle ?? "", arTitle: c.arTitle ?? "", type: c.type as any, value: String(c.value), minOrder: String(c.minOrder), audience: c.audience as any, maxUses: c.maxUses != null ? String(c.maxUses) : "", startsAt: c.startsAt ? c.startsAt.slice(0, 10) : "", endsAt: c.endsAt ? c.endsAt.slice(0, 10) : "", isActive: c.isActive });
+  };
+
+  const CouponForm = ({ data, setData }: { data: typeof BLANK_COUPON; setData: (fn: (p: typeof BLANK_COUPON) => typeof BLANK_COUPON) => void }) => (
+    <div className="space-y-3 max-h-[60vh] overflow-y-auto">
+      <div className="grid grid-cols-2 gap-3">
+        <div><Label>Code</Label><Input value={data.code} onChange={(e) => setData((p) => ({ ...p, code: e.target.value.toUpperCase() }))} className="font-mono uppercase" /></div>
+        <div><Label>Type</Label>
+          <select className="w-full h-9 px-3 border rounded-md bg-background" value={data.type} onChange={(e) => setData((p) => ({ ...p, type: e.target.value as any }))}>
+            <option value="percent">Percent %</option>
+            <option value="fixed">Fixed Amount SAR</option>
+            <option value="free_delivery">Free Delivery</option>
+          </select>
+        </div>
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div><Label>Title (EN)</Label><Input value={data.enTitle} onChange={(e) => setData((p) => ({ ...p, enTitle: e.target.value }))} /></div>
+        <div><Label>Title (AR)</Label><Input value={data.arTitle} onChange={(e) => setData((p) => ({ ...p, arTitle: e.target.value }))} /></div>
+      </div>
+      <div className="grid grid-cols-3 gap-3">
+        <div><Label>{data.type === "percent" ? "Value %" : "Value SAR"}</Label><Input type="number" value={data.value} onChange={(e) => setData((p) => ({ ...p, value: e.target.value }))} /></div>
+        <div><Label>Min Order SAR</Label><Input type="number" value={data.minOrder} onChange={(e) => setData((p) => ({ ...p, minOrder: e.target.value }))} /></div>
+        <div><Label>Max Uses</Label><Input type="number" value={data.maxUses} placeholder="∞" onChange={(e) => setData((p) => ({ ...p, maxUses: e.target.value }))} /></div>
+      </div>
+      <div><Label>Audience</Label>
+        <select className="w-full h-9 px-3 border rounded-md bg-background" value={data.audience} onChange={(e) => setData((p) => ({ ...p, audience: e.target.value as any }))}>
+          <option value="both">All</option>
+          <option value="b2c">B2C only</option>
+          <option value="b2b">B2B only</option>
+        </select>
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div><Label>Starts</Label><Input type="date" value={data.startsAt} onChange={(e) => setData((p) => ({ ...p, startsAt: e.target.value }))} /></div>
+        <div><Label>Ends</Label><Input type="date" value={data.endsAt} onChange={(e) => setData((p) => ({ ...p, endsAt: e.target.value }))} /></div>
+      </div>
+      <div className="flex items-center gap-2">
+        <Switch checked={data.isActive} onCheckedChange={(v) => setData((p) => ({ ...p, isActive: v }))} />
+        <Label>{language === "ar" ? "نشط" : "Active"}</Label>
+      </div>
+    </div>
+  );
+
+  const toPayload = (d: typeof BLANK_COUPON) => ({
+    code: d.code,
+    enTitle: d.enTitle || null,
+    arTitle: d.arTitle || null,
+    type: d.type,
+    value: Number(d.value),
+    minOrder: Number(d.minOrder),
+    audience: d.audience,
+    maxUses: d.maxUses ? Number(d.maxUses) : null,
+    startsAt: d.startsAt || null,
+    endsAt: d.endsAt || null,
+    isActive: d.isActive,
+  });
+
+  const typeLabel = (c: Coupon) => c.type === "percent" ? `${c.value}%` : c.type === "fixed" ? `SAR ${c.value}` : "Free delivery";
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold">{t("admin.promotions")}</h1>
-        <Button className="bg-primary hover:bg-primary/90" onClick={() => toast({ title: t("admin.add_promotion"), description: "Coming soon" })}><Plus className="w-4 h-4 me-1.5" /> {t("admin.add_promotion")}</Button>
+        <Dialog open={addOpen} onOpenChange={setAddOpen}>
+          <DialogTrigger asChild>
+            <Button className="bg-primary hover:bg-primary/90"><Plus className="w-4 h-4 me-1.5" /> {t("admin.add_promotion")}</Button>
+          </DialogTrigger>
+          <DialogContent className="max-w-lg">
+            <DialogHeader><DialogTitle>{t("admin.add_promotion")}</DialogTitle></DialogHeader>
+            <CouponForm data={newCoupon} setData={setNewCoupon} />
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setAddOpen(false)}>{language === "ar" ? "إلغاء" : "Cancel"}</Button>
+              <Button onClick={() => {
+                if (!newCoupon.code) return;
+                createCoupon.mutate(toPayload(newCoupon) as any, {
+                  onSuccess: () => { toast({ title: language === "ar" ? "تمت الإضافة" : "Coupon created" }); setAddOpen(false); setNewCoupon(BLANK_COUPON); },
+                  onError: (e) => toast({ title: "Error", description: (e as Error).message, variant: "destructive" }),
+                });
+              }} disabled={createCoupon.isPending}>{createCoupon.isPending ? "Saving…" : t("common.create")}</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
+
       <Card>
         <CardContent className="p-5">
-          <Table>
-            <TableHeader><TableRow><TableHead>Code</TableHead><TableHead>{t("common.name")}</TableHead><TableHead>Type</TableHead><TableHead>Audience</TableHead><TableHead>Period</TableHead><TableHead>{t("common.status")}</TableHead><TableHead></TableHead></TableRow></TableHeader>
-            <TableBody>
-              {promotions.map((p) => (
-                <TableRow key={p.id}>
-                  <TableCell className="font-mono text-xs font-bold">{p.code}</TableCell>
-                  <TableCell className="text-sm">{language === "ar" ? p.arTitle : p.enTitle}</TableCell>
-                  <TableCell><Badge variant="outline">{p.type === "percent" ? `${p.value}%` : p.type === "amount" ? `SAR ${p.value}` : "Free shipping"}</Badge></TableCell>
-                  <TableCell><Badge variant="secondary" className="text-xs">{p.audience.toUpperCase()}</Badge></TableCell>
-                  <TableCell className="text-xs">{new Date(p.startsAt).toLocaleDateString()} → {new Date(p.endsAt).toLocaleDateString()}</TableCell>
-                  <TableCell><Badge className="bg-emerald-100 text-emerald-800 border-emerald-300">{p.status}</Badge></TableCell>
-                  <TableCell className="text-end"><Button variant="ghost" size="sm"><Pencil className="w-3.5 h-3.5" /></Button></TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+          {isLoading ? (
+            <div className="text-center py-8 text-muted-foreground">Loading…</div>
+          ) : (
+            <Table>
+              <TableHeader><TableRow><TableHead>Code</TableHead><TableHead>{t("common.name")}</TableHead><TableHead>Type</TableHead><TableHead>Audience</TableHead><TableHead>Uses</TableHead><TableHead>{t("common.status")}</TableHead><TableHead className="text-end">{t("common.actions")}</TableHead></TableRow></TableHeader>
+              <TableBody>
+                {coupons.map((c) => (
+                  <TableRow key={c.id}>
+                    <TableCell className="font-mono text-xs font-bold">{c.code}</TableCell>
+                    <TableCell className="text-sm">{language === "ar" ? (c.arTitle || c.code) : (c.enTitle || c.code)}</TableCell>
+                    <TableCell><Badge variant="outline">{typeLabel(c)}</Badge></TableCell>
+                    <TableCell><Badge variant="secondary" className="text-xs">{c.audience.toUpperCase()}</Badge></TableCell>
+                    <TableCell className="text-xs">{c.usesCount}{c.maxUses != null ? ` / ${c.maxUses}` : ""}</TableCell>
+                    <TableCell><Badge className={c.isActive ? "bg-emerald-100 text-emerald-800 border-emerald-300" : "bg-muted text-muted-foreground"}>{c.isActive ? (language === "ar" ? "نشط" : "Active") : (language === "ar" ? "معطّل" : "Inactive")}</Badge></TableCell>
+                    <TableCell className="text-end space-x-1">
+                      <Button variant="ghost" size="sm" onClick={() => openEdit(c)}><Pencil className="w-3.5 h-3.5" /></Button>
+                      <Button variant="ghost" size="sm" className="text-rose-600" onClick={() => deleteCoupon.mutate(c.id, { onSuccess: () => toast({ title: language === "ar" ? "تم الحذف" : "Deleted" }), onError: (e) => toast({ title: "Error", description: (e as Error).message, variant: "destructive" }) })}><Trash2 className="w-3.5 h-3.5" /></Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+                {coupons.length === 0 && <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">{language === "ar" ? "لا توجد كوبونات بعد" : "No coupons yet"}</TableCell></TableRow>}
+              </TableBody>
+            </Table>
+          )}
         </CardContent>
       </Card>
+
+      <Dialog open={!!editCoupon} onOpenChange={() => setEditCoupon(null)}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader><DialogTitle>{language === "ar" ? "تعديل الكوبون" : "Edit Coupon"}</DialogTitle></DialogHeader>
+          <CouponForm data={editData} setData={setEditData as any} />
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditCoupon(null)}>{language === "ar" ? "إلغاء" : "Cancel"}</Button>
+            <Button onClick={() => {
+              if (!editCoupon) return;
+              updateCoupon.mutate({ id: editCoupon.id, ...toPayload(editData) } as any, {
+                onSuccess: () => { toast({ title: language === "ar" ? "تم التحديث" : "Updated" }); setEditCoupon(null); },
+                onError: (e) => toast({ title: "Error", description: (e as Error).message, variant: "destructive" }),
+              });
+            }} disabled={updateCoupon.isPending}>{updateCoupon.isPending ? "Saving…" : t("common.save")}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -617,8 +830,11 @@ export function AdminBrandsPage() {
   const { data: products = [] } = useProducts();
   const createBrand = useCreateBrand();
   const deleteBrand = useDeleteBrand();
+  const updateBrand = useUpdateBrand();
   const [addOpen, setAddOpen] = useState(false);
   const [newBrand, setNewBrand] = useState({ name: "", enTagline: "", arTagline: "", accent: "#333333", logo: "" });
+  const [editBrand, setEditBrand] = useState<(typeof brands)[0] | null>(null);
+  const [editBrandData, setEditBrandData] = useState({ name: "", enTagline: "", arTagline: "", logo: "", accent: "#333333" });
 
   const handleCreate = () => {
     if (!newBrand.name) return;
@@ -670,13 +886,35 @@ export function AdminBrandsPage() {
               <p className="text-xs text-muted-foreground">{language === "ar" ? b.arTagline : b.enTagline}</p>
               <p className="text-xs text-muted-foreground">{products.filter((p) => p.brandId === b.id).length} {t("admin.product_count").toLowerCase()}</p>
               <div className="flex justify-center gap-1 pt-1">
-                <Button variant="ghost" size="sm"><Pencil className="w-3.5 h-3.5" /></Button>
+                <Button variant="ghost" size="sm" onClick={() => { setEditBrand(b); setEditBrandData({ name: b.name, enTagline: b.enTagline || "", arTagline: b.arTagline || "", logo: b.logo || "", accent: b.accent || "#333333" }); }}><Pencil className="w-3.5 h-3.5" /></Button>
                 <Button variant="ghost" size="sm" className="text-rose-600" onClick={() => handleDelete(b.id)}><Trash2 className="w-3.5 h-3.5" /></Button>
               </div>
             </CardContent>
           </Card>
         ))}
       </div>
+
+      <Dialog open={!!editBrand} onOpenChange={() => setEditBrand(null)}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>{language === "ar" ? "تعديل العلامة التجارية" : "Edit Brand"}</DialogTitle></DialogHeader>
+          <div className="space-y-3">
+            <div><Label>{t("common.name")}</Label><Input value={editBrandData.name} onChange={(e) => setEditBrandData((p) => ({ ...p, name: e.target.value }))} /></div>
+            <div><Label>Tagline (EN)</Label><Input value={editBrandData.enTagline} onChange={(e) => setEditBrandData((p) => ({ ...p, enTagline: e.target.value }))} /></div>
+            <div><Label>Tagline (AR)</Label><Input value={editBrandData.arTagline} onChange={(e) => setEditBrandData((p) => ({ ...p, arTagline: e.target.value }))} /></div>
+            <div><Label>Logo URL</Label><Input value={editBrandData.logo} onChange={(e) => setEditBrandData((p) => ({ ...p, logo: e.target.value }))} placeholder="https://..." /></div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditBrand(null)}>{language === "ar" ? "إلغاء" : "Cancel"}</Button>
+            <Button onClick={() => {
+              if (!editBrand) return;
+              updateBrand.mutate({ id: editBrand.id, name: editBrandData.name, enTagline: editBrandData.enTagline, arTagline: editBrandData.arTagline, logo: editBrandData.logo, accent: editBrandData.accent } as any, {
+                onSuccess: () => { toast({ title: language === "ar" ? "تم التحديث" : "Brand updated" }); setEditBrand(null); },
+                onError: (e) => toast({ title: "Error", description: (e as Error).message, variant: "destructive" }),
+              });
+            }} disabled={updateBrand.isPending}>{updateBrand.isPending ? "Saving…" : t("common.save")}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

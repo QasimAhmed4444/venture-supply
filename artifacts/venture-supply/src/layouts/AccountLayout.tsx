@@ -3,6 +3,7 @@ import { Link, useLocation } from "wouter";
 import { DemoSwitcher } from "@/components/DemoSwitcher";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
+import { ScrollToTop } from "@/components/ScrollToTop";
 import { Card } from "@/components/ui/card";
 import { LayoutDashboard, Package, MapPin, Bell, Settings, Building2, User } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -26,6 +27,7 @@ export function AccountLayout({ children }: { children: ReactNode }) {
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
+      <ScrollToTop />
       <DemoSwitcher />
       <Header />
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 py-8">

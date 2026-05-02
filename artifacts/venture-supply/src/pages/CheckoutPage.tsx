@@ -7,13 +7,25 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Separator } from "@/components/ui/separator";
-import { Truck, MapPin, CreditCard, Building2, Banknote, Wallet, Loader2 } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Truck, MapPin, CreditCard, Building2, Banknote, Wallet, Loader2, Tag, X } from "lucide-react";
 import { useCart } from "@/contexts/CartContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useRole } from "@/contexts/RoleContext";
 import { useToast } from "@/hooks/use-toast";
 import { useCreateOrder } from "@/hooks/useOrders";
 import { PriceTag } from "@/components/PriceTag";
+import { apiFetch } from "@/lib/api";
+
+interface ValidatedCoupon {
+  code: string;
+  enTitle: string;
+  arTitle: string;
+  type: string;
+  value: number;
+  discount: number;
+  freeDelivery: boolean;
+}
 
 export function CheckoutPage() {
   const { items, subtotal, vat, total, clear } = useCart();
@@ -36,11 +48,63 @@ export function CheckoutPage() {
   const [crNumber, setCrNumber] = useState(customer?.business?.crNumber ?? "");
   const [vatNumber, setVatNumber] = useState(customer?.business?.vatNumber ?? "");
 
-  const deliveryCharge = orderType === "pickup" ? 0 : isB2B ? 0 : subtotal >= 200 ? 0 : 25;
-  const grandTotal = +(total + deliveryCharge).toFixed(2);
+  const [cardNumber, setCardNumber] = useState("");
+  const [cardExpiry, setCardExpiry] = useState("");
+  const [cardCvc, setCardCvc] = useState("");
+
+  const [couponCode, setCouponCode] = useState("");
+  const [applyingCoupon, setApplyingCoupon] = useState(false);
+  const [appliedCoupon, setAppliedCoupon] = useState<ValidatedCoupon | null>(null);
+
+  const baseDelivery = orderType === "pickup" ? 0 : isB2B ? 0 : subtotal >= 200 ? 0 : 25;
+  const deliveryCharge = appliedCoupon?.freeDelivery ? 0 : baseDelivery;
+  const couponDiscount = appliedCoupon?.discount ?? 0;
+  const grandTotal = +(total + deliveryCharge - couponDiscount).toFixed(2);
+
+  const applyCoupon = async () => {
+    const code = couponCode.trim().toUpperCase();
+    if (!code) return;
+    setApplyingCoupon(true);
+    try {
+      const result = await apiFetch<ValidatedCoupon>(
+        `/coupons/validate?code=${encodeURIComponent(code)}&total=${grandTotal}&audience=${isB2B ? "b2b" : "b2c"}`
+      );
+      setAppliedCoupon(result);
+      toast({
+        title: language === "ar" ? "تم تطبيق الكوبون" : "Coupon applied",
+        description: result.type === "free_delivery"
+          ? (language === "ar" ? "شحن مجاني!" : "Free delivery!")
+          : (language === "ar" ? `وفّرت ${result.discount.toFixed(2)} ر.س` : `You save SAR ${result.discount.toFixed(2)}`),
+      });
+    } catch (err: any) {
+      toast({
+        title: language === "ar" ? "كوبون غير صالح" : "Invalid coupon",
+        description: err.message,
+        variant: "destructive",
+      });
+    } finally {
+      setApplyingCoupon(false);
+    }
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (paymentMethod === "card") {
+      const digits = cardNumber.replace(/\s/g, "");
+      if (digits.length < 13) {
+        toast({ title: language === "ar" ? "رقم البطاقة غير صحيح" : "Invalid card number", variant: "destructive" });
+        return;
+      }
+      if (!cardExpiry.match(/^\d{2}\s*\/\s*\d{2}$/)) {
+        toast({ title: language === "ar" ? "تاريخ انتهاء غير صحيح" : "Invalid expiry date", variant: "destructive" });
+        return;
+      }
+      if (cardCvc.length < 3) {
+        toast({ title: language === "ar" ? "CVC غير صحيح" : "Invalid CVC", variant: "destructive" });
+        return;
+      }
+    }
 
     const id = `o-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
     const trackingId = `VS-O-${Math.floor(1000 + Math.random() * 9000)}`;
@@ -68,6 +132,8 @@ export function CheckoutPage() {
         deliveryAddress,
         city: orderType === "pickup" ? "Riyadh" : city,
         notes: notes.trim() || null,
+        couponCode: appliedCoupon?.code ?? null,
+        discount: couponDiscount,
         items,
         subtotal,
         vat,
@@ -184,6 +250,60 @@ export function CheckoutPage() {
                   </Label>
                 ))}
               </RadioGroup>
+
+              {paymentMethod === "card" && (
+                <div className="mt-2 p-4 border border-primary/20 rounded-lg bg-primary/5 space-y-3">
+                  <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                    {language === "ar" ? "بيانات البطاقة" : "Card Details"}
+                  </p>
+                  <div>
+                    <Label>{language === "ar" ? "رقم البطاقة" : "Card Number"}</Label>
+                    <Input
+                      placeholder="4242 4242 4242 4242"
+                      value={cardNumber}
+                      onChange={(e) => {
+                        const v = e.target.value.replace(/\D/g, "").slice(0, 16);
+                        setCardNumber(v.replace(/(.{4})/g, "$1 ").trim());
+                      }}
+                      required={paymentMethod === "card"}
+                      data-testid="input-card-number"
+                      className="font-mono"
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <Label>{language === "ar" ? "تاريخ الانتهاء" : "Expiry (MM / YY)"}</Label>
+                      <Input
+                        placeholder="MM / YY"
+                        value={cardExpiry}
+                        onChange={(e) => {
+                          const v = e.target.value.replace(/\D/g, "").slice(0, 4);
+                          setCardExpiry(v.length > 2 ? `${v.slice(0, 2)} / ${v.slice(2)}` : v);
+                        }}
+                        required={paymentMethod === "card"}
+                        data-testid="input-card-expiry"
+                        className="font-mono"
+                      />
+                    </div>
+                    <div>
+                      <Label>CVC</Label>
+                      <Input
+                        placeholder="123"
+                        maxLength={4}
+                        value={cardCvc}
+                        onChange={(e) => setCardCvc(e.target.value.replace(/\D/g, "").slice(0, 4))}
+                        required={paymentMethod === "card"}
+                        data-testid="input-card-cvc"
+                        type="password"
+                        className="font-mono"
+                      />
+                    </div>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground">
+                    {language === "ar" ? "بياناتك محمية ومشفرة بالكامل" : "Your card info is encrypted and secure."}
+                  </p>
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>
@@ -206,7 +326,58 @@ export function CheckoutPage() {
                 );
               })}
             </div>
+
             <Separator />
+
+            <div className="space-y-2">
+              <div className="flex gap-2">
+                <Input
+                  placeholder={language === "ar" ? "أدخل كود الخصم" : "Coupon code"}
+                  value={couponCode}
+                  onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
+                  className="h-9 text-sm font-mono uppercase"
+                  disabled={!!appliedCoupon}
+                  data-testid="input-coupon"
+                />
+                {appliedCoupon ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-9 shrink-0 text-rose-600"
+                    onClick={() => { setAppliedCoupon(null); setCouponCode(""); }}
+                  >
+                    <X className="w-4 h-4" />
+                  </Button>
+                ) : (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-9 shrink-0"
+                    onClick={applyCoupon}
+                    disabled={applyingCoupon || !couponCode.trim()}
+                    data-testid="button-apply-coupon"
+                  >
+                    {applyingCoupon ? <Loader2 className="w-4 h-4 animate-spin" /> : <Tag className="w-4 h-4" />}
+                  </Button>
+                )}
+              </div>
+              {appliedCoupon && (
+                <div className="flex items-center gap-2 text-sm text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-md px-3 py-2">
+                  <Tag className="w-3.5 h-3.5 shrink-0" />
+                  <span className="font-semibold">{appliedCoupon.code}</span>
+                  <Badge className="bg-emerald-100 text-emerald-800 border-emerald-300 text-xs ms-auto">
+                    {appliedCoupon.freeDelivery
+                      ? (language === "ar" ? "شحن مجاني" : "Free delivery")
+                      : `- SAR ${appliedCoupon.discount.toFixed(2)}`}
+                  </Badge>
+                </div>
+              )}
+            </div>
+
+            <Separator />
+
             <div className="space-y-2 text-sm">
               <div className="flex justify-between"><span className="text-muted-foreground">{t("common.subtotal")}</span><PriceTag amount={subtotal} size="sm" /></div>
               <div className="flex justify-between"><span className="text-muted-foreground">{t("common.vat")}</span><PriceTag amount={vat} size="sm" /></div>
@@ -214,10 +385,16 @@ export function CheckoutPage() {
                 <span className="text-muted-foreground">{t("common.delivery_charge")}</span>
                 {deliveryCharge === 0 ? <span className="text-emerald-700 font-semibold">{t("common.free")}</span> : <PriceTag amount={deliveryCharge} size="sm" />}
               </div>
+              {couponDiscount > 0 && (
+                <div className="flex justify-between text-emerald-700">
+                  <span>{language === "ar" ? "خصم الكوبون" : "Coupon discount"}</span>
+                  <span className="font-semibold">- SAR {couponDiscount.toFixed(2)}</span>
+                </div>
+              )}
               <Separator />
               <div className="flex justify-between items-baseline pt-1">
                 <span className="font-bold">{t("common.total")}</span>
-                <PriceTag amount={grandTotal} size="xl" />
+                <PriceTag amount={Math.max(0, grandTotal)} size="xl" />
               </div>
             </div>
             <Button
