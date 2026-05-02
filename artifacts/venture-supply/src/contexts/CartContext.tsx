@@ -17,6 +17,7 @@ interface CartContextType {
   vat: number;
   total: number;
   addItem: (item: CartItem) => void;
+  addItems: (items: CartItem[]) => void;
   updateQty: (productId: string, packSize: string, qty: number) => void;
   removeItem: (productId: string, packSize: string) => void;
   clear: () => void;
@@ -52,6 +53,21 @@ export function CartProvider({ children }: { children: ReactNode }) {
     });
   };
 
+  const addItems = (newItems: CartItem[]) => {
+    setItems((prev) => {
+      let next = [...prev];
+      for (const item of newItems) {
+        const idx = next.findIndex((p) => p.productId === item.productId && p.packSize === item.packSize);
+        if (idx >= 0) {
+          next[idx] = { ...next[idx], qty: next[idx].qty + item.qty };
+        } else {
+          next = [...next, item];
+        }
+      }
+      return next;
+    });
+  };
+
   const updateQty = (productId: string, packSize: string, qty: number) => {
     setItems((prev) =>
       qty <= 0
@@ -71,7 +87,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const total = +(subtotal + vat).toFixed(2);
 
   return (
-    <CartContext.Provider value={{ items, count, subtotal, vat, total, addItem, updateQty, removeItem, clear }}>
+    <CartContext.Provider value={{ items, count, subtotal, vat, total, addItem, addItems, updateQty, removeItem, clear }}>
       {children}
     </CartContext.Provider>
   );

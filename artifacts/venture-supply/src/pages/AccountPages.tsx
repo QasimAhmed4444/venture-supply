@@ -13,9 +13,8 @@ import { useRole } from "@/contexts/RoleContext";
 import { useToast } from "@/hooks/use-toast";
 import { useOrders } from "@/hooks/useOrders";
 import { useRealtimeOrders, type RealtimeNotification } from "@/hooks/useRealtimeOrders";
-import { useProducts } from "@/hooks/useProducts";
 import { useSalespersons } from "@/hooks/useSalespersons";
-import { ProductCard } from "@/components/ProductCard";
+import { useCart } from "@/contexts/CartContext";
 import { StatusBadge } from "@/components/StatusBadge";
 import { PriceTag } from "@/components/PriceTag";
 import { useMemo, useState, useCallback, useRef } from "react";
@@ -105,13 +104,11 @@ export function AccountDashboardPage() {
   const { t, language } = useLanguage();
   const { customer, role } = useRole();
   const { data: orders = [] } = useOrders({ customerId: customer?.id ?? "" });
-  const { data: allProducts = [] } = useProducts();
   const { data: salespersons = [] } = useSalespersons();
   const [, setLocation] = useLocation();
   if (!customer) return null;
 
   const active = orders.filter((o) => !["delivered", "cancelled"].includes(o.status));
-  const recommended = allProducts.slice(0, 4);
   const isB2B = role === "b2b";
   const sp = customer.assignedSalespersonId
     ? salespersons.find((s) => s.id === customer.assignedSalespersonId) ?? null
@@ -171,12 +168,6 @@ export function AccountDashboardPage() {
         </CardContent>
       </Card>
 
-      <div>
-        <h2 className="font-bold text-xl mb-4">{t("account.recommended")}</h2>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          {recommended.map((p) => <ProductCard key={p.id} product={p} />)}
-        </div>
-      </div>
     </div>
   );
 }
@@ -212,9 +203,26 @@ const ACTIVE_STATUSES = new Set(["new", "confirmed", "preparing", "packed", "out
 export function AccountOrdersPage() {
   const { t, language } = useLanguage();
   const { customer } = useRole();
+  const { addItems } = useCart();
+  const { toast } = useToast();
+  const [, setLocation] = useLocation();
   const [filter, setFilter] = useState<OrderFilterKey>("all");
   const { data: allOrders = [], isLoading } = useOrders({ customerId: customer?.id ?? "" });
   if (!customer) return null;
+
+  const handleReorder = (o: Order) => {
+    addItems(o.items.map((item) => ({
+      productId: item.productId,
+      enName: item.enName,
+      arName: item.arName,
+      packSize: item.packSize,
+      unitPrice: item.unitPrice,
+      qty: item.qty,
+      image: item.image,
+    })));
+    toast({ title: language === "ar" ? "تمت إضافة المنتجات إلى السلة" : "Items added to cart" });
+    setLocation("/cart");
+  };
 
   const orders = allOrders.filter((o) => {
     if (filter === "all") return true;
@@ -301,11 +309,18 @@ export function AccountOrdersPage() {
                   <TableCell><PriceTag amount={o.total} size="sm" /></TableCell>
                   <TableCell><StatusBadge status={o.status} /></TableCell>
                   <TableCell>
-                    <Link href={`/track/${o.trackingId}`}>
-                      <Button size="sm" variant="ghost" className="text-secondary hover:text-secondary/80">
-                        <Eye className="w-3.5 h-3.5 me-1" /> {t("common.view")}
-                      </Button>
-                    </Link>
+                    <div className="flex items-center gap-1">
+                      <Link href={`/track/${o.trackingId}`}>
+                        <Button size="sm" variant="ghost" className="text-secondary hover:text-secondary/80">
+                          <Eye className="w-3.5 h-3.5 me-1" /> {t("common.view")}
+                        </Button>
+                      </Link>
+                      {o.status === "delivered" && (
+                        <Button size="sm" variant="outline" className="text-primary border-primary/40 hover:bg-primary/5" onClick={() => handleReorder(o)}>
+                          <RefreshCw className="w-3.5 h-3.5 me-1" /> {language === "ar" ? "إعادة طلب" : "Reorder"}
+                        </Button>
+                      )}
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}

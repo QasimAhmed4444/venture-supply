@@ -14,7 +14,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Plus, Trash2, ShoppingBag, Users as UsersIcon, AlertTriangle, TrendingUp, Wallet, Eye,
   Pencil, Search, Download, FileText, Package, DollarSign, Building2, CheckCircle2,
-  Clock, XCircle, Truck, PackageCheck, ShoppingCart, X, ChevronUp, ChevronDown,
+  Clock, XCircle, Truck, PackageCheck, ShoppingCart, X, ChevronUp, ChevronDown, Upload,
 } from "lucide-react";
 import {
   LineChart, Line, AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell,
@@ -103,7 +103,7 @@ export function AdminDashboardPage() {
       </div>
 
       {/* 7 KPIs */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-4 xl:grid-cols-7 gap-3">
         <KpiCard icon={UsersIcon} label="Total Customers" value={String(customers.length)} accent="bg-violet-100 text-violet-700" />
         <KpiCard icon={Package} label="Total Products" value={String(products.length)} accent="bg-sky-100 text-sky-700" />
         <KpiCard icon={DollarSign} label="Total Sales" value={<PriceTag amount={totalSales} size="md" />} accent="bg-emerald-100 text-emerald-700" />
@@ -256,16 +256,41 @@ export function AdminDashboardPage() {
 function KpiCard({ icon: Icon, label, value, accent }: { icon: any; label: string; value: any; accent: string }) {
   return (
     <Card>
-      <CardContent className="p-4 flex items-center gap-3">
-        <div className={`w-10 h-10 rounded-md ${accent} flex items-center justify-center shrink-0`}>
-          <Icon className="w-5 h-5" />
+      <CardContent className="p-4 space-y-2">
+        <div className={`w-9 h-9 rounded-lg ${accent} flex items-center justify-center`}>
+          <Icon className="w-4 h-4" />
         </div>
-        <div className="min-w-0">
-          <div className="text-xl font-bold leading-tight truncate">{value}</div>
-          <div className="text-xs text-muted-foreground truncate">{label}</div>
-        </div>
+        <div className="font-bold text-lg leading-tight">{value}</div>
+        <div className="text-[11px] text-muted-foreground leading-tight">{label}</div>
       </CardContent>
     </Card>
+  );
+}
+
+function ImageUploadField({ value, onChange, label = "Image" }: { value: string; onChange: (v: string) => void; label?: string }) {
+  const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => onChange(reader.result as string);
+    reader.readAsDataURL(file);
+  };
+  return (
+    <div className="space-y-1.5">
+      <Label>{label}</Label>
+      <div className="flex items-center gap-2">
+        <label className="flex-1 cursor-pointer">
+          <div className="flex items-center gap-2 h-9 px-3 border rounded-md bg-background hover:bg-muted transition-colors text-sm text-muted-foreground">
+            <Upload className="w-4 h-4 shrink-0" />
+            <span className="truncate">{value ? "Change image…" : "Choose image…"}</span>
+          </div>
+          <input type="file" accept="image/*" className="hidden" onChange={handleFile} />
+        </label>
+        {value && (
+          <img src={value} alt="preview" className="w-9 h-9 object-cover rounded border shrink-0" />
+        )}
+      </div>
+    </div>
   );
 }
 
@@ -307,7 +332,7 @@ export function AdminCategoriesPage() {
             <DialogHeader><DialogTitle>{language === "ar" ? "إضافة فئة" : "Add Category"}</DialogTitle></DialogHeader>
             <div className="space-y-3">
               <div><Label>{t("common.name")} (EN)</Label><Input value={newCat.enName} onChange={(e) => setNewCat((p) => ({ ...p, enName: e.target.value }))} /></div>
-              <div><Label>{t("common.image")} URL</Label><Input value={newCat.image} onChange={(e) => setNewCat((p) => ({ ...p, image: e.target.value }))} placeholder="https://..." /></div>
+              <ImageUploadField value={newCat.image} onChange={(v) => setNewCat((p) => ({ ...p, image: v }))} label={`${t("common.image")}`} />
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setAddOpen(false)}>{language === "ar" ? "إلغاء" : "Cancel"}</Button>
@@ -337,8 +362,7 @@ export function AdminCategoriesPage() {
         <DialogContent>
           <DialogHeader><DialogTitle>{language === "ar" ? "تعديل الفئة" : "Edit Category"}</DialogTitle></DialogHeader>
           <div className="space-y-3">
-            <div><Label>{t("common.image")} URL</Label><Input value={editCatImage} onChange={(e) => setEditCatImage(e.target.value)} placeholder="https://..." /></div>
-            {editCatImage && <img src={editCatImage} alt="preview" className="w-full h-32 object-cover rounded" />}
+            <ImageUploadField value={editCatImage} onChange={setEditCatImage} label={`${t("common.image")}`} />
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditCat(null)}>{language === "ar" ? "إلغاء" : "Cancel"}</Button>
@@ -450,7 +474,7 @@ export function AdminProductsPage() {
               </div>
               <Separator />
               <p className="text-xs font-semibold uppercase text-muted-foreground tracking-wider">Media & Controls</p>
-              <div><Label>Product Image URL</Label><Input value={newProd.image} onChange={(e) => setNewProd((p) => ({ ...p, image: e.target.value }))} placeholder="https://..." /></div>
+              <ImageUploadField value={newProd.image} onChange={(v) => setNewProd((p) => ({ ...p, image: v }))} label="Product Image" />
               <div className="flex items-center gap-4">
                 <div className="flex items-center gap-2">
                   <Switch checked={newProd.active} onCheckedChange={(v) => setNewProd((p) => ({ ...p, active: v }))} id="new-active" />
@@ -542,7 +566,7 @@ export function AdminProductsPage() {
                 </select>
               </div>
             </div>
-            <div><Label>Image URL</Label><Input value={editProdData.image} onChange={(e) => setEditProdData((p) => ({ ...p, image: e.target.value }))} placeholder="https://..." /></div>
+            <ImageUploadField value={editProdData.image} onChange={(v) => setEditProdData((p) => ({ ...p, image: v }))} label="Product Image" />
             <div className="flex items-center gap-4">
               <div className="flex items-center gap-2">
                 <Switch checked={editProdData.featured} onCheckedChange={(v) => setEditProdData((p) => ({ ...p, featured: v }))} id="edit-featured" />
@@ -660,7 +684,7 @@ export function AdminInventoryPage() {
                   <TableCell className="text-xs">{t(`category.${p.categoryId}`)}</TableCell>
                   <TableCell className="text-xs">{brands.find((b) => b.id === p.brandId)?.name ?? "—"}</TableCell>
                   <TableCell><span className={`font-bold ${p.stockStatus === "low-stock" ? "text-amber-700" : p.stockStatus === "out-of-stock" ? "text-rose-700" : "text-emerald-700"}`}>{p.stockQty ?? "—"}</span></TableCell>
-                  <TableCell className="text-xs text-muted-foreground">{p.minStockQty ?? 20}</TableCell>
+                  <TableCell className="text-xs text-muted-foreground">{20}</TableCell>
                   <TableCell><Badge variant={p.stockStatus === "in-stock" ? "default" : p.stockStatus === "low-stock" ? "secondary" : "destructive"}>{t(`product.${p.stockStatus.replace("-", "_")}`)}</Badge></TableCell>
                   <TableCell className="text-xs text-muted-foreground">—</TableCell>
                   <TableCell className="text-end"><Button size="sm" variant="outline" onClick={() => { setAdjustProd(p); setAdjustQty(String(p.stockQty ?? 0)); setAdjustStatus(p.stockStatus); setAdjustMode("set"); }}>{t("admin.adjust_stock")}</Button></TableCell>
@@ -1696,7 +1720,7 @@ export function AdminBrandsPage() {
               <div><Label>Name</Label><Input value={newBrand.name} onChange={(e) => setNewBrand((p) => ({ ...p, name: e.target.value }))} /></div>
               <div><Label>Tagline (EN)</Label><Input value={newBrand.enTagline} onChange={(e) => setNewBrand((p) => ({ ...p, enTagline: e.target.value }))} /></div>
               <div><Label>Tagline (AR)</Label><Input value={newBrand.arTagline} onChange={(e) => setNewBrand((p) => ({ ...p, arTagline: e.target.value }))} /></div>
-              <div><Label>Logo URL</Label><Input value={newBrand.logo} onChange={(e) => setNewBrand((p) => ({ ...p, logo: e.target.value }))} placeholder="https://..." /></div>
+              <ImageUploadField value={newBrand.logo} onChange={(v) => setNewBrand((p) => ({ ...p, logo: v }))} label="Brand Logo" />
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setAddOpen(false)}>Cancel</Button>
@@ -1738,7 +1762,7 @@ export function AdminBrandsPage() {
             <div><Label>Name</Label><Input value={editBrandData.name} onChange={(e) => setEditBrandData((p) => ({ ...p, name: e.target.value }))} /></div>
             <div><Label>Tagline (EN)</Label><Input value={editBrandData.enTagline} onChange={(e) => setEditBrandData((p) => ({ ...p, enTagline: e.target.value }))} /></div>
             <div><Label>Tagline (AR)</Label><Input value={editBrandData.arTagline} onChange={(e) => setEditBrandData((p) => ({ ...p, arTagline: e.target.value }))} /></div>
-            <div><Label>Logo URL</Label><Input value={editBrandData.logo} onChange={(e) => setEditBrandData((p) => ({ ...p, logo: e.target.value }))} placeholder="https://..." /></div>
+            <ImageUploadField value={editBrandData.logo} onChange={(v) => setEditBrandData((p) => ({ ...p, logo: v }))} label="Brand Logo" />
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditBrand(null)}>Cancel</Button>

@@ -41,6 +41,15 @@ export function HomePage() {
   const { data: categories = [] } = useCategories();
   const { data: brands = [] } = useBrands();
   const popular = products.filter((p) => p.featured).slice(0, 4).concat(products.slice(0, 4)).slice(0, 4);
+  const BRAND_PRIORITY = ["chef-flavor", "malka", "vital"];
+  const sortedBrands = [...brands].sort((a, b) => {
+    const ai = BRAND_PRIORITY.indexOf(a.id);
+    const bi = BRAND_PRIORITY.indexOf(b.id);
+    if (ai === -1 && bi === -1) return 0;
+    if (ai === -1) return 1;
+    if (bi === -1) return -1;
+    return ai - bi;
+  });
   const [slideIdx, setSlideIdx] = useState(0);
   const brandScrollRef = useRef<HTMLDivElement>(null);
 
@@ -154,7 +163,7 @@ export function HomePage() {
 
         <div className="flex gap-4 overflow-x-auto pb-3" style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}>
           {categories.map((c) => (
-            <Link key={c.id} href="/products">
+            <Link key={c.id} href={`/categories/${c.id}`}>
               <div
                 className="group flex-shrink-0 cursor-pointer rounded-xl overflow-hidden bg-card border border-border/60 hover:border-secondary/60 hover:shadow-md transition-all"
                 style={{ width: 170 }}
@@ -271,7 +280,7 @@ export function HomePage() {
           className="flex gap-4 overflow-x-auto pb-3 snap-x snap-mandatory"
           style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
         >
-          {brands.map((b) => (
+          {sortedBrands.map((b) => (
             <Link key={b.id} href={`/brands/${b.id}`}>
               <Card className="cursor-pointer border border-border/60 overflow-hidden group flex-shrink-0 snap-start hover:border-primary/50 hover:shadow-lg transition-all duration-300" style={{ width: 240 }}>
                 {/* Image area */}

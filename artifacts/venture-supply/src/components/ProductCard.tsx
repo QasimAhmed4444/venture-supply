@@ -48,7 +48,7 @@ export function ProductCard({ product }: { product: Product }) {
   return (
     <Link href={`/products/${product.slug}`}>
       <Card className="group cursor-pointer overflow-hidden border-border/60 hover:border-secondary/60 hover-elevate active-elevate-2 transition-all duration-300 h-full" data-testid={`card-product-${product.id}`}>
-        <div className="relative aspect-square overflow-hidden bg-muted">
+        <div className="relative aspect-[4/3] overflow-hidden bg-muted">
           <img
             src={product.image}
             alt={name}
@@ -75,7 +75,7 @@ export function ProductCard({ product }: { product: Product }) {
             </span>
           )}
         </div>
-        <CardContent className="p-4 space-y-2">
+        <CardContent className="p-3 space-y-1.5">
           <div className="flex items-start justify-between gap-2">
             <div className="flex items-center gap-1 text-xs">
               <Star className="w-3 h-3 fill-secondary text-secondary" />
