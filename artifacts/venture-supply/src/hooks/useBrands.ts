@@ -6,8 +6,8 @@ export function useBrands() {
   return useQuery<Brand[]>({
     queryKey: ["brands"],
     queryFn: () => apiFetch<Brand[]>("/brands"),
-    initialData: mockBrands,
-    staleTime: 300_000,
+    placeholderData: mockBrands,
+    staleTime: 0,
     retry: 1,
   });
 }

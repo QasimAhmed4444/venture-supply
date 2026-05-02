@@ -9,9 +9,9 @@ import { Button } from "@/components/ui/button";
 import { Filter, ChevronRight, ChevronLeft } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ProductCard } from "@/components/ProductCard";
-import { products } from "@/data/products";
-import { categories } from "@/data/categories";
-import { brands } from "@/data/brands";
+import { useProducts } from "@/hooks/useProducts";
+import { useCategories } from "@/hooks/useCategories";
+import { useBrands } from "@/hooks/useBrands";
 import { useLanguage } from "@/contexts/LanguageContext";
 
 interface Props {
@@ -35,6 +35,10 @@ export function ProductListingPage({ scope = "all" }: Props) {
   const [priceRange, setPriceRange] = useState<[number, number]>([0, 600]);
   const [sortBy, setSortBy] = useState("relevance");
 
+  const { data: products = [] } = useProducts();
+  const { data: categories = [] } = useCategories();
+  const { data: brands = [] } = useBrands();
+
   const activeCat = categories.find((c) => c.id === activeCategory || c.slug === activeCategory);
 
   const filtered = useMemo(() => {
@@ -50,7 +54,7 @@ export function ProductListingPage({ scope = "all" }: Props) {
     if (sortBy === "price-asc") list = [...list].sort((a, b) => a.b2cPrice - b.b2cPrice);
     if (sortBy === "price-desc") list = [...list].sort((a, b) => b.b2cPrice - a.b2cPrice);
     return list;
-  }, [activeCategory, activeCat, q, selectedBrands, selectedAvailability, priceRange, sortBy]);
+  }, [products, activeCategory, activeCat, q, selectedBrands, selectedAvailability, priceRange, sortBy]);
 
   const toggleBrand = (val: string) => {
     setSelectedBrands((prev) => prev.includes(val) ? prev.filter((v) => v !== val) : [...prev, val]);

@@ -1,0 +1,85 @@
+You already have full project context (UI, GitHub repo, Supabase, Replit setup, existing schema, and mock data usage).
+
+Now your task is to convert the entire system from mock data to fully real, database-driven functionality WITHOUT changing the UI, layout, styling, or component structure.
+
+Core Requirements:
+
+1. Replace all mock/dummy data
+- Remove every instance of static/mock data.
+- Connect all views, components, and pages to real Supabase data.
+- Ensure everything (products, categories, brands, dashboard, etc.) is fetched dynamically.
+
+2. Full CRUD Operations (use existing schema)
+Implement complete CRUD across all modules already present in UI:
+- Products
+- Categories
+- Brands
+- Orders
+- Customers
+- Dashboard data
+
+Ensure:
+- Create, update, delete, and read operations are fully functional.
+- UI actions already present must now trigger real database operations.
+- No broken states or placeholder logic should remain.
+
+3. Supabase Storage (Important)
+Set up Supabase Storage for handling all images:
+- Product images
+- Category images
+- Brand images
+- Banner images
+
+Requirements:
+- Create proper storage buckets.
+- Upload images from admin panel directly to Supabase Storage.
+- Store image URLs/paths in the database.
+- Replace all current image handling with storage-based URLs.
+- Ensure images load properly across all pages.
+
+4. Dashboard (Real Data)
+- Dashboard stats must reflect real-time or near real-time database values.
+- Order counts, sales, products, etc. should update dynamically when data changes.
+- No hardcoded numbers.
+
+5. Admin + Sales Credentials (Temporary)
+Use temporary credentials for now:
+
+Admin:
+email: admin@example.com
+password: Admin@12345
+
+Sales:
+email: sales@example.com
+password: Sales@12345
+
+- Implement role-based access using current structure.
+- Keep it simple for now (we will integrate full auth later).
+
+6. Stability Fixes
+- Fix category navigation issue (category list should not disappear).
+- Prevent multiple unintended category selections.
+- Ensure consistent image sizing across all cards.
+- Maintain clean UI/UX alignment.
+
+7. GitHub Discipline
+- Push all changes to the existing repository.
+- Do not create a new project.
+- Keep frontend and backend structured properly.
+- Use clean commits.
+
+Important Constraints:
+- DO NOT redesign anything.
+- DO NOT change UI/UX.
+- DO NOT rebuild from scratch.
+- ONLY upgrade logic from mock → real.
+
+Final Goal:
+Make the entire ecommerce system fully functional with real data, working CRUD, proper image storage in Supabase, and a live dashboard — while keeping the exact same UI.
+
+Return:
+- Confirmation all mock data is removed
+- Storage buckets created
+- CRUD fully working
+- Test credentials working
+- Any required environment variables

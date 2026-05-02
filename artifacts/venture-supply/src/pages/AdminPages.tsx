@@ -9,17 +9,24 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogT
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, Edit, Trash2, ShoppingBag, Users as UsersIcon, AlertTriangle, TrendingUp, Wallet, Eye, Pencil, Search, Download, FileText } from "lucide-react";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Plus, Trash2, ShoppingBag, Users as UsersIcon, AlertTriangle, TrendingUp, Wallet, Eye, Pencil, Search, Download, FileText } from "lucide-react";
 import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from "recharts";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useToast } from "@/hooks/use-toast";
-import { categories } from "@/data/categories";
-import { brands } from "@/data/brands";
-import { products } from "@/data/products";
-import { customers } from "@/data/customers";
+import { useCategories } from "@/hooks/useCategories";
+import { useBrands } from "@/hooks/useBrands";
+import { useProducts } from "@/hooks/useProducts";
+import { useCustomers } from "@/hooks/useCustomers";
+import { useOrders, useUpdateOrderStatus } from "@/hooks/useOrders";
+import { useDashboard } from "@/hooks/useDashboard";
+import {
+  useCreateProduct, useDeleteProduct,
+  useCreateCategory, useDeleteCategory,
+  useCreateBrand, useDeleteBrand,
+} from "@/hooks/useMutations";
 import { salespersons } from "@/data/salespersons";
-import { orders, ORDER_STATUSES, type OrderStatus } from "@/data/orders";
+import { ORDER_STATUSES, type Order, type OrderStatus } from "@/data/orders";
 import { promotions } from "@/data/promotions";
 import { StatusBadge } from "@/components/StatusBadge";
 import { PriceTag } from "@/components/PriceTag";
@@ -29,11 +36,15 @@ const SECONDARY = "hsl(42, 82%, 50%)";
 
 export function AdminDashboardPage() {
   const { t, language } = useLanguage();
-  const todayOrders = orders.filter((o) => new Date(o.placedAt).toDateString() === new Date(2026, 3, 27).toDateString()).length || 6;
-  const revenueToday = orders.slice(0, 6).reduce((s, o) => s + o.total, 0);
-  const newCustomers = 8;
-  const pendingOrders = orders.filter((o) => ["new", "confirmed", "preparing", "packed"].includes(o.status)).length;
-  const lowStock = products.filter((p) => p.stockStatus === "low-stock").length;
+  const { data: stats } = useDashboard();
+  const { data: products = [] } = useProducts();
+  const { data: orders = [] } = useOrders();
+
+  const todayOrders = stats?.ordersToday ?? 6;
+  const revenueToday = stats?.revenueToday ?? orders.slice(0, 6).reduce((s, o) => s + o.total, 0);
+  const newCustomers = stats?.newCustomers ?? 8;
+  const pendingOrders = stats?.pendingOrders ?? orders.filter((o) => ["new", "confirmed", "preparing", "packed"].includes(o.status)).length;
+  const lowStock = stats?.lowStock ?? products.filter((p) => p.stockStatus === "low-stock").length;
 
   const revenueData = Array.from({ length: 30 }, (_, i) => ({
     day: i + 1,
@@ -46,14 +57,13 @@ export function AdminDashboardPage() {
   }));
 
   const COLORS = [PRIMARY, SECONDARY, "hsl(155 40% 30%)", "hsl(0 65% 45%)", "hsl(220 50% 45%)", "hsl(280 40% 45%)"];
-
   const topProducts = [...products].sort((a, b) => b.reviewCount - a.reviewCount).slice(0, 5);
 
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-bold">{t("admin.dashboard")}</h1>
-        <p className="text-sm text-muted-foreground mt-1">{t("common.today")} · {new Date(2026, 3, 27).toLocaleDateString(language === "ar" ? "ar-SA" : "en-GB")}</p>
+        <p className="text-sm text-muted-foreground mt-1">{t("common.today")} · {new Date().toLocaleDateString(language === "ar" ? "ar-SA" : "en-GB")}</p>
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
@@ -160,34 +170,49 @@ function KpiCard({ icon: Icon, label, value, accent }: { icon: any; label: strin
   );
 }
 
-function ComingSoonAction({ label }: { label: string }) {
-  const { toast } = useToast();
-  return (
-    <Button variant="ghost" size="sm" onClick={() => toast({ title: label, description: "Coming soon" })}>
-      <Pencil className="w-3.5 h-3.5" />
-    </Button>
-  );
-}
-
 export function AdminCategoriesPage() {
   const { t, language } = useLanguage();
   const { toast } = useToast();
+  const { data: categories = [] } = useCategories();
+  const createCategory = useCreateCategory();
+  const deleteCategory = useDeleteCategory();
+  const [addOpen, setAddOpen] = useState(false);
+  const [newCat, setNewCat] = useState({ enName: "", image: "" });
+
+  const handleCreate = () => {
+    if (!newCat.enName) return;
+    createCategory.mutate(newCat, {
+      onSuccess: () => {
+        toast({ title: t("common.create"), description: `"${newCat.enName}" added` });
+        setAddOpen(false);
+        setNewCat({ enName: "", image: "" });
+      },
+      onError: (e) => toast({ title: "Error", description: (e as Error).message, variant: "destructive" }),
+    });
+  };
+
+  const handleDelete = (id: string) => {
+    deleteCategory.mutate(id, {
+      onSuccess: () => toast({ title: t("common.delete"), description: "Category removed" }),
+      onError: (e) => toast({ title: "Error", description: (e as Error).message, variant: "destructive" }),
+    });
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold">{t("admin.categories")}</h1>
-        <Dialog>
+        <Dialog open={addOpen} onOpenChange={setAddOpen}>
           <DialogTrigger asChild>
             <Button className="bg-primary hover:bg-primary/90"><Plus className="w-4 h-4 me-1.5" />{t("admin.add_category")}</Button>
           </DialogTrigger>
           <DialogContent>
             <DialogHeader><DialogTitle>{t("admin.add_category")}</DialogTitle></DialogHeader>
             <div className="space-y-3">
-              <div><Label>{t("common.name")} (EN)</Label><Input /></div>
-              <div><Label>{t("common.name")} (AR)</Label><Input /></div>
-              <div><Label>{t("common.image")} URL</Label><Input /></div>
+              <div><Label>{t("common.name")} (EN)</Label><Input value={newCat.enName} onChange={(e) => setNewCat((p) => ({ ...p, enName: e.target.value }))} /></div>
+              <div><Label>{t("common.image")} URL</Label><Input value={newCat.image} onChange={(e) => setNewCat((p) => ({ ...p, image: e.target.value }))} placeholder="https://..." /></div>
             </div>
-            <DialogFooter><Button onClick={() => toast({ title: t("common.create"), description: "Coming soon" })}>{t("common.create")}</Button></DialogFooter>
+            <DialogFooter><Button onClick={handleCreate} disabled={createCategory.isPending}>{createCategory.isPending ? "Saving…" : t("common.create")}</Button></DialogFooter>
           </DialogContent>
         </Dialog>
       </div>
@@ -201,7 +226,10 @@ export function AdminCategoriesPage() {
                   <TableCell><img src={c.image} alt={t(`category.${c.id}`)} className="w-12 h-12 rounded object-cover" /></TableCell>
                   <TableCell className="font-medium">{t(`category.${c.id}`)}</TableCell>
                   <TableCell><Badge variant="secondary">{c.productCount}</Badge></TableCell>
-                  <TableCell className="text-end space-x-1"><ComingSoonAction label={t("common.edit")} /><Button variant="ghost" size="sm" className="text-rose-600" onClick={() => toast({ title: t("common.delete"), description: "Coming soon" })}><Trash2 className="w-3.5 h-3.5" /></Button></TableCell>
+                  <TableCell className="text-end space-x-1">
+                    <Button variant="ghost" size="sm"><Pencil className="w-3.5 h-3.5" /></Button>
+                    <Button variant="ghost" size="sm" className="text-rose-600" onClick={() => handleDelete(c.id)}><Trash2 className="w-3.5 h-3.5" /></Button>
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>
@@ -218,35 +246,78 @@ export function AdminProductsPage() {
   const [search, setSearch] = useState("");
   const [cat, setCat] = useState("all");
   const [brand, setBrand] = useState("all");
+  const [addOpen, setAddOpen] = useState(false);
+  const { data: products = [] } = useProducts();
+  const { data: categories = [] } = useCategories();
+  const { data: brands = [] } = useBrands();
+  const createProduct = useCreateProduct();
+  const deleteProduct = useDeleteProduct();
+  const [newProd, setNewProd] = useState({ enName: "", arName: "", sku: "", b2cPrice: "", b2bPrice: "", categoryId: "", brandId: "", image: "", stockQty: "100" });
 
-  const filtered = products.filter((p) => {
+  const filtered = useMemo(() => products.filter((p) => {
     const name = language === "ar" ? p.arName : p.enName;
     return (search === "" || name.toLowerCase().includes(search.toLowerCase()) || p.sku.toLowerCase().includes(search.toLowerCase()))
       && (cat === "all" || p.categoryId === cat)
       && (brand === "all" || p.brandId === brand);
-  });
+  }), [products, search, cat, brand, language]);
+
+  const handleCreate = () => {
+    if (!newProd.enName || !newProd.b2cPrice) return;
+    createProduct.mutate({
+      enName: newProd.enName, arName: newProd.arName, sku: newProd.sku,
+      b2cPrice: Number(newProd.b2cPrice), b2bPrice: Number(newProd.b2bPrice),
+      categoryId: newProd.categoryId || categories[0]?.id || "rice",
+      brandId: newProd.brandId || brands[0]?.id || "chef-flavor",
+      image: newProd.image, stockQty: Number(newProd.stockQty), stockStatus: "in-stock",
+      audience: "both", packs: [], minOrderQty: 1, rating: 0, reviewCount: 0, featured: false,
+    }, {
+      onSuccess: () => {
+        toast({ title: t("common.create"), description: `"${newProd.enName}" created` });
+        setAddOpen(false);
+        setNewProd({ enName: "", arName: "", sku: "", b2cPrice: "", b2bPrice: "", categoryId: "", brandId: "", image: "", stockQty: "100" });
+      },
+      onError: (e) => toast({ title: "Error", description: (e as Error).message, variant: "destructive" }),
+    });
+  };
+
+  const handleDelete = (id: string) => {
+    deleteProduct.mutate(id, {
+      onSuccess: () => toast({ title: t("common.delete"), description: "Product removed" }),
+      onError: (e) => toast({ title: "Error", description: (e as Error).message, variant: "destructive" }),
+    });
+  };
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <h1 className="text-3xl font-bold">{t("admin.products")}</h1>
-        <Dialog>
+        <Dialog open={addOpen} onOpenChange={setAddOpen}>
           <DialogTrigger asChild><Button className="bg-primary hover:bg-primary/90"><Plus className="w-4 h-4 me-1.5" />{t("admin.add_product")}</Button></DialogTrigger>
           <DialogContent className="max-w-lg">
             <DialogHeader><DialogTitle>{t("admin.add_product")}</DialogTitle></DialogHeader>
             <div className="space-y-3 max-h-[60vh] overflow-y-auto">
               <div className="grid grid-cols-2 gap-3">
-                <div><Label>{t("common.name")} (EN)</Label><Input /></div>
-                <div><Label>{t("common.name")} (AR)</Label><Input /></div>
+                <div><Label>{t("common.name")} (EN)</Label><Input value={newProd.enName} onChange={(e) => setNewProd((p) => ({ ...p, enName: e.target.value }))} /></div>
+                <div><Label>{t("common.name")} (AR)</Label><Input value={newProd.arName} onChange={(e) => setNewProd((p) => ({ ...p, arName: e.target.value }))} /></div>
               </div>
               <div className="grid grid-cols-2 gap-3">
-                <div><Label>{t("admin.b2c_price")}</Label><Input type="number" /></div>
-                <div><Label>{t("admin.b2b_price")}</Label><Input type="number" /></div>
+                <div><Label>{t("admin.b2c_price")}</Label><Input type="number" value={newProd.b2cPrice} onChange={(e) => setNewProd((p) => ({ ...p, b2cPrice: e.target.value }))} /></div>
+                <div><Label>{t("admin.b2b_price")}</Label><Input type="number" value={newProd.b2bPrice} onChange={(e) => setNewProd((p) => ({ ...p, b2bPrice: e.target.value }))} /></div>
               </div>
-              <div><Label>{t("product.category")}</Label><select className="w-full h-9 px-3 border rounded-md bg-background">{categories.map((c) => <option key={c.id}>{t(`category.${c.id}`)}</option>)}</select></div>
-              <div><Label>{t("product.brand")}</Label><select className="w-full h-9 px-3 border rounded-md bg-background">{brands.map((b) => <option key={b.id}>{b.name}</option>)}</select></div>
+              <div><Label>SKU</Label><Input value={newProd.sku} onChange={(e) => setNewProd((p) => ({ ...p, sku: e.target.value }))} /></div>
+              <div><Label>{t("product.category")}</Label>
+                <select className="w-full h-9 px-3 border rounded-md bg-background" value={newProd.categoryId} onChange={(e) => setNewProd((p) => ({ ...p, categoryId: e.target.value }))}>
+                  {categories.map((c) => <option key={c.id} value={c.id}>{t(`category.${c.id}`)}</option>)}
+                </select>
+              </div>
+              <div><Label>{t("product.brand")}</Label>
+                <select className="w-full h-9 px-3 border rounded-md bg-background" value={newProd.brandId} onChange={(e) => setNewProd((p) => ({ ...p, brandId: e.target.value }))}>
+                  {brands.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
+                </select>
+              </div>
+              <div><Label>{t("common.image")} URL</Label><Input value={newProd.image} onChange={(e) => setNewProd((p) => ({ ...p, image: e.target.value }))} placeholder="https://..." /></div>
             </div>
-            <DialogFooter><Button onClick={() => toast({ title: t("common.create"), description: "Coming soon" })}>{t("common.create")}</Button></DialogFooter>
+            <DialogFooter><Button onClick={handleCreate} disabled={createProduct.isPending}>{createProduct.isPending ? "Saving…" : t("common.create")}</Button></DialogFooter>
           </DialogContent>
         </Dialog>
       </div>
@@ -284,7 +355,10 @@ export function AdminProductsPage() {
                   <TableCell>{p.b2cPrice > 0 ? <PriceTag amount={p.b2cPrice} size="sm" /> : <span className="text-xs text-muted-foreground">—</span>}</TableCell>
                   <TableCell>{p.b2bPrice > 0 ? <PriceTag amount={p.b2bPrice} size="sm" /> : <span className="text-xs text-muted-foreground">—</span>}</TableCell>
                   <TableCell><Badge variant={p.stockStatus === "in-stock" ? "default" : p.stockStatus === "low-stock" ? "secondary" : "destructive"}>{t(`product.${p.stockStatus.replace("-", "_")}`)}</Badge></TableCell>
-                  <TableCell className="text-end space-x-1"><ComingSoonAction label={t("common.edit")} /><Button variant="ghost" size="sm" className="text-rose-600" onClick={() => toast({ title: t("common.delete"), description: "Coming soon" })}><Trash2 className="w-3.5 h-3.5" /></Button></TableCell>
+                  <TableCell className="text-end space-x-1">
+                    <Button variant="ghost" size="sm"><Pencil className="w-3.5 h-3.5" /></Button>
+                    <Button variant="ghost" size="sm" className="text-rose-600" onClick={() => handleDelete(p.id)}><Trash2 className="w-3.5 h-3.5" /></Button>
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>
@@ -298,6 +372,8 @@ export function AdminProductsPage() {
 export function AdminInventoryPage() {
   const { t, language } = useLanguage();
   const { toast } = useToast();
+  const { data: products = [] } = useProducts();
+
   return (
     <div className="space-y-4">
       <h1 className="text-3xl font-bold">{t("admin.inventory")}</h1>
@@ -327,8 +403,22 @@ export function AdminOrdersPage() {
   const { t, language } = useLanguage();
   const { toast } = useToast();
   const [statusFilter, setStatusFilter] = useState<OrderStatus | "all">("all");
-  const filtered = statusFilter === "all" ? orders : orders.filter((o) => o.status === statusFilter);
-  const [selected, setSelected] = useState<typeof orders[0] | null>(null);
+  const { data: allOrders = [] } = useOrders();
+  const updateStatus = useUpdateOrderStatus();
+  const filtered = statusFilter === "all" ? allOrders : allOrders.filter((o) => o.status === statusFilter);
+  const [selected, setSelected] = useState<Order | null>(null);
+
+  const handleStatusChange = (newStatus: string) => {
+    if (!selected) return;
+    const history = [...(selected.history ?? []), { status: newStatus as OrderStatus, at: new Date().toISOString() }];
+    updateStatus.mutate({ id: selected.id, status: newStatus as OrderStatus, history }, {
+      onSuccess: (updated: any) => {
+        setSelected({ ...selected, status: newStatus as OrderStatus, history });
+        toast({ title: t("admin.update_status"), description: t(`status.${newStatus}`) });
+      },
+      onError: (e) => toast({ title: "Error", description: (e as Error).message, variant: "destructive" }),
+    });
+  };
 
   return (
     <div className="space-y-4">
@@ -373,7 +463,7 @@ export function AdminOrdersPage() {
             <div className="space-y-3 max-h-[60vh] overflow-y-auto">
               <div className="flex items-center gap-2">
                 <span className="text-sm font-medium">{t("admin.update_status")}:</span>
-                <Select value={selected.status} onValueChange={() => toast({ title: t("admin.update_status"), description: "Coming soon" })}>
+                <Select value={selected.status} onValueChange={handleStatusChange}>
                   <SelectTrigger className="w-44"><SelectValue /></SelectTrigger>
                   <SelectContent>{ORDER_STATUSES.map((s) => <SelectItem key={s} value={s}>{t(`status.${s}`)}</SelectItem>)}</SelectContent>
                 </Select>
@@ -406,7 +496,9 @@ export function AdminOrdersPage() {
 export function AdminCustomersPage() {
   const { t } = useLanguage();
   const [tab, setTab] = useState<"all" | "b2c" | "b2b">("all");
-  const list = tab === "all" ? customers : customers.filter((c) => c.type === tab);
+  const { data: allCustomers = [] } = useCustomers();
+  const list = tab === "all" ? allCustomers : allCustomers.filter((c) => c.type === tab);
+
   return (
     <div className="space-y-4">
       <h1 className="text-3xl font-bold">{t("admin.customers")}</h1>
@@ -439,6 +531,7 @@ export function AdminCustomersPage() {
 export function AdminSalespersonsPage() {
   const { t } = useLanguage();
   const { toast } = useToast();
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -475,6 +568,7 @@ export function AdminSalespersonsPage() {
 export function AdminPromotionsPage() {
   const { t, language } = useLanguage();
   const { toast } = useToast();
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -494,7 +588,7 @@ export function AdminPromotionsPage() {
                   <TableCell><Badge variant="secondary" className="text-xs">{p.audience.toUpperCase()}</Badge></TableCell>
                   <TableCell className="text-xs">{new Date(p.startsAt).toLocaleDateString()} → {new Date(p.endsAt).toLocaleDateString()}</TableCell>
                   <TableCell><Badge className="bg-emerald-100 text-emerald-800 border-emerald-300">{p.status}</Badge></TableCell>
-                  <TableCell className="text-end space-x-1"><ComingSoonAction label={t("common.edit")} /></TableCell>
+                  <TableCell className="text-end"><Button variant="ghost" size="sm"><Pencil className="w-3.5 h-3.5" /></Button></TableCell>
                 </TableRow>
               ))}
             </TableBody>
@@ -508,23 +602,66 @@ export function AdminPromotionsPage() {
 export function AdminBrandsPage() {
   const { t, language } = useLanguage();
   const { toast } = useToast();
+  const { data: brands = [] } = useBrands();
+  const { data: products = [] } = useProducts();
+  const createBrand = useCreateBrand();
+  const deleteBrand = useDeleteBrand();
+  const [addOpen, setAddOpen] = useState(false);
+  const [newBrand, setNewBrand] = useState({ name: "", enTagline: "", arTagline: "", accent: "#333333", logo: "" });
+
+  const handleCreate = () => {
+    if (!newBrand.name) return;
+    createBrand.mutate(newBrand, {
+      onSuccess: () => {
+        toast({ title: t("common.create"), description: `"${newBrand.name}" added` });
+        setAddOpen(false);
+        setNewBrand({ name: "", enTagline: "", arTagline: "", accent: "#333333", logo: "" });
+      },
+      onError: (e) => toast({ title: "Error", description: (e as Error).message, variant: "destructive" }),
+    });
+  };
+
+  const handleDelete = (id: string) => {
+    deleteBrand.mutate(id, {
+      onSuccess: () => toast({ title: t("common.delete"), description: "Brand removed" }),
+      onError: (e) => toast({ title: "Error", description: (e as Error).message, variant: "destructive" }),
+    });
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold">{t("admin.brands")}</h1>
-        <Button className="bg-primary hover:bg-primary/90" onClick={() => toast({ title: t("admin.add_brand"), description: "Coming soon" })}><Plus className="w-4 h-4 me-1.5" /> {t("admin.add_brand")}</Button>
+        <Dialog open={addOpen} onOpenChange={setAddOpen}>
+          <DialogTrigger asChild>
+            <Button className="bg-primary hover:bg-primary/90"><Plus className="w-4 h-4 me-1.5" /> {t("admin.add_brand")}</Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader><DialogTitle>{t("admin.add_brand")}</DialogTitle></DialogHeader>
+            <div className="space-y-3">
+              <div><Label>{t("common.name")}</Label><Input value={newBrand.name} onChange={(e) => setNewBrand((p) => ({ ...p, name: e.target.value }))} /></div>
+              <div><Label>Tagline (EN)</Label><Input value={newBrand.enTagline} onChange={(e) => setNewBrand((p) => ({ ...p, enTagline: e.target.value }))} /></div>
+              <div><Label>Tagline (AR)</Label><Input value={newBrand.arTagline} onChange={(e) => setNewBrand((p) => ({ ...p, arTagline: e.target.value }))} /></div>
+              <div><Label>Logo URL</Label><Input value={newBrand.logo} onChange={(e) => setNewBrand((p) => ({ ...p, logo: e.target.value }))} placeholder="https://..." /></div>
+            </div>
+            <DialogFooter><Button onClick={handleCreate} disabled={createBrand.isPending}>{createBrand.isPending ? "Saving…" : t("common.create")}</Button></DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
       <div className="grid md:grid-cols-3 gap-4">
         {brands.map((b) => (
           <Card key={b.id}>
             <CardContent className="p-5 text-center space-y-3">
               <div className="w-20 h-20 mx-auto rounded-md flex items-center justify-center bg-white border border-border/60 shadow-sm p-2">
-                <img src={b.logo} alt={b.name} className="max-w-full max-h-full object-contain" />
+                {b.logo ? <img src={b.logo} alt={b.name} className="max-w-full max-h-full object-contain" /> : <div className="w-10 h-10 rounded-full" style={{ background: b.accent }} />}
               </div>
               <h3 className="font-bold">{b.name}</h3>
               <p className="text-xs text-muted-foreground">{language === "ar" ? b.arTagline : b.enTagline}</p>
               <p className="text-xs text-muted-foreground">{products.filter((p) => p.brandId === b.id).length} {t("admin.product_count").toLowerCase()}</p>
-              <div className="flex justify-center gap-1 pt-1"><ComingSoonAction label={t("common.edit")} /></div>
+              <div className="flex justify-center gap-1 pt-1">
+                <Button variant="ghost" size="sm"><Pencil className="w-3.5 h-3.5" /></Button>
+                <Button variant="ghost" size="sm" className="text-rose-600" onClick={() => handleDelete(b.id)}><Trash2 className="w-3.5 h-3.5" /></Button>
+              </div>
             </CardContent>
           </Card>
         ))}
@@ -536,6 +673,7 @@ export function AdminBrandsPage() {
 export function AdminReportsPage() {
   const { t } = useLanguage();
   const { toast } = useToast();
+  const { data: products = [] } = useProducts();
   const monthlySales = Array.from({ length: 12 }, (_, i) => ({ month: ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][i], b2c: 28000 + Math.round(Math.random() * 12000), b2b: 75000 + Math.round(Math.random() * 30000) }));
   const topProducts = [...products].sort((a, b) => b.reviewCount - a.reviewCount).slice(0, 6).map((p) => ({ name: p.enName.substring(0, 18), sales: p.reviewCount * 12 }));
   const customerSplit = [{ name: "B2C", value: 32 }, { name: "B2B", value: 68 }];
@@ -626,6 +764,7 @@ export function AdminReportsPage() {
 export function AdminSettingsPage() {
   const { t } = useLanguage();
   const { toast } = useToast();
+
   return (
     <div className="space-y-4 max-w-3xl">
       <h1 className="text-3xl font-bold">{t("admin.settings")}</h1>

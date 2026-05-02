@@ -13,10 +13,10 @@ import { LineChart, Line, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContai
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useRole } from "@/contexts/RoleContext";
 import { useToast } from "@/hooks/use-toast";
-import { customers } from "@/data/customers";
-import { orders } from "@/data/orders";
-import { products } from "@/data/products";
-import { categories } from "@/data/categories";
+import { useCustomers } from "@/hooks/useCustomers";
+import { useOrders } from "@/hooks/useOrders";
+import { useProducts } from "@/hooks/useProducts";
+import { useCategories } from "@/hooks/useCategories";
 import { StatusBadge } from "@/components/StatusBadge";
 import { PriceTag } from "@/components/PriceTag";
 import { useLocation } from "wouter";
@@ -27,9 +27,13 @@ const SECONDARY = "hsl(42, 82%, 50%)";
 export function SalesDashboardPage() {
   const { t, language } = useLanguage();
   const { salesperson } = useRole();
+  const { data: allCustomers = [] } = useCustomers();
+  const { data: allOrders = [] } = useOrders();
+
   if (!salesperson) return null;
-  const myCustomers = customers.filter((c) => c.assignedSalespersonId === salesperson.id);
-  const myOrders = orders.filter((o) => myCustomers.some((c) => c.id === o.customerId));
+
+  const myCustomers = allCustomers.filter((c) => c.assignedSalespersonId === salesperson.id);
+  const myOrders = allOrders.filter((o) => myCustomers.some((c) => c.id === o.customerId));
   const monthlySales = salesperson.monthlySales;
   const target = salesperson.monthlyTarget;
   const pct = Math.round((monthlySales / target) * 100);
@@ -116,8 +120,11 @@ export function SalesMyCustomersPage() {
   const { salesperson } = useRole();
   const { toast } = useToast();
   const [, setLocation] = useLocation();
+  const { data: allCustomers = [] } = useCustomers();
+
   if (!salesperson) return null;
-  const myCustomers = customers.filter((c) => c.assignedSalespersonId === salesperson.id);
+  const myCustomers = allCustomers.filter((c) => c.assignedSalespersonId === salesperson.id);
+
   return (
     <div className="space-y-4">
       <h1 className="text-3xl font-bold">{t("sales.my_customers")}</h1>
@@ -152,9 +159,13 @@ export function SalesMyCustomersPage() {
 export function SalesMyOrdersPage() {
   const { t, language } = useLanguage();
   const { salesperson } = useRole();
+  const { data: allCustomers = [] } = useCustomers();
+  const { data: allOrders = [] } = useOrders();
+
   if (!salesperson) return null;
-  const myCustomers = customers.filter((c) => c.assignedSalespersonId === salesperson.id);
-  const myOrders = orders.filter((o) => myCustomers.some((c) => c.id === o.customerId));
+  const myCustomers = allCustomers.filter((c) => c.assignedSalespersonId === salesperson.id);
+  const myOrders = allOrders.filter((o) => myCustomers.some((c) => c.id === o.customerId));
+
   return (
     <div className="space-y-4">
       <h1 className="text-3xl font-bold">{t("sales.my_orders")}</h1>
@@ -188,7 +199,11 @@ export function SalesCreateOrderPage() {
   const queryString = location.split("?")[1] ?? "";
   const initialCustomerId = new URLSearchParams(queryString).get("customerId") ?? "";
 
-  const myCustomers = customers.filter((c) => c.assignedSalespersonId === salesperson?.id);
+  const { data: allCustomers = [] } = useCustomers();
+  const { data: products = [] } = useProducts();
+  const { data: categories = [] } = useCategories();
+
+  const myCustomers = allCustomers.filter((c) => c.assignedSalespersonId === salesperson?.id);
   const [customerId, setCustomerId] = useState(initialCustomerId || myCustomers[0]?.id || "");
   const [search, setSearch] = useState("");
   const [cat, setCat] = useState("all");
@@ -201,14 +216,14 @@ export function SalesCreateOrderPage() {
         && (search === "" || name.toLowerCase().includes(search.toLowerCase()) || p.sku.toLowerCase().includes(search.toLowerCase()))
         && p.b2bPrice > 0;
     }).slice(0, 30);
-  }, [search, cat, language]);
+  }, [products, search, cat, language]);
 
   const addToCart = (p: typeof products[0]) => {
-    const pack = p.packs.find((pk) => pk.b2bPrice) ?? p.packs[0];
+    const pack = p.packs.find((pk: any) => pk.b2bPrice) ?? p.packs[0];
     setCart((c) => {
-      const existing = c.find((it) => it.productId === p.id && it.packSize === pack.size);
+      const existing = c.find((it) => it.productId === p.id && it.packSize === pack?.size);
       if (existing) return c.map((it) => it === existing ? { ...it, qty: it.qty + 1 } : it);
-      return [...c, { productId: p.id, packSize: pack.size, qty: p.minOrderQty, unitPrice: pack.b2bPrice ?? p.b2bPrice, enName: p.enName, arName: p.arName }];
+      return [...c, { productId: p.id, packSize: pack?.size ?? "", qty: p.minOrderQty, unitPrice: pack?.b2bPrice ?? p.b2bPrice, enName: p.enName, arName: p.arName }];
     });
   };
 
@@ -268,7 +283,7 @@ export function SalesCreateOrderPage() {
                     <img src={p.image} alt={p.enName} className="w-12 h-12 rounded object-cover" />
                     <div className="flex-1 min-w-0">
                       <p className="font-medium text-sm leading-tight truncate">{language === "ar" ? p.arName : p.enName}</p>
-                      <p className="text-xs text-muted-foreground">{p.sku} · {p.packs[0].size}</p>
+                      <p className="text-xs text-muted-foreground">{p.sku} · {p.packs[0]?.size ?? ""}</p>
                     </div>
                     <PriceTag amount={p.b2bPrice} size="sm" />
                     <Button size="sm" onClick={() => addToCart(p)} className="bg-primary hover:bg-primary/90"><Plus className="w-3.5 h-3.5 me-1" /> {t("common.add")}</Button>
@@ -320,9 +335,11 @@ export function SalesCreateOrderPage() {
 export function SalesPerformancePage() {
   const { t } = useLanguage();
   const { salesperson } = useRole();
+  const { data: allCustomers = [] } = useCustomers();
+
   if (!salesperson) return null;
   const monthlyTrend = Array.from({ length: 6 }, (_, i) => ({ month: ["Nov", "Dec", "Jan", "Feb", "Mar", "Apr"][i], sales: 70000 + Math.round(Math.random() * 50000) }));
-  const cust = customers.filter((c) => c.assignedSalespersonId === salesperson.id).map((c) => ({ name: c.name.split(" ")[0], value: c.lifetimeValue }));
+  const cust = allCustomers.filter((c) => c.assignedSalespersonId === salesperson.id).map((c) => ({ name: c.name.split(" ")[0], value: c.lifetimeValue }));
 
   return (
     <div className="space-y-4">

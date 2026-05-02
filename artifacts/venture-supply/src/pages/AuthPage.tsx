@@ -11,6 +11,7 @@ import { Logo } from "@/components/Logo";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useRole, type UserRole } from "@/contexts/RoleContext";
 import { useToast } from "@/hooks/use-toast";
+import { apiFetch } from "@/lib/api";
 
 interface Props { mode?: "login" | "register"; }
 
@@ -22,6 +23,9 @@ export function AuthPage({ mode = "login" }: Props) {
   const [accountType, setAccountType] = useState<"b2c" | "b2b">("b2c");
   const [step, setStep] = useState<"form" | "otp">("form");
   const [otp, setOtp] = useState("");
+  const [phoneOrEmail, setPhoneOrEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
 
   const demoLogin = (role: UserRole) => {
     setRole(role);
@@ -31,9 +35,34 @@ export function AuthPage({ mode = "login" }: Props) {
     toast({ title: t("auth.welcome_back") });
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setStep("otp");
+    if (phoneOrEmail.includes("@")) {
+      setIsLoading(true);
+      try {
+        const result = await apiFetch<{ ok: boolean; role: string; name: string; salespersonId?: string }>(
+          "/auth/login",
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ email: phoneOrEmail, password }),
+          }
+        );
+        if (result.ok) {
+          setRole(result.role as UserRole);
+          if (result.role === "admin") setLocation("/admin");
+          else if (result.role === "sales") setLocation("/sales");
+          else setLocation("/account");
+          toast({ title: t("auth.welcome_back"), description: result.name });
+        }
+      } catch {
+        toast({ title: "Login failed", description: "Invalid credentials", variant: "destructive" });
+      } finally {
+        setIsLoading(false);
+      }
+    } else {
+      setStep("otp");
+    }
   };
 
   const verifyOtp = () => {
@@ -68,9 +97,30 @@ export function AuthPage({ mode = "login" }: Props) {
 
                 {step === "form" ? (
                   <form className="space-y-4" onSubmit={handleSubmit}>
-                    <div><Label>{t("common.phone")}</Label><Input placeholder="+966 5X XXX XXXX" required data-testid="input-login-phone" /></div>
-                    <div><Label>{t("common.password")}</Label><Input type="password" placeholder="••••••••" required data-testid="input-login-password" /></div>
-                    <Button type="submit" className="w-full bg-primary hover:bg-primary/90" data-testid="button-login-submit">{t("auth.send_otp")}</Button>
+                    <div>
+                      <Label>{t("common.phone")} / Email</Label>
+                      <Input
+                        value={phoneOrEmail}
+                        onChange={(e) => setPhoneOrEmail(e.target.value)}
+                        placeholder="+966 5X XXX XXXX or admin@example.com"
+                        required
+                        data-testid="input-login-phone"
+                      />
+                    </div>
+                    <div>
+                      <Label>{t("common.password")}</Label>
+                      <Input
+                        type="password"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        placeholder="••••••••"
+                        required
+                        data-testid="input-login-password"
+                      />
+                    </div>
+                    <Button type="submit" className="w-full bg-primary hover:bg-primary/90" disabled={isLoading} data-testid="button-login-submit">
+                      {isLoading ? "Signing in…" : phoneOrEmail.includes("@") ? "Sign In" : t("auth.send_otp")}
+                    </Button>
                   </form>
                 ) : (
                   <div className="space-y-4">

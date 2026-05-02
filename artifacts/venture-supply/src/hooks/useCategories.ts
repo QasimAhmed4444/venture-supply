@@ -6,8 +6,8 @@ export function useCategories() {
   return useQuery<Category[]>({
     queryKey: ["categories"],
     queryFn: () => apiFetch<Category[]>("/categories"),
-    initialData: mockCategories,
-    staleTime: 300_000,
+    placeholderData: mockCategories,
+    staleTime: 0,
     retry: 1,
   });
 }
