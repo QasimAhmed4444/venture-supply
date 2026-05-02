@@ -1,0 +1,101 @@
+I have a website project called “Venture Supply”, serving both B2B and B2C users. Please improve the website UI based on the screenshots and requirements below.
+
+Important rules:
+- Do not change the existing header and footer structure.
+- Keep the current brand colors, but reduce the excessive blue usage on the homepage.
+- Make the UI clean, professional, modern, responsive, and suitable for a B2B + B2C wholesale platform.
+- All images, category cards, brand cards, offer cards, and product cards must be clickable.
+- Use HD-quality images only.
+- Keep the solution simple and clean. Do not add unnecessary new features.
+
+Tasks:
+
+1. Homepage Hero Banner
+- Replace the current static homepage banner with a professional HD image slider.
+- Add 2–3 HD warehouse/wholesale/supply chain related images.
+- The slider should auto-slide smoothly.
+- Add a dark overlay so the white text remains readable.
+- Keep CTA buttons like “Shop Now” and “Register as Business”.
+- Make the banner look premium and aligned with the Venture Supply brand.
+
+2. Homepage Categories Section
+- Currently categories are showing in multiple rows. Change them into a single horizontal scrollable row.
+- Categories should display as cards/icons in one line.
+- More categories should appear when the user scrolls horizontally.
+- Make the subtitle text bold:
+  “Everything from premium basmati to authentic recipe blends”
+- Keep all category cards clickable.
+- Make category images/icons clean and consistent.
+
+3. Why Venture Supply Section
+- Improve the heading design.
+- Change “WHY VENTURE SUPPLY” text color to black.
+- Make the heading bigger and more professional.
+- The paragraph/text color below should match the footer text color.
+- Keep the cards clean with good spacing and alignment.
+
+4. Remove Offers/Promotion Section
+- Remove the section that contains promotional offer cards such as:
+  “Ramadan 20% off Recipe Mix”
+  “SAR 500 off bulk orders”
+  “Free delivery on orders over 200”
+- This section must not appear on the homepage.
+
+5. Popular / Product Section on Homepage
+- The current product section has too many large images.
+- Make this section cleaner and show only a few products in one horizontal row.
+- Improve product card spacing, alignment, image size, and overall UI.
+- Make it visually consistent with the homepage.
+- Product cards must remain clickable.
+- Remove the “Featured Products” section from the homepage if it exists separately.
+
+6. Brands Section
+- Improve the brands section.
+- Add more brands, including:
+  - Almari
+  - Chef Flavor
+  - Malka
+  - Vital
+  - Any other existing brand in the project data
+- Make brand cards auto-moveable / auto-slider carousel.
+- Brand cards should be clickable.
+- Keep the design clean and professional.
+
+7. Top Header Strip
+- Add the top header strip exactly like shown in the screenshot:
+  - Deliver to: Madinah Al Munawwarah, KSA
+  - +966 54 720 6862
+  - info@venturesupply.sa
+  - Request a Product
+- Keep the same color, text size, spacing, and alignment style from the screenshot.
+- Align it properly with the existing homepage header.
+- Do not disturb the main header and footer.
+
+8. Header Navigation UI
+- The category/navigation text in the header currently looks bad.
+- Improve spacing, alignment, typography, and active/hover state.
+- Do not add extra items from your side.
+- Keep the same navigation items only.
+- Make it look professional and clean.
+
+9. Product Page Filters
+- On the product page sidebar/filter area, add all available categories.
+- Categories should be listed clearly and be selectable/clickable.
+- Keep brand, price range, availability, and category filters aligned properly.
+- Make the filter UI clean and responsive.
+
+10. General Website Improvements
+- Review all pages.
+- Improve spacing, alignment, card consistency, image sizing, font weights, responsiveness, and hover effects where needed.
+- Fix broken/missing images.
+- Use proper fallback images where needed.
+- Make sure homepage does not look overly blue.
+- Keep the design aligned with the current header and footer.
+- Do not change footer and main header structure.
+
+Expected output:
+- Update the actual project files.
+- Keep code clean and reusable.
+- Use existing components where possible.
+- Make sure there are no console errors.
+- Ensure the website works properly on desktop, tablet, and mobile.

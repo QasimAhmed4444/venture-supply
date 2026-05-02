@@ -27,17 +27,22 @@ export function ProductListingPage({ scope = "all" }: Props) {
   const q = search.get("q")?.toLowerCase() ?? "";
   const initialBrand = search.get("brand") ?? undefined;
 
+  const categoryId = scope === "category" ? params.slug : undefined;
+  const category = categoryId ? categories.find((c) => c.slug === categoryId) : undefined;
+
   const [selectedBrands, setSelectedBrands] = useState<string[]>(initialBrand ? [initialBrand] : []);
+  const [selectedCategories, setSelectedCategories] = useState<string[]>(categoryId ? [categoryId] : []);
   const [selectedAvailability, setSelectedAvailability] = useState<string[]>([]);
   const [priceRange, setPriceRange] = useState<[number, number]>([0, 600]);
   const [sortBy, setSortBy] = useState("relevance");
 
-  const categoryId = scope === "category" ? params.slug : undefined;
-  const category = categoryId ? categories.find((c) => c.slug === categoryId) : undefined;
-
   const filtered = useMemo(() => {
     let list = products;
-    if (categoryId) list = list.filter((p) => p.categoryId === categoryId);
+    if (categoryId) {
+      list = list.filter((p) => p.categoryId === categoryId);
+    } else if (selectedCategories.length) {
+      list = list.filter((p) => selectedCategories.includes(p.categoryId));
+    }
     if (q) list = list.filter((p) => p.enName.toLowerCase().includes(q) || p.arName.includes(q));
     if (selectedBrands.length) list = list.filter((p) => selectedBrands.includes(p.brandId));
     if (selectedAvailability.length) list = list.filter((p) => selectedAvailability.includes(p.stockStatus));
@@ -46,7 +51,7 @@ export function ProductListingPage({ scope = "all" }: Props) {
     if (sortBy === "price-asc") list = [...list].sort((a, b) => a.b2cPrice - b.b2cPrice);
     if (sortBy === "price-desc") list = [...list].sort((a, b) => b.b2cPrice - a.b2cPrice);
     return list;
-  }, [categoryId, q, selectedBrands, selectedAvailability, priceRange, sortBy]);
+  }, [categoryId, selectedCategories, q, selectedBrands, selectedAvailability, priceRange, sortBy]);
 
   const toggle = (val: string, list: string[], setter: (v: string[]) => void) => {
     setter(list.includes(val) ? list.filter((v) => v !== val) : [...list, val]);
@@ -90,13 +95,38 @@ export function ProductListingPage({ scope = "all" }: Props) {
         <aside className="space-y-4">
           <Card>
             <CardContent className="p-4 space-y-5">
-              <div className="flex items-center gap-2 text-sm font-semibold pb-2 border-b">
+              <div className="flex items-center gap-2 text-sm font-semibold pb-2 border-b text-primary">
                 <Filter className="w-4 h-4" /> {t("common.filters")}
               </div>
 
+              {/* Category filter — only show on /products (all), not on /categories/slug */}
+              {!categoryId && (
+                <>
+                  <div>
+                    <Label className="text-sm font-semibold mb-3 block text-foreground">{t("home.categories.title")}</Label>
+                    <div className="space-y-1.5">
+                      {categories.map((c) => (
+                        <div key={c.id} className="flex items-center gap-2">
+                          <Checkbox
+                            id={`c-${c.id}`}
+                            checked={selectedCategories.includes(c.id)}
+                            onCheckedChange={() => toggle(c.id, selectedCategories, setSelectedCategories)}
+                            data-testid={`filter-cat-${c.id}`}
+                          />
+                          <Label htmlFor={`c-${c.id}`} className="text-sm font-normal cursor-pointer leading-tight">
+                            {t(`category.${c.id}`)}
+                          </Label>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  <Separator />
+                </>
+              )}
+
               <div>
-                <Label className="text-sm font-semibold mb-3 block">{t("listing.brand")}</Label>
-                <div className="space-y-2">
+                <Label className="text-sm font-semibold mb-3 block text-foreground">{t("listing.brand")}</Label>
+                <div className="space-y-1.5">
                   {brands.map((b) => (
                     <div key={b.id} className="flex items-center gap-2">
                       <Checkbox id={`b-${b.id}`} checked={selectedBrands.includes(b.id)} onCheckedChange={() => toggle(b.id, selectedBrands, setSelectedBrands)} data-testid={`filter-brand-${b.id}`} />
@@ -109,7 +139,7 @@ export function ProductListingPage({ scope = "all" }: Props) {
               <Separator />
 
               <div>
-                <Label className="text-sm font-semibold mb-3 block">{t("listing.price_range")}</Label>
+                <Label className="text-sm font-semibold mb-3 block text-foreground">{t("listing.price_range")}</Label>
                 <Slider value={priceRange} onValueChange={(v) => setPriceRange(v as [number, number])} min={0} max={600} step={10} className="my-3" />
                 <div className="flex justify-between text-xs text-muted-foreground">
                   <span>{priceRange[0]} {language === "ar" ? "ر.س" : "SAR"}</span>
@@ -120,8 +150,8 @@ export function ProductListingPage({ scope = "all" }: Props) {
               <Separator />
 
               <div>
-                <Label className="text-sm font-semibold mb-3 block">{t("listing.availability")}</Label>
-                <div className="space-y-2">
+                <Label className="text-sm font-semibold mb-3 block text-foreground">{t("listing.availability")}</Label>
+                <div className="space-y-1.5">
                   {[
                     { id: "in-stock", label: t("product.in_stock") },
                     { id: "low-stock", label: t("product.low_stock") },
@@ -134,8 +164,13 @@ export function ProductListingPage({ scope = "all" }: Props) {
                 </div>
               </div>
 
-              <Button variant="ghost" size="sm" className="w-full" onClick={() => { setSelectedBrands([]); setSelectedAvailability([]); setPriceRange([0, 600]); }}>
-                {t("common.cancel")} {t("common.filters").toLowerCase()}
+              <Button
+                variant="ghost"
+                size="sm"
+                className="w-full text-muted-foreground hover:text-foreground"
+                onClick={() => { setSelectedBrands([]); setSelectedCategories([]); setSelectedAvailability([]); setPriceRange([0, 600]); }}
+              >
+                {language === "ar" ? "مسح الفلاتر" : "Clear all filters"}
               </Button>
             </CardContent>
           </Card>

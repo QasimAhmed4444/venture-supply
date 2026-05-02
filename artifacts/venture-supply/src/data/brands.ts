@@ -8,7 +8,7 @@ export interface Brand {
   enTagline: string;
   arTagline: string;
   accent: string;
-  logo: string;
+  logo?: string;
 }
 
 export const brands: Brand[] = [
@@ -35,5 +35,12 @@ export const brands: Brand[] = [
     arTagline: "شاي فاخر في كل كوب",
     accent: "#0E5C2F",
     logo: vitalLogo,
+  },
+  {
+    id: "almari",
+    name: "Al Mari",
+    enTagline: "Trusted everyday essentials",
+    arTagline: "أساسيات يومية موثوقة",
+    accent: "#085890",
   },
 ];
