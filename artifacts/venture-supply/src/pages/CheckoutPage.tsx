@@ -7,16 +7,20 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Separator } from "@/components/ui/separator";
-import { Truck, MapPin, CreditCard, Building2, Banknote, Wallet } from "lucide-react";
+import { Truck, MapPin, CreditCard, Building2, Banknote, Wallet, Loader2 } from "lucide-react";
 import { useCart } from "@/contexts/CartContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useRole } from "@/contexts/RoleContext";
+import { useToast } from "@/hooks/use-toast";
+import { useCreateOrder } from "@/hooks/useOrders";
 import { PriceTag } from "@/components/PriceTag";
 
 export function CheckoutPage() {
   const { items, subtotal, vat, total, clear } = useCart();
   const { t, isRTL, language } = useLanguage();
   const { role, customer } = useRole();
+  const { toast } = useToast();
+  const createOrder = useCreateOrder();
   const [, setLocation] = useLocation();
   const isB2B = role === "b2b";
 
@@ -37,18 +41,65 @@ export function CheckoutPage() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const trackingId = `VS-O-${Math.floor(2000 + Math.random() * 8000)}`;
-    const summary = {
-      trackingId,
-      total: grandTotal,
-      orderType,
-      paymentMethod,
-      address: orderType === "pickup" ? "Pickup — Riyadh Hub" : `${address}, ${city}`,
-      itemCount: items.length,
-    };
-    sessionStorage.setItem("vs.lastOrder", JSON.stringify(summary));
-    clear();
-    setLocation(`/order-success?id=${trackingId}`);
+
+    const id = `o-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+    const trackingId = `VS-O-${Math.floor(1000 + Math.random() * 9000)}`;
+    const placedAt = new Date().toISOString();
+    const estDays = orderType === "pickup" ? 1 : isB2B ? 4 : 2;
+    const estimatedAt = new Date(Date.now() + estDays * 86_400_000).toISOString();
+    const deliveryAddress =
+      orderType === "pickup"
+        ? "Pickup — Riyadh Hub, Al Sulay"
+        : `${address}, ${city}`;
+
+    createOrder.mutate(
+      {
+        id,
+        trackingId,
+        customerId: customer?.id ?? `guest-${Date.now()}`,
+        customerName: name || customer?.name || "Guest",
+        customerType: isB2B ? "b2b" : "b2c",
+        salespersonId: customer?.assignedSalespersonId ?? null,
+        status: "new",
+        orderType,
+        paymentMethod,
+        placedAt,
+        estimatedAt,
+        deliveryAddress,
+        city: orderType === "pickup" ? "Riyadh" : city,
+        items,
+        subtotal,
+        vat,
+        deliveryCharge,
+        total: grandTotal,
+        history: [{ status: "new", at: placedAt }],
+      },
+      {
+        onSuccess: (saved) => {
+          sessionStorage.setItem(
+            "vs.lastOrder",
+            JSON.stringify({
+              trackingId: saved.trackingId,
+              total: saved.total,
+              orderType: saved.orderType,
+              paymentMethod: saved.paymentMethod,
+              address: saved.deliveryAddress,
+              itemCount: items.length,
+              estimatedAt: saved.estimatedAt,
+            })
+          );
+          clear();
+          setLocation(`/order-success?id=${saved.trackingId}`);
+        },
+        onError: (err: Error) => {
+          toast({
+            title: language === "ar" ? "فشل تقديم الطلب" : "Failed to place order",
+            description: err.message,
+            variant: "destructive",
+          });
+        },
+      }
+    );
   };
 
   if (items.length === 0) {
@@ -168,8 +219,19 @@ export function CheckoutPage() {
                 <PriceTag amount={grandTotal} size="xl" />
               </div>
             </div>
-            <Button type="submit" size="lg" className="w-full bg-primary hover:bg-primary/90" data-testid="button-place-order">
-              {t("checkout.place_order")}
+            <Button
+              type="submit"
+              size="lg"
+              className="w-full bg-primary hover:bg-primary/90"
+              disabled={createOrder.isPending}
+              data-testid="button-place-order"
+            >
+              {createOrder.isPending ? (
+                <>
+                  <Loader2 className="w-4 h-4 me-2 animate-spin" />
+                  {language === "ar" ? "جارٍ تقديم الطلب…" : "Placing order…"}
+                </>
+              ) : t("checkout.place_order")}
             </Button>
           </CardContent>
         </Card>

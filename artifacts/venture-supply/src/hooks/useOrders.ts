@@ -48,3 +48,19 @@ export function useUpdateOrderStatus() {
     },
   });
 }
+
+export function useCreateOrder() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (order: Record<string, unknown>) =>
+      apiFetch<Order>("/orders", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(order),
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["orders"] });
+      qc.invalidateQueries({ queryKey: ["dashboard"] });
+    },
+  });
+}
