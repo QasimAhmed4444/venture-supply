@@ -2,6 +2,21 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiFetch } from "@/lib/api";
 import { orders as mockOrders, type Order, type OrderStatus } from "@/data/orders";
 
+export function useOrder(tid?: string) {
+  const placeholder = tid
+    ? (mockOrders.find((o) => o.trackingId === tid || o.id === tid) ?? null)
+    : null;
+  return useQuery<Order | null>({
+    queryKey: ["order", tid],
+    queryFn: () =>
+      tid ? apiFetch<Order>(`/orders/${encodeURIComponent(tid)}`) : Promise.resolve(null),
+    enabled: !!tid,
+    placeholderData: placeholder,
+    staleTime: 0,
+    retry: 1,
+  });
+}
+
 export function useOrders(filters?: { status?: string; customerId?: string; salespersonId?: string }) {
   const params = new URLSearchParams();
   if (filters?.status && filters.status !== "all") params.set("status", filters.status);
