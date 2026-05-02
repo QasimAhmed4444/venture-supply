@@ -940,6 +940,7 @@ export function AdminCustomersPage() {
   const { toast } = useToast();
   const [tab, setTab] = useState<"all" | "b2c" | "b2b">("all");
   const [search, setSearch] = useState("");
+  const [spFilter, setSpFilter] = useState<string>("all");
   const [sortKey, setSortKey] = useState<"name" | "city" | "totalOrders" | "lifetimeValue" | null>(null);
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
 
@@ -949,8 +950,10 @@ export function AdminCustomersPage() {
   };
   const { data: allCustomers = [] } = useCustomers();
   const { data: businessTypes = [] } = useBusinessTypes();
+  const { data: salespersons = [] } = useSalespersons();
   const list = allCustomers
     .filter((c) => tab === "all" || c.type === tab)
+    .filter((c) => spFilter === "all" || c.assignedSalespersonId === spFilter)
     .filter((c) => {
       const q = search.trim().toLowerCase();
       if (!q) return true;
@@ -999,12 +1002,14 @@ export function AdminCustomersPage() {
   };
 
   const exportCsv = () => {
-    const rows = [["Name", "Email", "Phone", "City", "Type", "Business Name", "Business Type", "Orders", "Lifetime Value (SAR)", "Joined"]];
-    for (const c of list) {
+    const rows = [["Name", "Email", "Phone", "City", "Type", "Business Name", "Business Type", "Salesperson", "Orders", "Lifetime Value (SAR)", "Joined"]];
+    for (const c of sorted) {
+      const sp = salespersons.find((s) => s.id === c.assignedSalespersonId);
       rows.push([
         c.name, c.email, c.phone, c.city, c.type.toUpperCase(),
         c.business?.name ?? "",
         c.business?.type ?? "",
+        sp?.name ?? "",
         String(c.totalOrders),
         c.lifetimeValue.toFixed(2),
         c.joinedDate ? new Date(c.joinedDate).toLocaleDateString() : "",
@@ -1116,7 +1121,22 @@ export function AdminCustomersPage() {
             </button>
           )}
         </div>
-        {search && <p className="text-xs text-muted-foreground self-center">{list.length} result{list.length !== 1 ? "s" : ""}</p>}
+        <div className="shrink-0">
+          <select
+            className="h-9 px-3 border rounded-md bg-background text-sm"
+            value={spFilter}
+            onChange={(e) => setSpFilter(e.target.value)}
+          >
+            <option value="all">All Salespersons</option>
+            <option value="__unassigned">Unassigned</option>
+            {salespersons.map((sp) => (
+              <option key={sp.id} value={sp.id}>{sp.name}</option>
+            ))}
+          </select>
+        </div>
+        {(search || spFilter !== "all") && (
+          <p className="text-xs text-muted-foreground self-center">{list.length} result{list.length !== 1 ? "s" : ""}</p>
+        )}
       </div>
       <Card>
         <CardContent className="p-5">
@@ -1134,6 +1154,7 @@ export function AdminCustomersPage() {
                   </TableHead>
                   <TableHead>Type</TableHead>
                   <TableHead>Business</TableHead>
+                  <TableHead>Salesperson</TableHead>
                   <TableHead className="cursor-pointer select-none" onClick={() => toggleSort("totalOrders")}>
                     <span className="flex items-center gap-1">Orders {sortKey === "totalOrders" ? (sortDir === "asc" ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />) : <ChevronUp className="w-3 h-3 opacity-20" />}</span>
                   </TableHead>
@@ -1153,6 +1174,14 @@ export function AdminCustomersPage() {
                   <TableCell className="text-sm">{c.city}</TableCell>
                   <TableCell><Badge variant="outline" className="text-xs">{c.type.toUpperCase()}</Badge></TableCell>
                   <TableCell className="text-xs">{c.business?.name ?? <span className="text-muted-foreground">—</span>}</TableCell>
+                  <TableCell className="text-xs">
+                    {(() => {
+                      const sp = salespersons.find((s) => s.id === c.assignedSalespersonId);
+                      return sp
+                        ? <span className="flex items-center gap-1"><div className="w-5 h-5 rounded-full bg-primary/10 text-primary text-[10px] font-bold flex items-center justify-center shrink-0">{sp.name[0]}</div>{sp.name}</span>
+                        : <span className="text-muted-foreground">—</span>;
+                    })()}
+                  </TableCell>
                   <TableCell>{c.totalOrders}</TableCell>
                   <TableCell><PriceTag amount={c.lifetimeValue} size="sm" /></TableCell>
                   <TableCell>
