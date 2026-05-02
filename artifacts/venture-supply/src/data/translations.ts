@@ -148,6 +148,9 @@ export const translations: Record<Language, Record<string, string>> = {
     "category.beverages": "Beverages",
     "category.sauces": "Sauces",
     "category.specialty-items": "Specialty Items",
+    "category.specialty": "Specialty Items",
+    "category.vermicelli": "Vermicelli",
+    "category.desserts": "Desserts",
 
     // Products
     "product.brand": "Brand",
@@ -542,6 +545,9 @@ export const translations: Record<Language, Record<string, string>> = {
     "category.beverages": "المشروبات",
     "category.sauces": "الصلصات",
     "category.specialty-items": "منتجات مميزة",
+    "category.specialty": "منتجات مميزة",
+    "category.vermicelli": "الشعيرية",
+    "category.desserts": "الحلويات",
 
     // Products
     "product.brand": "العلامة التجارية",
