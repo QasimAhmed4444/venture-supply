@@ -27,8 +27,8 @@ import {
   useCreateBrand, useDeleteBrand, useUpdateBrand,
 } from "@/hooks/useMutations";
 import { useCoupons, useCreateCoupon, useUpdateCoupon, useDeleteCoupon, type Coupon } from "@/hooks/useCoupons";
-import { salespersons } from "@/data/salespersons";
 import { ORDER_STATUSES, type Order, type OrderStatus } from "@/data/orders";
+import { useSalespersons, useCreateSalesperson, useUpdateSalesperson, useDeleteSalesperson, type Salesperson } from "@/hooks/useSalespersons";
 import { StatusBadge } from "@/components/StatusBadge";
 import { PriceTag } from "@/components/PriceTag";
 
@@ -41,9 +41,10 @@ export function AdminDashboardPage() {
   const { data: products = [] } = useProducts();
   const { data: orders = [] } = useOrders();
 
-  const todayOrders = stats?.ordersToday ?? 6;
-  const revenueToday = stats?.revenueToday ?? orders.slice(0, 6).reduce((s, o) => s + o.total, 0);
-  const newCustomers = stats?.newCustomers ?? 8;
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const todayOrders = stats?.ordersToday ?? orders.filter((o) => o.placedAt.slice(0, 10) === todayStr).length;
+  const revenueToday = stats?.revenueToday ?? orders.filter((o) => o.placedAt.slice(0, 10) === todayStr).reduce((s, o) => s + o.total, 0);
+  const newCustomers = stats?.newCustomers ?? 0;
   const pendingOrders = stats?.pendingOrders ?? orders.filter((o) => ["new", "confirmed", "preparing", "packed"].includes(o.status)).length;
   const lowStock = stats?.lowStock ?? products.filter((p) => p.stockStatus === "low-stock").length;
 
@@ -638,39 +639,171 @@ export function AdminCustomersPage() {
   );
 }
 
+const BLANK_SP = { name: "", email: "", phone: "", region: "", monthlyTarget: "80000", monthlySales: "0", customersCount: "0", ordersThisMonth: "0", pendingOrders: "0", status: "active" as "active" | "inactive", joinedDate: "" };
+
 export function AdminSalespersonsPage() {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const { toast } = useToast();
+  const { data: salespersons = [], isLoading } = useSalespersons();
+  const createSP = useCreateSalesperson();
+  const updateSP = useUpdateSalesperson();
+  const deleteSP = useDeleteSalesperson();
+
+  const [addOpen, setAddOpen] = useState(false);
+  const [newSP, setNewSP] = useState(BLANK_SP);
+  const [editSP, setEditSP] = useState<Salesperson | null>(null);
+  const [editData, setEditData] = useState(BLANK_SP);
+
+  const openEdit = (s: Salesperson) => {
+    setEditSP(s);
+    setEditData({ name: s.name, email: s.email, phone: s.phone ?? "", region: s.region ?? "", monthlyTarget: String(s.monthlyTarget), monthlySales: String(s.monthlySales), customersCount: String(s.customersCount), ordersThisMonth: String(s.ordersThisMonth), pendingOrders: String(s.pendingOrders), status: s.status, joinedDate: s.joinedDate ? s.joinedDate.slice(0, 10) : "" });
+  };
+
+  const toPayload = (d: typeof BLANK_SP) => ({
+    name: d.name, email: d.email, phone: d.phone, region: d.region,
+    monthlyTarget: Number(d.monthlyTarget), monthlySales: Number(d.monthlySales),
+    customersCount: Number(d.customersCount), ordersThisMonth: Number(d.ordersThisMonth),
+    pendingOrders: Number(d.pendingOrders), status: d.status,
+    joinedDate: d.joinedDate || undefined,
+  });
+
+  const SPForm = ({ data, setData }: { data: typeof BLANK_SP; setData: (fn: (p: typeof BLANK_SP) => typeof BLANK_SP) => void }) => (
+    <div className="space-y-3">
+      <div className="grid grid-cols-2 gap-3">
+        <div><Label>{t("common.name")}</Label><Input value={data.name} onChange={(e) => setData((p) => ({ ...p, name: e.target.value }))} /></div>
+        <div><Label>{t("common.email")}</Label><Input type="email" value={data.email} onChange={(e) => setData((p) => ({ ...p, email: e.target.value }))} /></div>
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div><Label>{t("common.phone")}</Label><Input value={data.phone} onChange={(e) => setData((p) => ({ ...p, phone: e.target.value }))} /></div>
+        <div><Label>Region</Label><Input value={data.region} onChange={(e) => setData((p) => ({ ...p, region: e.target.value }))} /></div>
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div><Label>Monthly Target (SAR)</Label><Input type="number" value={data.monthlyTarget} onChange={(e) => setData((p) => ({ ...p, monthlyTarget: e.target.value }))} /></div>
+        <div><Label>Monthly Sales (SAR)</Label><Input type="number" value={data.monthlySales} onChange={(e) => setData((p) => ({ ...p, monthlySales: e.target.value }))} /></div>
+      </div>
+      <div className="grid grid-cols-3 gap-3">
+        <div><Label>Customers</Label><Input type="number" value={data.customersCount} onChange={(e) => setData((p) => ({ ...p, customersCount: e.target.value }))} /></div>
+        <div><Label>Orders / Month</Label><Input type="number" value={data.ordersThisMonth} onChange={(e) => setData((p) => ({ ...p, ordersThisMonth: e.target.value }))} /></div>
+        <div><Label>Pending</Label><Input type="number" value={data.pendingOrders} onChange={(e) => setData((p) => ({ ...p, pendingOrders: e.target.value }))} /></div>
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div><Label>Status</Label>
+          <select className="w-full h-9 px-3 border rounded-md bg-background" value={data.status} onChange={(e) => setData((p) => ({ ...p, status: e.target.value as any }))}>
+            <option value="active">Active</option>
+            <option value="inactive">Inactive</option>
+          </select>
+        </div>
+        <div><Label>Joined Date</Label><Input type="date" value={data.joinedDate} onChange={(e) => setData((p) => ({ ...p, joinedDate: e.target.value }))} /></div>
+      </div>
+    </div>
+  );
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold">{t("admin.salespersons")}</h1>
-        <Button className="bg-primary hover:bg-primary/90" onClick={() => toast({ title: t("common.add"), description: "Coming soon" })}><Plus className="w-4 h-4 me-1.5" /> {t("common.add")}</Button>
+        <Dialog open={addOpen} onOpenChange={setAddOpen}>
+          <DialogTrigger asChild>
+            <Button className="bg-primary hover:bg-primary/90"><Plus className="w-4 h-4 me-1.5" /> {t("common.add")}</Button>
+          </DialogTrigger>
+          <DialogContent className="max-w-lg">
+            <DialogHeader><DialogTitle>{language === "ar" ? "إضافة مندوب" : "Add Salesperson"}</DialogTitle></DialogHeader>
+            <SPForm data={newSP} setData={setNewSP} />
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setAddOpen(false)}>{language === "ar" ? "إلغاء" : "Cancel"}</Button>
+              <Button onClick={() => {
+                createSP.mutate(toPayload(newSP) as any, {
+                  onSuccess: () => { toast({ title: language === "ar" ? "تمت الإضافة" : "Salesperson added" }); setAddOpen(false); setNewSP(BLANK_SP); },
+                  onError: (e) => toast({ title: "Error", description: (e as Error).message, variant: "destructive" }),
+                });
+              }} disabled={createSP.isPending}>{createSP.isPending ? "Saving…" : t("common.save")}</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
+
       <Card>
         <CardContent className="p-5">
-          <Table>
-            <TableHeader><TableRow><TableHead>{t("common.name")}</TableHead><TableHead>{t("common.email")}</TableHead><TableHead>Region</TableHead><TableHead>{t("sales.kpi.customers")}</TableHead><TableHead>{t("sales.kpi.sales")}</TableHead><TableHead>{t("sales.target")}</TableHead><TableHead>{t("common.actions")}</TableHead></TableRow></TableHeader>
-            <TableBody>
-              {salespersons.map((s) => {
-                const pct = Math.round((s.monthlySales / s.monthlyTarget) * 100);
-                return (
-                  <TableRow key={s.id}>
-                    <TableCell className="font-medium text-sm">{s.name}</TableCell>
-                    <TableCell className="text-sm">{s.email}</TableCell>
-                    <TableCell className="text-xs">{s.region}</TableCell>
-                    <TableCell>{s.customersCount}</TableCell>
-                    <TableCell><PriceTag amount={s.monthlySales} size="sm" /></TableCell>
-                    <TableCell><div className="flex items-center gap-2"><div className="w-16 h-1.5 bg-muted rounded-full overflow-hidden"><div className="h-full bg-emerald-500" style={{ width: `${Math.min(pct, 100)}%` }} /></div><span className="text-xs font-semibold">{pct}%</span></div></TableCell>
-                    <TableCell><Button size="sm" variant="ghost"><Eye className="w-3.5 h-3.5" /></Button></TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
+          {isLoading ? (
+            <p className="text-sm text-muted-foreground text-center py-8">Loading…</p>
+          ) : (
+            <Table>
+              <TableHeader><TableRow>
+                <TableHead>{t("common.name")}</TableHead>
+                <TableHead>{t("common.email")}</TableHead>
+                <TableHead>Region</TableHead>
+                <TableHead>{t("sales.kpi.customers")}</TableHead>
+                <TableHead>{t("sales.kpi.sales")}</TableHead>
+                <TableHead>{t("sales.target")}</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>{t("common.actions")}</TableHead>
+              </TableRow></TableHeader>
+              <TableBody>
+                {salespersons.map((s) => {
+                  const pct = s.monthlyTarget > 0 ? Math.round((s.monthlySales / s.monthlyTarget) * 100) : 0;
+                  return (
+                    <TableRow key={s.id}>
+                      <TableCell>
+                        <div>
+                          <p className="font-medium text-sm">{s.name}</p>
+                          <p className="text-xs text-muted-foreground">{s.phone}</p>
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-sm">{s.email}</TableCell>
+                      <TableCell className="text-xs">{s.region}</TableCell>
+                      <TableCell>{s.customersCount}</TableCell>
+                      <TableCell><PriceTag amount={s.monthlySales} size="sm" /></TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <div className="w-20 h-1.5 bg-muted rounded-full overflow-hidden">
+                            <div className={`h-full ${pct >= 100 ? "bg-emerald-500" : pct >= 75 ? "bg-amber-400" : "bg-rose-400"}`} style={{ width: `${Math.min(pct, 100)}%` }} />
+                          </div>
+                          <span className="text-xs font-semibold tabular-nums">{pct}%</span>
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-0.5">of <span className="font-medium">SAR {s.monthlyTarget.toLocaleString()}</span></p>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={s.status === "active" ? "default" : "outline"} className={s.status === "active" ? "bg-emerald-100 text-emerald-700 border-emerald-200" : ""}>
+                          {s.status}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex gap-1">
+                          <Button size="sm" variant="ghost" onClick={() => openEdit(s)}><Pencil className="w-3.5 h-3.5" /></Button>
+                          <Button size="sm" variant="ghost" className="text-rose-600" onClick={() => {
+                            if (!confirm(`Remove ${s.name}?`)) return;
+                            deleteSP.mutate(s.id, {
+                              onSuccess: () => toast({ title: language === "ar" ? "تم الحذف" : "Removed" }),
+                              onError: (e) => toast({ title: "Error", description: (e as Error).message, variant: "destructive" }),
+                            });
+                          }}><Trash2 className="w-3.5 h-3.5" /></Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          )}
         </CardContent>
       </Card>
+
+      <Dialog open={!!editSP} onOpenChange={() => setEditSP(null)}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader><DialogTitle>{language === "ar" ? "تعديل المندوب" : "Edit Salesperson"}</DialogTitle></DialogHeader>
+          <SPForm data={editData} setData={setEditData} />
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditSP(null)}>{language === "ar" ? "إلغاء" : "Cancel"}</Button>
+            <Button onClick={() => {
+              if (!editSP) return;
+              updateSP.mutate({ id: editSP.id, ...toPayload(editData) } as any, {
+                onSuccess: () => { toast({ title: language === "ar" ? "تم التحديث" : "Updated" }); setEditSP(null); },
+                onError: (e) => toast({ title: "Error", description: (e as Error).message, variant: "destructive" }),
+              });
+            }} disabled={updateSP.isPending}>{updateSP.isPending ? "Saving…" : t("common.save")}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -923,9 +1056,23 @@ export function AdminReportsPage() {
   const { t } = useLanguage();
   const { toast } = useToast();
   const { data: products = [] } = useProducts();
-  const monthlySales = Array.from({ length: 12 }, (_, i) => ({ month: ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][i], b2c: 28000 + Math.round(Math.random() * 12000), b2b: 75000 + Math.round(Math.random() * 30000) }));
-  const topProducts = [...products].sort((a, b) => b.reviewCount - a.reviewCount).slice(0, 6).map((p) => ({ name: p.enName.substring(0, 18), sales: p.reviewCount * 12 }));
-  const customerSplit = [{ name: "B2C", value: 32 }, { name: "B2B", value: 68 }];
+  const { data: orders = [] } = useOrders();
+  const { data: customers = [] } = useCustomers();
+  const { data: salespersons = [] } = useSalespersons();
+
+  const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  const monthlySales = useMemo(() => MONTHS.map((month, i) => {
+    const monthOrders = orders.filter((o) => new Date(o.placedAt).getMonth() === i);
+    const b2c = monthOrders.filter((o) => o.customerType === "b2c").reduce((s, o) => s + o.total, 0);
+    const b2b = monthOrders.filter((o) => o.customerType === "b2b").reduce((s, o) => s + o.total, 0);
+    return { month, b2c, b2b };
+  }), [orders]);
+
+  const topProducts = useMemo(() => [...products].sort((a, b) => b.reviewCount - a.reviewCount).slice(0, 6).map((p) => ({ name: p.enName.substring(0, 18), sales: p.reviewCount * 12 })), [products]);
+
+  const b2cCount = customers.filter((c) => c.type === "b2c").length;
+  const b2bCount = customers.filter((c) => c.type === "b2b").length;
+  const customerSplit = [{ name: "B2C", value: b2cCount || 1 }, { name: "B2B", value: b2bCount || 1 }];
   const spPerf = salespersons.map((s) => ({ name: s.name.split(" ")[0], sales: s.monthlySales, target: s.monthlyTarget }));
 
   return (

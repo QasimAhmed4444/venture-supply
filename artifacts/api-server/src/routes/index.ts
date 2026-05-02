@@ -10,6 +10,7 @@ import dashboardRouter from "./dashboard.js";
 import authRouter from "./auth.js";
 import realtimeRouter from "./realtime.js";
 import couponsRouter from "./coupons.js";
+import salespersonsRouter from "./salespersons.js";
 
 const router: IRouter = Router();
 
@@ -24,5 +25,6 @@ router.use(customersRouter);
 router.use(dashboardRouter);
 router.use(realtimeRouter);
 router.use(couponsRouter);
+router.use(salespersonsRouter);
 
 export default router;
