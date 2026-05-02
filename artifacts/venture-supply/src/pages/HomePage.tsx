@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { ArrowRight, Truck, ShieldCheck, HandCoins, Headphones, Award, MapPin, Layers, Globe2, CheckCircle, Building2, Store } from "lucide-react";
+import { ArrowRight, Truck, ShieldCheck, HandCoins, Headphones, CheckCircle, Building2, Store } from "lucide-react";
 import { ProductCard } from "@/components/ProductCard";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useRole } from "@/contexts/RoleContext";
@@ -34,13 +34,60 @@ const heroSlides = [
   },
 ];
 
+const dealBlocks = [
+  {
+    enLabel: "VALUE PACKS",
+    arLabel: "عروض الكميات",
+    enSub: "Save up to 25% on bulk orders",
+    arSub: "وفّر حتى 25% عند الشراء بالكمية",
+    bg: "from-[#7B2936] to-[#5a1e27]",
+    accent: "#FCD34D",
+    image: "https://images.unsplash.com/photo-1586201375761-83865001e31c?w=600&q=75",
+    href: "/products?sort=price-asc",
+  },
+  {
+    enLabel: "NEW ARRIVALS",
+    arLabel: "وصل حديثاً",
+    enSub: "Fresh stock just landed",
+    arSub: "منتجات جديدة وصلت للتو",
+    bg: "from-[#085890] to-[#053d68]",
+    accent: "#18B8E0",
+    image: "https://images.unsplash.com/photo-1604908176997-125f25cc6f3d?w=600&q=75",
+    href: "/products",
+  },
+  {
+    enLabel: "FLASH DEALS",
+    arLabel: "عروض سريعة",
+    enSub: "Limited time — up to 40% off",
+    arSub: "لفترة محدودة — خصم حتى 40%",
+    bg: "from-[#C85000] to-[#963c00]",
+    accent: "#FCD34D",
+    image: "https://images.unsplash.com/photo-1567306226416-28f0efdc88ce?w=600&q=75",
+    href: "/offers",
+  },
+  {
+    enLabel: "B2B EXCLUSIVE",
+    arLabel: "حصري للشركات",
+    enSub: "Volume pricing & credit terms",
+    arSub: "أسعار الحجم وشروط الائتمان",
+    bg: "from-[#06243f] to-[#0c3d6e]",
+    accent: "#18B8E0",
+    image: "https://images.unsplash.com/photo-1578575437130-527eed3abbec?w=600&q=75",
+    href: "/login",
+  },
+];
+
 export function HomePage() {
   const { t, isRTL } = useLanguage();
   const { role } = useRole();
   const { data: products = [] } = useProducts();
   const { data: categories = [] } = useCategories();
   const { data: brands = [] } = useBrands();
-  const popular = products.filter((p) => p.featured).slice(0, 4).concat(products.slice(0, 4)).slice(0, 4);
+
+  const bestSellers = [
+    ...products.filter((p) => p.featured),
+    ...products.filter((p) => !p.featured),
+  ].slice(0, 8);
   const BRAND_PRIORITY = ["chef-flavor", "malka", "vital"];
   const sortedBrands = [...brands].sort((a, b) => {
     const ai = BRAND_PRIORITY.indexOf(a.id);
@@ -50,10 +97,11 @@ export function HomePage() {
     if (bi === -1) return -1;
     return ai - bi;
   });
+
   const [slideIdx, setSlideIdx] = useState(0);
   const brandScrollRef = useRef<HTMLDivElement>(null);
+  const bestScrollRef = useRef<HTMLDivElement>(null);
 
-  // Hero auto-slide only — NO auto-scroll for brands section
   useEffect(() => {
     const id = setInterval(() => setSlideIdx((i) => (i + 1) % heroSlides.length), 5000);
     return () => clearInterval(id);
@@ -64,8 +112,12 @@ export function HomePage() {
 
   const scrollBrands = (dir: "left" | "right") => {
     if (!brandScrollRef.current) return;
-    const amount = 260;
-    brandScrollRef.current.scrollBy({ left: dir === "left" ? -amount : amount, behavior: "smooth" });
+    brandScrollRef.current.scrollBy({ left: dir === "left" ? -260 : 260, behavior: "smooth" });
+  };
+
+  const scrollBest = (dir: "left" | "right") => {
+    if (!bestScrollRef.current) return;
+    bestScrollRef.current.scrollBy({ left: dir === "left" ? -260 : 260, behavior: "smooth" });
   };
 
   return (
@@ -147,6 +199,50 @@ export function HomePage() {
         </div>
       </section>
 
+      {/* ── DEAL BLOCKS ──────────────────────────────────────────── */}
+      <section className="max-w-7xl mx-auto px-4 mt-8">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
+          {dealBlocks.map((block) => (
+            <Link key={block.enLabel} href={block.href}>
+              <div
+                className={`relative rounded-xl overflow-hidden cursor-pointer group`}
+                style={{ height: 160 }}
+              >
+                {/* BG image */}
+                <img
+                  src={block.image}
+                  alt=""
+                  className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                />
+                {/* Color overlay gradient */}
+                <div className={`absolute inset-0 bg-gradient-to-br ${block.bg} opacity-85`} />
+
+                {/* Text content */}
+                <div className="relative h-full flex flex-col justify-between p-4">
+                  <p
+                    className="text-xs font-bold uppercase tracking-widest"
+                    style={{ color: block.accent }}
+                  >
+                    {isRTL ? block.arSub : block.enSub}
+                  </p>
+                  <div>
+                    <h3 className="text-white font-extrabold text-lg md:text-xl leading-tight">
+                      {isRTL ? block.arLabel : block.enLabel}
+                    </h3>
+                    <span
+                      className="inline-flex items-center gap-1 text-xs font-bold mt-1.5"
+                      style={{ color: block.accent }}
+                    >
+                      {isRTL ? "تسوق الآن" : "SHOP NOW"} {Chevron}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </Link>
+          ))}
+        </div>
+      </section>
+
       {/* ── CATEGORIES ───────────────────────────────────────────── */}
       <section className="max-w-7xl mx-auto px-4 mt-12">
         <div className="flex items-end justify-between mb-5">
@@ -191,59 +287,52 @@ export function HomePage() {
         </div>
       </section>
 
-      {/* ── WHY VENTURE SUPPLY ───────────────────────────────────── */}
-      <section className="bg-slate-50 border-y border-border/40 mt-14">
-        <div className="max-w-7xl mx-auto px-4 py-14">
-          <div className="text-center max-w-2xl mx-auto mb-10">
-            <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-3">
-              {isRTL ? "لماذا فينتشر سبلاي" : "Why Venture Supply"}
-            </p>
-            <h2 className="text-3xl md:text-4xl font-extrabold tracking-tight text-primary">
-              {t("about.differentiators")}
-            </h2>
-          </div>
-          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5">
-            {[
-              { icon: Award, title: t("about.diff.brands.title"), text: t("about.diff.brands.text") },
-              { icon: MapPin, title: t("about.diff.location.title"), text: t("about.diff.location.text") },
-              { icon: Layers, title: t("about.diff.range.title"), text: t("about.diff.range.text") },
-              {
-                icon: Globe2,
-                title: isRTL ? "تغطية وطنية" : "Nationwide reach",
-                text: isRTL
-                  ? "نخدم تجار التجزئة وقطاع الضيافة في جميع أنحاء المملكة العربية السعودية."
-                  : "Serving retail and HORECA partners across the entire Kingdom of Saudi Arabia.",
-              },
-            ].map((card, i) => (
-              <Card key={i} className="border-border/60 hover:shadow-md transition-all bg-white">
-                <CardContent className="p-6 space-y-4">
-                  <div className="w-12 h-12 rounded-xl flex items-center justify-center" style={{ background: "#085890" }}>
-                    <card.icon className="w-6 h-6 text-white" />
-                  </div>
-                  <h3 className="font-bold text-primary text-base">{card.title}</h3>
-                  <p className="text-sm text-muted-foreground leading-relaxed">{card.text}</p>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ── POPULAR PRODUCTS ─────────────────────────────────────── */}
+      {/* ── BEST SELLERS ─────────────────────────────────────────── */}
       <section className="max-w-7xl mx-auto px-4 mt-14">
         <div className="flex items-end justify-between mb-5">
           <div>
-            <h2 className="text-2xl md:text-3xl font-bold tracking-tight text-primary">{t("home.popular.title")}</h2>
-            <p className="text-sm text-muted-foreground mt-1">{t("home.popular.subtitle")}</p>
+            <h2 className="text-2xl md:text-3xl font-bold tracking-tight text-primary">
+              {isRTL ? "الأكثر مبيعاً" : "Best Sellers"}
+            </h2>
+            <p className="text-sm text-muted-foreground mt-1">
+              {isRTL ? "المنتجات الأعلى طلباً من عملائنا" : "Top-ordered products from our customers"}
+            </p>
           </div>
-          <Link href="/products">
-            <Button variant="ghost" size="sm" className="gap-1 text-secondary hover:text-secondary shrink-0">
-              {t("common.view_all")} <ArrowRight className="w-3.5 h-3.5" />
-            </Button>
-          </Link>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => scrollBest(isRTL ? "right" : "left")}
+              className="w-9 h-9 rounded-full border border-border flex items-center justify-center hover:bg-muted transition-colors text-primary"
+              aria-label="Previous"
+            >
+              ←
+            </button>
+            <button
+              type="button"
+              onClick={() => scrollBest(isRTL ? "left" : "right")}
+              className="w-9 h-9 rounded-full border border-border flex items-center justify-center hover:bg-muted transition-colors text-primary"
+              aria-label="Next"
+            >
+              →
+            </button>
+            <Link href="/products">
+              <Button variant="ghost" size="sm" className="gap-1 text-secondary hover:text-secondary shrink-0">
+                {t("common.view_all")} <ArrowRight className="w-3.5 h-3.5" />
+              </Button>
+            </Link>
+          </div>
         </div>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {popular.map((p) => <ProductCard key={p.id} product={p} />)}
+
+        <div
+          ref={bestScrollRef}
+          className="flex gap-4 overflow-x-auto pb-3 snap-x snap-mandatory"
+          style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
+        >
+          {bestSellers.map((p) => (
+            <div key={p.id} className="flex-shrink-0 snap-start" style={{ width: 230 }}>
+              <ProductCard product={p} />
+            </div>
+          ))}
         </div>
       </section>
 
@@ -254,7 +343,6 @@ export function HomePage() {
             <h2 className="text-2xl md:text-3xl font-bold tracking-tight text-primary">{t("home.brands.title")}</h2>
             <p className="text-sm text-muted-foreground mt-1">{t("home.brands.subtitle")}</p>
           </div>
-          {/* Manual scroll arrows */}
           <div className="flex gap-2">
             <button
               type="button"
@@ -283,7 +371,6 @@ export function HomePage() {
           {sortedBrands.map((b) => (
             <Link key={b.id} href={`/brands/${b.id}`}>
               <Card className="cursor-pointer border border-border/60 overflow-hidden group flex-shrink-0 snap-start hover:border-primary/50 hover:shadow-lg transition-all duration-300" style={{ width: 240 }}>
-                {/* Image area */}
                 <div className="relative overflow-hidden" style={{ height: 160 }}>
                   {b.isPhoto ? (
                     <>
@@ -320,7 +407,6 @@ export function HomePage() {
                     </div>
                   )}
                 </div>
-
                 <CardContent className="p-4 space-y-1">
                   <h3 className="font-bold text-primary text-sm">{b.name}</h3>
                   <p className="text-xs text-muted-foreground leading-snug">{isRTL ? b.arTagline : b.enTagline}</p>

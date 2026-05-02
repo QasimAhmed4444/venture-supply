@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Award, MapPin, Layers, Building2, Mail, Phone } from "lucide-react";
+import { Award, MapPin, Layers, Building2, Mail, Phone, Globe2 } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useToast } from "@/hooks/use-toast";
 import { promotions } from "@/data/promotions";
@@ -12,7 +12,7 @@ import { promotions } from "@/data/promotions";
 export function AboutPage() {
   const { t, isRTL } = useLanguage();
   return (
-    <div className="max-w-5xl mx-auto px-4 py-12 space-y-12">
+    <div className="max-w-5xl mx-auto px-4 py-12 space-y-14">
       <header className="text-center space-y-4">
         <h1 className="text-4xl md:text-5xl font-bold">{t("about.title")}</h1>
         <p className="text-lg text-muted-foreground max-w-3xl mx-auto leading-relaxed">{t("about.lead")}</p>
@@ -33,21 +33,36 @@ export function AboutPage() {
         </Card>
       </div>
 
-      <section>
-        <h2 className="text-2xl font-bold mb-6 text-center">{t("about.differentiators")}</h2>
-        <div className="grid md:grid-cols-3 gap-4">
+      {/* ── WHY VENTURE SUPPLY ─────────────────────────── */}
+      <section className="bg-slate-50 border border-border/40 rounded-2xl py-12 px-6 md:px-10">
+        <div className="text-center max-w-2xl mx-auto mb-10">
+          <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-3">
+            {isRTL ? "لماذا فينتشر سبلاي" : "Why Venture Supply"}
+          </p>
+          <h2 className="text-3xl md:text-4xl font-extrabold tracking-tight text-primary">
+            {t("about.differentiators")}
+          </h2>
+        </div>
+        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5">
           {[
             { icon: Award, title: t("about.diff.brands.title"), text: t("about.diff.brands.text") },
             { icon: MapPin, title: t("about.diff.location.title"), text: t("about.diff.location.text") },
             { icon: Layers, title: t("about.diff.range.title"), text: t("about.diff.range.text") },
-          ].map((d, i) => (
-            <Card key={i}>
-              <CardContent className="p-6 text-center space-y-3">
-                <div className="w-12 h-12 mx-auto bg-secondary/10 text-secondary rounded-md flex items-center justify-center">
-                  <d.icon className="w-6 h-6" />
+            {
+              icon: Globe2,
+              title: isRTL ? "تغطية وطنية" : "Nationwide reach",
+              text: isRTL
+                ? "نخدم تجار التجزئة وقطاع الضيافة في جميع أنحاء المملكة العربية السعودية."
+                : "Serving retail and HORECA partners across the entire Kingdom of Saudi Arabia.",
+            },
+          ].map((card, i) => (
+            <Card key={i} className="border-border/60 hover:shadow-md transition-all bg-white">
+              <CardContent className="p-6 space-y-4">
+                <div className="w-12 h-12 rounded-xl flex items-center justify-center" style={{ background: "#085890" }}>
+                  <card.icon className="w-6 h-6 text-white" />
                 </div>
-                <h3 className="font-bold">{d.title}</h3>
-                <p className="text-sm text-muted-foreground leading-relaxed">{d.text}</p>
+                <h3 className="font-bold text-primary text-base">{card.title}</h3>
+                <p className="text-sm text-muted-foreground leading-relaxed">{card.text}</p>
               </CardContent>
             </Card>
           ))}
