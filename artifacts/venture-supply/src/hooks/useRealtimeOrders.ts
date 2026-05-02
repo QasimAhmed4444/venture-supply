@@ -14,7 +14,8 @@ export interface RealtimeNotification {
 }
 
 export function useRealtimeOrders(
-  onNotification: (n: RealtimeNotification) => void
+  onNotification: (n: RealtimeNotification) => void,
+  filter?: (record: Record<string, unknown>) => boolean
 ) {
   const qc = useQueryClient();
   const { toast } = useToast();
@@ -23,6 +24,8 @@ export function useRealtimeOrders(
   const reconnectRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const onNotificationRef = useRef(onNotification);
   onNotificationRef.current = onNotification;
+  const filterRef = useRef(filter);
+  filterRef.current = filter;
 
   useEffect(() => {
     const BASE = (import.meta.env.BASE_URL ?? "").replace(/\/$/, "");
@@ -30,7 +33,6 @@ export function useRealtimeOrders(
 
     function connect() {
       if (destroyed) return;
-
       const es = new EventSource(`${BASE}/api/realtime/orders`);
       esRef.current = es;
 
@@ -44,11 +46,13 @@ export function useRealtimeOrders(
       es.addEventListener("order:new", (event: MessageEvent) => {
         try {
           const record = JSON.parse(event.data) as Record<string, unknown>;
+          if (filterRef.current && !filterRef.current(record)) return;
+
           qc.invalidateQueries({ queryKey: ["orders"] });
           qc.invalidateQueries({ queryKey: ["dashboard"] });
 
           const notif: RealtimeNotification = {
-            id: `n-${Date.now()}`,
+            id: `n-${Date.now()}-${Math.random().toString(36).slice(2, 5)}`,
             type: "new_order",
             trackingId: String(record.tracking_id ?? ""),
             customerName: String(record.customer_name ?? ""),
@@ -66,12 +70,17 @@ export function useRealtimeOrders(
 
       es.addEventListener("order:updated", (event: MessageEvent) => {
         try {
-          const { record } = JSON.parse(event.data) as { record: Record<string, unknown>; old: Record<string, unknown> };
+          const { record } = JSON.parse(event.data) as {
+            record: Record<string, unknown>;
+            old: Record<string, unknown>;
+          };
+          if (filterRef.current && !filterRef.current(record)) return;
+
           qc.invalidateQueries({ queryKey: ["orders"] });
           qc.invalidateQueries({ queryKey: ["dashboard"] });
 
           const notif: RealtimeNotification = {
-            id: `n-${Date.now()}`,
+            id: `n-${Date.now()}-${Math.random().toString(36).slice(2, 5)}`,
             type: "order_updated",
             trackingId: String(record.tracking_id ?? ""),
             customerName: String(record.customer_name ?? ""),

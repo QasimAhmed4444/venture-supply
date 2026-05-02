@@ -1,9 +1,10 @@
-import { ReactNode } from "react";
+import { ReactNode, useMemo } from "react";
 import { Link, useLocation } from "wouter";
 import { DemoSwitcher } from "@/components/DemoSwitcher";
 import { Logo } from "@/components/Logo";
 import { Button } from "@/components/ui/button";
-import { LayoutDashboard, Users, ShoppingBag, PlusCircle, TrendingUp, LogOut, Bell } from "lucide-react";
+import { NotificationBell } from "@/components/NotificationBell";
+import { LayoutDashboard, Users, ShoppingBag, PlusCircle, TrendingUp, LogOut } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useRole } from "@/contexts/RoleContext";
 
@@ -11,6 +12,15 @@ export function SalesLayout({ children }: { children: ReactNode }) {
   const { t, isRTL } = useLanguage();
   const { salesperson, logout } = useRole();
   const [location, setLocation] = useLocation();
+
+  const salesFilter = useMemo(
+    () =>
+      salesperson
+        ? (record: Record<string, unknown>) =>
+            record.salesperson_id === salesperson.id
+        : undefined,
+    [salesperson]
+  );
 
   const items = [
     { href: "/sales", icon: LayoutDashboard, label: t("sales.dashboard") },
@@ -48,6 +58,7 @@ export function SalesLayout({ children }: { children: ReactNode }) {
             </Button>
           </div>
         </aside>
+
         <div className="flex-1 flex flex-col min-w-0">
           <header className="bg-card border-b py-3 px-6 flex items-center justify-between">
             <div>
@@ -55,10 +66,7 @@ export function SalesLayout({ children }: { children: ReactNode }) {
               <h2 className="font-semibold">{salesperson?.name}</h2>
               <p className="text-xs text-muted-foreground">{salesperson?.region}</p>
             </div>
-            <Button variant="ghost" size="icon" className="relative">
-              <Bell className="w-5 h-5" />
-              <span className="absolute top-1.5 end-1.5 w-2 h-2 bg-secondary rounded-full" />
-            </Button>
+            <NotificationBell variant="sales" filter={salesFilter} align="end" />
           </header>
           <main className="flex-1 p-6 overflow-x-auto">{children}</main>
         </div>

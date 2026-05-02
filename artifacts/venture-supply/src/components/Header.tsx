@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Link, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,6 +9,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { useRole } from "@/contexts/RoleContext";
 import { Logo } from "./Logo";
 import { CartDrawer } from "./CartDrawer";
+import { NotificationBell } from "./NotificationBell";
 import { categories } from "@/data/categories";
 
 export function Header() {
@@ -16,6 +17,15 @@ export function Header() {
   const { role, isAuthenticated, customer, logout } = useRole();
   const [, setLocation] = useLocation();
   const [search, setSearch] = useState("");
+
+  const customerFilter = useMemo(
+    () =>
+      customer
+        ? (record: Record<string, unknown>) =>
+            record.customer_id === customer.id
+        : undefined,
+    [customer]
+  );
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -89,10 +99,19 @@ export function Header() {
         </form>
 
         <div className="flex items-center gap-1">
-          <Button variant="ghost" size="icon" className="hidden md:inline-flex relative text-primary" data-testid="button-notifications">
-            <Bell className="w-5 h-5" />
-            <span className="absolute top-1.5 end-1.5 w-2 h-2 bg-secondary rounded-full" />
-          </Button>
+          {isAuthenticated && customer ? (
+            <NotificationBell
+              variant="customer"
+              filter={customerFilter}
+              align="end"
+              className="hidden md:inline-flex text-primary"
+            />
+          ) : (
+            <Button variant="ghost" size="icon" className="hidden md:inline-flex relative text-primary" data-testid="button-notifications">
+              <Bell className="w-5 h-5" />
+              <span className="absolute top-1.5 end-1.5 w-2 h-2 bg-secondary rounded-full" />
+            </Button>
+          )}
           <CartDrawer />
           {isAuthenticated ? (
             <DropdownMenu>
