@@ -30,7 +30,7 @@ import { useOrders, useUpdateOrderStatus } from "@/hooks/useOrders";
 import { useDashboard } from "@/hooks/useDashboard";
 import { useSalespersons, useCreateSalesperson, useUpdateSalesperson, useDeleteSalesperson, type Salesperson } from "@/hooks/useSalespersons";
 import { useBusinessTypes, useCreateBusinessType, useUpdateBusinessType, useDeleteBusinessType, type BusinessType } from "@/hooks/useBusinessTypes";
-import { useCreateCustomer, useDeleteCustomer } from "@/hooks/useCustomerMutations";
+import { useCreateCustomer, useUpdateCustomer, useDeleteCustomer } from "@/hooks/useCustomerMutations";
 import {
   useCreateProduct, useDeleteProduct, useUpdateProduct,
   useCreateCategory, useDeleteCategory, useUpdateCategory,
@@ -943,10 +943,30 @@ export function AdminCustomersPage() {
   const { data: businessTypes = [] } = useBusinessTypes();
   const list = tab === "all" ? allCustomers : allCustomers.filter((c) => c.type === tab);
   const createCustomer = useCreateCustomer();
+  const updateCustomer = useUpdateCustomer();
   const deleteCustomer = useDeleteCustomer();
   const [addOpen, setAddOpen] = useState(false);
   const [newCust, setNewCust] = useState(BLANK_CUST);
   const [viewCust, setViewCust] = useState<(typeof allCustomers)[0] | null>(null);
+  const [editCust, setEditCust] = useState<(typeof allCustomers)[0] | null>(null);
+  const [editData, setEditData] = useState(BLANK_CUST);
+
+  const openEdit = (c: (typeof allCustomers)[0]) => {
+    setEditCust(c);
+    setEditData({
+      name: c.name,
+      email: c.email,
+      phone: c.phone,
+      city: c.city,
+      address: c.addresses?.[0]?.fullAddress ?? "",
+      type: c.type,
+      businessName: c.business?.name ?? "",
+      businessTypeId: "",
+      creditLimit: (c.business as any)?.creditLimit != null ? String((c.business as any).creditLimit) : "",
+      allowCredit: (c.business as any)?.allowCredit ?? false,
+      active: true,
+    });
+  };
 
   return (
     <div className="space-y-4">
@@ -1056,6 +1076,7 @@ export function AdminCustomersPage() {
                   <TableCell>
                     <div className="flex gap-1">
                       <Button size="sm" variant="ghost" onClick={() => setViewCust(c)}><Eye className="w-3.5 h-3.5" /></Button>
+                      <Button size="sm" variant="ghost" onClick={() => openEdit(c)}><Pencil className="w-3.5 h-3.5" /></Button>
                       <Button size="sm" variant="ghost" className="text-rose-600" onClick={() => {
                         if (!confirm(`Remove ${c.name}?`)) return;
                         deleteCustomer.mutate(c.id, {
@@ -1101,6 +1122,91 @@ export function AdminCustomersPage() {
               ))}
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Edit Customer Dialog ── */}
+      <Dialog open={!!editCust} onOpenChange={() => setEditCust(null)}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader><DialogTitle>Edit Customer — {editCust?.name}</DialogTitle></DialogHeader>
+          <div className="space-y-3 max-h-[65vh] overflow-y-auto pr-1">
+            <p className="text-xs font-semibold uppercase text-muted-foreground tracking-wider">Basic Info</p>
+            <div className="grid grid-cols-2 gap-3">
+              <div><Label>Customer Name</Label><Input value={editData.name} onChange={(e) => setEditData((p) => ({ ...p, name: e.target.value }))} /></div>
+              <div><Label>Email</Label><Input type="email" value={editData.email} onChange={(e) => setEditData((p) => ({ ...p, email: e.target.value }))} /></div>
+            </div>
+            <div><Label>Phone Number</Label><Input value={editData.phone} onChange={(e) => setEditData((p) => ({ ...p, phone: e.target.value }))} /></div>
+            <Separator />
+            <p className="text-xs font-semibold uppercase text-muted-foreground tracking-wider">Account Info</p>
+            <div><Label>Customer Type</Label>
+              <div className="flex gap-3 mt-1">
+                {(["b2c", "b2b"] as const).map((v) => (
+                  <label key={v} className="flex items-center gap-2 cursor-pointer">
+                    <input type="radio" value={v} checked={editData.type === v} onChange={() => setEditData((p) => ({ ...p, type: v }))} />
+                    <span className="font-medium">{v.toUpperCase()}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+            {editData.type === "b2b" && (
+              <>
+                <Separator />
+                <p className="text-xs font-semibold uppercase text-muted-foreground tracking-wider">B2B Info</p>
+                <div><Label>Business Name</Label><Input value={editData.businessName} onChange={(e) => setEditData((p) => ({ ...p, businessName: e.target.value }))} /></div>
+                <div><Label>Business Type</Label>
+                  <select className="w-full h-9 px-3 border rounded-md bg-background" value={editData.businessTypeId} onChange={(e) => setEditData((p) => ({ ...p, businessTypeId: e.target.value }))}>
+                    <option value="">— Select —</option>
+                    {businessTypes.map((bt) => <option key={bt.id} value={bt.id}>{bt.name} ({bt.code})</option>)}
+                  </select>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Switch checked={editData.allowCredit} onCheckedChange={(v) => setEditData((p) => ({ ...p, allowCredit: v }))} id="edit-credit" />
+                  <Label htmlFor="edit-credit">Allow Credit</Label>
+                </div>
+                {editData.allowCredit && (
+                  <div><Label>Credit Limit (SAR)</Label><Input type="number" value={editData.creditLimit} onChange={(e) => setEditData((p) => ({ ...p, creditLimit: e.target.value }))} /></div>
+                )}
+              </>
+            )}
+            <Separator />
+            <p className="text-xs font-semibold uppercase text-muted-foreground tracking-wider">Location</p>
+            <div className="grid grid-cols-2 gap-3">
+              <div><Label>City</Label><Input value={editData.city} onChange={(e) => setEditData((p) => ({ ...p, city: e.target.value }))} /></div>
+              <div><Label>Address</Label><Input value={editData.address} onChange={(e) => setEditData((p) => ({ ...p, address: e.target.value }))} /></div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditCust(null)}>Cancel</Button>
+            <Button onClick={() => {
+              if (!editCust || !editData.name) return;
+              const bt = businessTypes.find((b) => b.id === editData.businessTypeId);
+              const business = editData.type === "b2b" && editData.businessName
+                ? {
+                    name: editData.businessName,
+                    type: bt?.code?.toLowerCase() ?? editCust.business?.type ?? "retailer",
+                    crNumber: editCust.business?.crNumber ?? "",
+                    vatNumber: editCust.business?.vatNumber ?? "",
+                    allowCredit: editData.allowCredit,
+                    creditLimit: editData.allowCredit && editData.creditLimit ? Number(editData.creditLimit) : null,
+                  }
+                : null;
+              updateCustomer.mutate({
+                id: editCust.id,
+                name: editData.name,
+                email: editData.email,
+                phone: editData.phone,
+                city: editData.city,
+                type: editData.type,
+                business,
+              } as any, {
+                onSuccess: () => {
+                  toast({ title: "Customer updated", description: `${editData.name} saved` });
+                  setEditCust(null);
+                },
+                onError: (e) => toast({ title: "Error", description: (e as Error).message, variant: "destructive" }),
+              });
+            }} disabled={updateCustomer.isPending}>{updateCustomer.isPending ? "Saving…" : "Save Changes"}</Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
