@@ -7,23 +7,98 @@ import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ShoppingBag, MapPin, Bell, Package, Eye, Plus, CheckCircle2, Building2 } from "lucide-react";
+import { ShoppingBag, MapPin, Bell, Package, Eye, Plus, CheckCircle2, Building2, ShoppingCart, RefreshCw, Sparkles, UserCheck, Loader2 } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useRole } from "@/contexts/RoleContext";
 import { useToast } from "@/hooks/use-toast";
-import { getOrdersByCustomer } from "@/data/orders";
-import { notifications } from "@/data/notifications";
+import { useOrders } from "@/hooks/useOrders";
+import { useRealtimeOrders, type RealtimeNotification } from "@/hooks/useRealtimeOrders";
 import { products } from "@/data/products";
 import { ProductCard } from "@/components/ProductCard";
 import { StatusBadge } from "@/components/StatusBadge";
 import { PriceTag } from "@/components/PriceTag";
 import { getSalespersonById } from "@/data/salespersons";
+import { useMemo, useState, useCallback, useRef } from "react";
+import type { Order } from "@/data/orders";
 
+// ─── status → human-readable notification copy ───────────────────────────────
+const STATUS_NOTIF: Record<string, { en: string; ar: string; enBody: string; arBody: string }> = {
+  new:              { en: "Order placed successfully",         ar: "تم استلام طلبك",                enBody: "We've received your order and it's being reviewed.", arBody: "لقد استلمنا طلبك وهو قيد المراجعة." },
+  confirmed:        { en: "Order confirmed",                   ar: "تم تأكيد طلبك",                 enBody: "Your order has been confirmed and is in the queue.",  arBody: "تم تأكيد طلبك وهو في قائمة الانتظار." },
+  preparing:        { en: "Order is being prepared",          ar: "جارٍ تجهيز طلبك",               enBody: "Our team is packing your items.",                      arBody: "يقوم فريقنا بتعبئة عناصر طلبك." },
+  out_for_delivery: { en: "Out for delivery",                 ar: "طلبك في الطريق إليك",            enBody: "Estimated arrival within a few hours.",               arBody: "الوصول المتوقع خلال ساعات قليلة." },
+  delivered:        { en: "Order delivered",                  ar: "تم تسليم طلبك",                 enBody: "We hope you enjoy your purchase!",                    arBody: "نتمنى أن تكون سعيدًا بطلبك!" },
+  cancelled:        { en: "Order cancelled",                  ar: "تم إلغاء طلبك",                 enBody: "Your order has been cancelled.",                      arBody: "تم إلغاء طلبك." },
+};
+
+const STATUS_ICON: Record<string, typeof ShoppingCart> = {
+  new:              ShoppingCart,
+  confirmed:        CheckCircle2,
+  preparing:        Package,
+  out_for_delivery: ShoppingBag,
+  delivered:        CheckCircle2,
+  cancelled:        RefreshCw,
+};
+
+const STATUS_COLOR: Record<string, string> = {
+  new:              "bg-blue-100 text-blue-700",
+  confirmed:        "bg-emerald-100 text-emerald-700",
+  preparing:        "bg-amber-100 text-amber-700",
+  out_for_delivery: "bg-violet-100 text-violet-700",
+  delivered:        "bg-emerald-100 text-emerald-700",
+  cancelled:        "bg-red-100 text-red-700",
+};
+
+// Static non-order notifications appended at the bottom
+const STATIC_ITEMS: FeedItem[] = [
+  {
+    id: "promo-ramadan",
+    type: "promo",
+    enTitle: "Ramadan 20% off Recipe Mix",
+    arTitle: "خصم 20٪ على خلطات الوصفات في رمضان",
+    enBody: "Use code RAMADAN20 at checkout.",
+    arBody: "استخدم الكود RAMADAN20 عند إتمام الطلب.",
+    at: new Date("2026-04-10T10:00:00Z").getTime(),
+  },
+  {
+    id: "account-welcome",
+    type: "account",
+    enTitle: "Welcome to Venture Supply",
+    arTitle: "أهلاً بك في فينتشر سبلاي",
+    enBody: "Get started with our most-loved essentials.",
+    arBody: "ابدأ مع أكثر منتجاتنا حبًا لدى عملائنا.",
+    at: new Date("2026-01-01T08:00:00Z").getTime(),
+  },
+];
+
+interface FeedItem {
+  id: string;
+  type: "order_status" | "promo" | "account" | "live";
+  trackingId?: string;
+  status?: string;
+  enTitle: string;
+  arTitle: string;
+  enBody: string;
+  arBody: string;
+  at: number;
+}
+
+const LS_READ_KEY = "vs.notif.lastRead";
+
+function getLastRead(): number {
+  try { return Number(localStorage.getItem(LS_READ_KEY) ?? 0); } catch { return 0; }
+}
+function setLastRead(ts: number) {
+  try { localStorage.setItem(LS_READ_KEY, String(ts)); } catch {}
+}
+
+// ─── AccountDashboardPage ─────────────────────────────────────────────────────
 export function AccountDashboardPage() {
   const { t, language } = useLanguage();
   const { customer, role } = useRole();
+  const { data: orders = [] } = useOrders({ customerId: customer?.id ?? "" });
   if (!customer) return null;
-  const orders = getOrdersByCustomer(customer.id);
+
   const active = orders.filter((o) => !["delivered", "cancelled"].includes(o.status));
   const recommended = products.slice(0, 4);
   const isB2B = role === "b2b";
@@ -38,7 +113,7 @@ export function AccountDashboardPage() {
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <KpiCard icon={Package} label={t("account.active_orders")} value={active.length} />
-        <KpiCard icon={ShoppingBag} label={t("account.total_orders")} value={customer.totalOrders} />
+        <KpiCard icon={ShoppingBag} label={t("account.total_orders")} value={orders.length} />
         <KpiCard icon={MapPin} label={t("account.saved_addresses")} value={customer.addresses.length} />
       </div>
 
@@ -110,16 +185,22 @@ function KpiCard({ icon: Icon, label, value }: { icon: any; label: string; value
   );
 }
 
+// ─── AccountOrdersPage ────────────────────────────────────────────────────────
 export function AccountOrdersPage() {
   const { t, language } = useLanguage();
   const { customer } = useRole();
+  const { data: orders = [], isLoading } = useOrders({ customerId: customer?.id ?? "" });
   if (!customer) return null;
-  const orders = getOrdersByCustomer(customer.id);
+
   return (
     <Card>
       <CardContent className="p-5 space-y-4">
         <h1 className="font-bold text-xl">{t("account.orders")}</h1>
-        {orders.length === 0 ? (
+        {isLoading ? (
+          <div className="flex justify-center py-12">
+            <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+          </div>
+        ) : orders.length === 0 ? (
           <p className="text-sm text-muted-foreground py-12 text-center">{t("account.empty_orders")}</p>
         ) : (
           <Table>
@@ -143,6 +224,192 @@ export function AccountOrdersPage() {
   );
 }
 
+// ─── AccountNotificationsPage ─────────────────────────────────────────────────
+export function AccountNotificationsPage() {
+  const { t, language } = useLanguage();
+  const { customer } = useRole();
+  const { toast } = useToast();
+
+  const [lastRead, setLastReadState] = useState<number>(() => getLastRead());
+  const [liveItems, setLiveItems] = useState<FeedItem[]>([]);
+
+  const { data: orders = [], isLoading } = useOrders({ customerId: customer?.id ?? "" });
+
+  // Receive SSE notifications scoped to this customer
+  const customerFilter = useMemo(
+    () =>
+      customer
+        ? (record: Record<string, unknown>) => record.customer_id === customer.id
+        : undefined,
+    [customer?.id]
+  );
+
+  const handleLive = useCallback((n: RealtimeNotification) => {
+    setLiveItems((prev) => [
+      {
+        id: n.id,
+        type: "live" as const,
+        trackingId: n.trackingId,
+        status: n.status,
+        enTitle: n.type === "new_order" ? "Order placed successfully" : `Order updated → ${n.status}`,
+        arTitle: n.type === "new_order" ? "تم استلام طلبك" : `تحديث الطلب → ${n.status}`,
+        enBody: `${n.trackingId}`,
+        arBody: `${n.trackingId}`,
+        at: n.at,
+      },
+      ...prev,
+    ].slice(0, 20));
+  }, []);
+
+  useRealtimeOrders(handleLive, customerFilter);
+
+  // Build history feed from real orders
+  const historyItems = useMemo<FeedItem[]>(() => {
+    const items: FeedItem[] = [];
+    orders.forEach((o: Order) => {
+      const history = (o.history ?? []) as Array<{ status: string; at: string }>;
+      history.forEach((entry) => {
+        const copy = STATUS_NOTIF[entry.status];
+        if (!copy) return;
+        items.push({
+          id: `${o.id}-${entry.status}-${entry.at}`,
+          type: "order_status",
+          trackingId: o.trackingId,
+          status: entry.status,
+          enTitle: copy.en,
+          arTitle: copy.ar,
+          enBody: `${copy.enBody} (${o.trackingId})`,
+          arBody: `${copy.arBody} (${o.trackingId})`,
+          at: new Date(entry.at).getTime(),
+        });
+      });
+    });
+    return items.sort((a, b) => b.at - a.at);
+  }, [orders]);
+
+  const allItems = useMemo<FeedItem[]>(() => {
+    const combined = [...liveItems, ...historyItems, ...STATIC_ITEMS];
+    return combined.sort((a, b) => b.at - a.at);
+  }, [liveItems, historyItems]);
+
+  if (!customer) return null;
+
+  const unreadCount = allItems.filter((i) => i.at > lastRead).length;
+
+  const markAllRead = () => {
+    const now = Date.now();
+    setLastReadState(now);
+    setLastRead(now);
+    toast({ title: language === "ar" ? "تم وضع علامة مقروء على الكل" : "All marked as read" });
+  };
+
+  const ar = language === "ar";
+
+  return (
+    <Card>
+      <CardContent className="p-5 space-y-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <h1 className="font-bold text-xl">{t("account.notifications")}</h1>
+            {unreadCount > 0 && (
+              <Badge className="bg-secondary text-secondary-foreground text-xs px-2 py-0.5">
+                {unreadCount} {ar ? "جديد" : "new"}
+              </Badge>
+            )}
+          </div>
+          {unreadCount > 0 && (
+            <Button variant="outline" size="sm" onClick={markAllRead}>
+              <CheckCircle2 className="w-4 h-4 me-1.5" />
+              {ar ? "تحديد الكل مقروء" : "Mark all read"}
+            </Button>
+          )}
+        </div>
+
+        {isLoading ? (
+          <div className="flex flex-col items-center justify-center py-16 gap-3">
+            <Loader2 className="w-7 h-7 animate-spin text-muted-foreground" />
+            <p className="text-sm text-muted-foreground">{ar ? "جارٍ تحميل الإشعارات…" : "Loading notifications…"}</p>
+          </div>
+        ) : allItems.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-16 gap-3 text-center">
+            <Bell className="w-10 h-10 text-muted-foreground/30" />
+            <p className="font-medium text-muted-foreground">{ar ? "لا توجد إشعارات بعد" : "No notifications yet"}</p>
+            <p className="text-sm text-muted-foreground/60">{ar ? "ستظهر تحديثات طلباتك هنا" : "Your order updates will appear here"}</p>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {allItems.map((item) => {
+              const isUnread = item.at > lastRead;
+              const Icon =
+                item.type === "promo"   ? Sparkles :
+                item.type === "account" ? UserCheck :
+                item.type === "live"    ? Bell :
+                (STATUS_ICON[item.status ?? ""] ?? Bell);
+              const colorClass =
+                item.type === "promo"   ? "bg-secondary/10 text-secondary" :
+                item.type === "account" ? "bg-primary/10 text-primary" :
+                item.type === "live"    ? "bg-violet-100 text-violet-700" :
+                (STATUS_COLOR[item.status ?? ""] ?? "bg-primary/10 text-primary");
+
+              return (
+                <div
+                  key={item.id}
+                  className={`border rounded-md p-4 flex gap-3 hover-elevate transition-colors ${
+                    isUnread
+                      ? "border-secondary/40 bg-secondary/5"
+                      : "opacity-80"
+                  } ${item.type === "live" ? "border-violet-200" : ""}`}
+                >
+                  <div className={`w-10 h-10 rounded-md flex items-center justify-center shrink-0 ${colorClass}`}>
+                    <Icon className="w-4 h-4" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-start justify-between gap-2">
+                      <p className="font-semibold text-sm leading-tight">
+                        {ar ? item.arTitle : item.enTitle}
+                      </p>
+                      {item.type === "live" && (
+                        <Badge className="text-[10px] px-1.5 py-0 bg-violet-100 text-violet-700 border-violet-200 shrink-0">
+                          {ar ? "مباشر" : "Live"}
+                        </Badge>
+                      )}
+                    </div>
+                    <p className="text-sm text-muted-foreground mt-0.5 truncate">
+                      {ar ? item.arBody : item.enBody}
+                    </p>
+                    <div className="flex items-center gap-2 mt-1">
+                      {item.trackingId && (
+                        <Link href={`/track/${item.trackingId}`}>
+                          <span className="text-xs font-mono text-primary hover:underline cursor-pointer">
+                            {item.trackingId}
+                          </span>
+                        </Link>
+                      )}
+                      <span className="text-xs text-muted-foreground/60">
+                        {new Date(item.at).toLocaleString(ar ? "ar-SA" : "en-GB", { dateStyle: "medium", timeStyle: "short" })}
+                      </span>
+                    </div>
+                  </div>
+                  {isUnread && <span className="w-2 h-2 rounded-full bg-secondary mt-2 shrink-0" />}
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {!isLoading && allItems.length > 0 && (
+          <p className="text-xs text-center text-muted-foreground/50 pt-2">
+            {ar
+              ? `${allItems.length} إشعارًا · يتم التحديث تلقائيًا`
+              : `${allItems.length} notifications · auto-updates in real time`}
+          </p>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+// ─── AccountAddressesPage ──────────────────────────────────────────────────────
 export function AccountAddressesPage() {
   const { t } = useLanguage();
   const { customer } = useRole();
@@ -178,6 +445,7 @@ export function AccountAddressesPage() {
   );
 }
 
+// ─── AccountProfilePage ────────────────────────────────────────────────────────
 export function AccountProfilePage() {
   const { t } = useLanguage();
   const { customer, role } = useRole();
@@ -214,36 +482,7 @@ export function AccountProfilePage() {
   );
 }
 
-export function AccountNotificationsPage() {
-  const { t, language } = useLanguage();
-  const { toast } = useToast();
-  return (
-    <Card>
-      <CardContent className="p-5 space-y-4">
-        <div className="flex items-center justify-between">
-          <h1 className="font-bold text-xl">{t("account.notifications")}</h1>
-          <Button variant="outline" size="sm" onClick={() => toast({ title: t("account.notification.read_all") })}><CheckCircle2 className="w-4 h-4 me-1.5" /> {t("account.notification.read_all")}</Button>
-        </div>
-        <div className="space-y-2">
-          {notifications.map((n) => (
-            <div key={n.id} className={`border rounded-md p-4 flex gap-3 hover-elevate ${n.read ? "opacity-70" : "border-secondary/40 bg-secondary/5"}`}>
-              <div className="w-10 h-10 rounded-md bg-primary/10 text-primary flex items-center justify-center shrink-0">
-                <Bell className="w-4 h-4" />
-              </div>
-              <div className="flex-1">
-                <p className="font-semibold">{language === "ar" ? n.arTitle : n.enTitle}</p>
-                <p className="text-sm text-muted-foreground mt-0.5">{language === "ar" ? n.arBody : n.enBody}</p>
-                <p className="text-xs text-muted-foreground mt-1">{new Date(n.at).toLocaleString(language === "ar" ? "ar-SA" : "en-GB")}</p>
-              </div>
-              {!n.read && <span className="w-2 h-2 rounded-full bg-secondary mt-2 shrink-0" />}
-            </div>
-          ))}
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
-
+// ─── AccountSettingsPage ───────────────────────────────────────────────────────
 export function AccountSettingsPage() {
   const { t, language, setLanguage } = useLanguage();
   const { toast } = useToast();
