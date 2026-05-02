@@ -1,14 +1,16 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useParams, Link } from "wouter";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
-import { Star, ShoppingCart, Plus, Minus, Truck, ShieldCheck, Package2, ChevronRight, ChevronLeft } from "lucide-react";
+import { Star, ShoppingCart, Plus, Minus, Truck, ShieldCheck, Package2, ChevronRight, ChevronLeft, Clock } from "lucide-react";
 import { useProduct, useProducts } from "@/hooks/useProducts";
+import { useRecentlyViewed } from "@/hooks/useRecentlyViewed";
 import { categories } from "@/data/categories";
 import { brands } from "@/data/brands";
+import type { Product } from "@/data/products";
 import { ProductCard } from "@/components/ProductCard";
 import { PriceTag } from "@/components/PriceTag";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -24,7 +26,12 @@ export function ProductDetailPage() {
   const { toast } = useToast();
   const { data: product } = useProduct(slug);
   const { data: allProducts = [] } = useProducts();
+  const { ids: recentIds, track } = useRecentlyViewed();
   const isB2B = role === "b2b";
+
+  useEffect(() => {
+    if (product?.id) track(product.id);
+  }, [product?.id, track]);
 
   if (!product) {
     return (
@@ -48,6 +55,11 @@ export function ProductDetailPage() {
   const category = categories.find((c) => c.id === product.categoryId);
 
   const related = allProducts.filter((p) => p.categoryId === product.categoryId && p.id !== product.id).slice(0, 4);
+  const recentlyViewed = recentIds
+    .filter((id) => id !== product.id)
+    .map((id) => allProducts.find((p) => p.id === id))
+    .filter((p): p is NonNullable<typeof p> => Boolean(p))
+    .slice(0, 6);
   const Chev = isRTL ? ChevronLeft : ChevronRight;
 
   const handleAdd = () => {
@@ -200,6 +212,67 @@ export function ProductDetailPage() {
           </div>
         </section>
       )}
+
+      {recentlyViewed.length > 0 && (
+        <RecentlyViewedSection items={recentlyViewed} language={language} isRTL={isRTL} />
+      )}
     </div>
+  );
+}
+
+function RecentlyViewedSection({
+  items,
+  language,
+  isRTL,
+}: {
+  items: Product[];
+  language: string;
+  isRTL: boolean;
+}) {
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const scroll = (dir: "left" | "right") => {
+    if (!scrollRef.current) return;
+    scrollRef.current.scrollBy({ left: dir === "left" ? -260 : 260, behavior: "smooth" });
+  };
+  return (
+    <section className="mt-14">
+      <div className="flex items-end justify-between mb-4">
+        <div className="flex items-center gap-2">
+          <Clock className="w-5 h-5 text-secondary" />
+          <h2 className="text-2xl font-bold">
+            {language === "ar" ? "شاهدت مؤخراً" : "Recently Viewed"}
+          </h2>
+        </div>
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={() => scroll(isRTL ? "right" : "left")}
+            className="w-9 h-9 rounded-full border border-border flex items-center justify-center hover:bg-muted transition-colors text-primary"
+            aria-label="Previous"
+          >
+            ←
+          </button>
+          <button
+            type="button"
+            onClick={() => scroll(isRTL ? "left" : "right")}
+            className="w-9 h-9 rounded-full border border-border flex items-center justify-center hover:bg-muted transition-colors text-primary"
+            aria-label="Next"
+          >
+            →
+          </button>
+        </div>
+      </div>
+      <div
+        ref={scrollRef}
+        className="flex gap-4 overflow-x-auto pb-3 snap-x snap-mandatory"
+        style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
+      >
+        {items.map((p) => (
+          <div key={p.id} className="flex-shrink-0 snap-start" style={{ width: 230 }}>
+            <ProductCard product={p} />
+          </div>
+        ))}
+      </div>
+    </section>
   );
 }
