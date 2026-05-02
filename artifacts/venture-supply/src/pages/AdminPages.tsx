@@ -981,14 +981,36 @@ export function AdminCustomersPage() {
     });
   };
 
+  const exportCsv = () => {
+    const rows = [["Name", "Email", "Phone", "City", "Type", "Business Name", "Business Type", "Orders", "Lifetime Value (SAR)", "Joined"]];
+    for (const c of list) {
+      rows.push([
+        c.name, c.email, c.phone, c.city, c.type.toUpperCase(),
+        c.business?.name ?? "",
+        c.business?.type ?? "",
+        String(c.totalOrders),
+        c.lifetimeValue.toFixed(2),
+        c.joinedDate ? new Date(c.joinedDate).toLocaleDateString() : "",
+      ]);
+    }
+    const csv = rows.map((r) => r.map((v) => `"${v}"`).join(",")).join("\n");
+    const a = document.createElement("a");
+    a.href = "data:text/csv;charset=utf-8," + encodeURIComponent(csv);
+    a.download = `customers${tab !== "all" ? `-${tab}` : ""}${search ? `-search` : ""}.csv`;
+    a.click();
+    toast({ title: "Exported", description: `${list.length} customer${list.length !== 1 ? "s" : ""} downloaded` });
+  };
+
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-3">
         <h1 className="text-3xl font-bold">{t("admin.customers")}</h1>
-        <Dialog open={addOpen} onOpenChange={setAddOpen}>
-          <DialogTrigger asChild>
-            <Button className="bg-primary hover:bg-primary/90"><Plus className="w-4 h-4 me-1.5" /> Add Customer</Button>
-          </DialogTrigger>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={exportCsv}><Download className="w-4 h-4 me-1.5" /> Export CSV</Button>
+          <Dialog open={addOpen} onOpenChange={setAddOpen}>
+            <DialogTrigger asChild>
+              <Button className="bg-primary hover:bg-primary/90"><Plus className="w-4 h-4 me-1.5" /> Add Customer</Button>
+            </DialogTrigger>
           <DialogContent className="max-w-lg">
             <DialogHeader><DialogTitle>Add Customer</DialogTitle></DialogHeader>
             <div className="space-y-3 max-h-[65vh] overflow-y-auto pr-1">
@@ -1056,6 +1078,7 @@ export function AdminCustomersPage() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+        </div>
       </div>
 
       <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
