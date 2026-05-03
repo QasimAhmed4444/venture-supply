@@ -1,20 +1,23 @@
 import { Router } from "express";
 import { getSupabase } from "../lib/supabase.js";
 import { seedOrders, seedProducts, seedCustomers } from "../lib/seedData.js";
+import { requireAdmin } from "../middlewares/requireAuth.js";
 
 const router = Router();
 
-router.get("/dashboard/stats", async (_req, res) => {
+router.get("/dashboard/stats", requireAdmin, async (_req, res) => {
   const sb = getSupabase();
 
   if (!sb) {
     const pending = (seedOrders as any[]).filter((o: any) => ["new", "confirmed", "preparing", "packed"].includes(o.status)).length;
     const lowStock = (seedProducts as any[]).filter((p: any) => p.stock_status === "low-stock").length;
     const totalRevenue = (seedOrders as any[]).reduce((s: number, o: any) => s + (o.total ?? 0), 0);
+    const todayStr = new Date().toISOString().slice(0, 10);
+    const todayOrders = (seedOrders as any[]).filter((o: any) => o.placedAt?.slice(0, 10) === todayStr);
     return res.json({
-      ordersToday: 6,
-      revenueToday: (seedOrders as any[]).slice(0, 6).reduce((s: number, o: any) => s + (o.total ?? 0), 0),
-      newCustomers: 8,
+      ordersToday: todayOrders.length,
+      revenueToday: +todayOrders.reduce((s: number, o: any) => s + (o.total ?? 0), 0).toFixed(2),
+      newCustomers: 0,
       pendingOrders: pending,
       lowStock,
       totalOrders: seedOrders.length,
@@ -46,17 +49,17 @@ router.get("/dashboard/stats", async (_req, res) => {
     const lowStock = allProducts.filter((p: any) => p.stock_status === "low-stock").length;
 
     return res.json({
-      ordersToday: todayOrders.length || 6,
-      revenueToday: +revenueToday.toFixed(2) || allOrders.slice(0, 6).reduce((s: number, o: any) => s + Number(o.total ?? 0), 0),
-      newCustomers: (todayCustomersRes.data ?? []).length || 8,
-      pendingOrders: pendingOrders || allOrders.filter((o: any) => o.status === "new").length,
+      ordersToday: todayOrders.length,
+      revenueToday: +revenueToday.toFixed(2),
+      newCustomers: (todayCustomersRes.data ?? []).length,
+      pendingOrders,
       lowStock,
       totalOrders: allOrders.length,
       totalCustomers: allCustomers.length,
       totalRevenue: +totalRevenue.toFixed(2),
     });
   } catch {
-    return res.json({ ordersToday: 6, revenueToday: 0, newCustomers: 8, pendingOrders: 0, lowStock: 0, totalOrders: 0, totalCustomers: 0, totalRevenue: 0 });
+    return res.json({ ordersToday: 0, revenueToday: 0, newCustomers: 0, pendingOrders: 0, lowStock: 0, totalOrders: 0, totalCustomers: 0, totalRevenue: 0 });
   }
 });
 

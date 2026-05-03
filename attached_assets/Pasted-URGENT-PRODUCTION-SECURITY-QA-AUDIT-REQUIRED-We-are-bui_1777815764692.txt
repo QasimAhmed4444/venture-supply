@@ -1,0 +1,251 @@
+URGENT PRODUCTION SECURITY + QA AUDIT REQUIRED
+
+We are building Venture Supply as a real B2B/B2C marketplace, not a demo. I need you to stop treating this as surface-level UI work and perform a deep QA/security audit across frontend, backend, routing, Supabase, auth, roles, and every user flow.
+
+CRITICAL ISSUES FOUND:
+
+1. ADMIN ROUTE SECURITY FAILURE
+URL:
+https://venture-supply-srs--venturesupplu.replit.app/admin/
+
+Issue:
+When any person directly opens /admin/, they can access admin panel without authentication.
+
+This is a critical production security bug.
+
+Fix immediately:
+- /admin and all admin child routes must require valid authenticated admin session.
+- If not authenticated, redirect to /admin/login.
+- If authenticated but role is not admin, block access and redirect safely.
+- Add protected route middleware/guard for every admin route.
+- Never rely only on UI hiding.
+
+2. ADMIN LOGIN ROUTE WORKS BUT DIRECT ADMIN ROUTE DOES NOT
+URL:
+https://venture-supply-srs--venturesupplu.replit.app/admin/login
+
+Login page asks credentials, but direct /admin bypasses auth.
+
+Fix:
+- Centralize admin auth guard.
+- Validate Supabase session and user role before rendering admin layout.
+- Check refresh/reload behavior also.
+
+3. SALESPERSON LOGIN IS INCOMPLETE
+Admin panel allows adding salespersons, but there is no proper password setup/login flow.
+
+Fix:
+- Salesperson must have real login credentials.
+- When admin creates salesperson, system must either:
+  - create Supabase Auth user with email/password, OR
+  - send invite/reset-password flow.
+- Salesperson record must link to auth user ID.
+- No salesperson should exist only as static profile data.
+
+4. ADMIN LOGIN ROLE SELECTOR UX ISSUE
+On /admin/login there are two options:
+- Login as Admin
+- Login as Salesperson
+
+Issue:
+When selector changes, field labels/placeholders remain generic/wrong.
+
+Fix:
+- If Admin selected:
+  - Email placeholder: admin email
+  - Password placeholder: admin password
+  - Button: Login as Admin
+- If Salesperson selected:
+  - Email placeholder: salesperson email
+  - Password placeholder: salesperson password
+  - Button: Login as Salesperson
+- Login logic must validate selected role against Supabase role.
+- A salesperson must never access admin-only pages.
+
+5. REMOVE HARD-CODED CONTENT
+We still have hard-coded content even though Supabase is connected.
+
+Fix:
+Audit and remove hard-coded/static data across:
+- Admin dashboard
+- Salesperson module
+- B2B dashboard
+- B2C dashboard
+- Product cards
+- Categories
+- Brands
+- Reports/charts
+- Notifications
+- Settings
+- Orders
+- Customers
+- Business profile
+- Footer/store settings where applicable
+
+Everything that is business data must come from Supabase.
+
+DEEP QA AUDIT REQUIRED:
+
+Perform a full button-by-button, route-by-route, field-by-field audit.
+
+Audit these layers:
+
+A. FRONTEND AUDIT
+Check:
+- Every route
+- Every button
+- Every dropdown
+- Every form
+- Every modal
+- Every table action
+- Every filter
+- Every search bar
+- Every notification bell
+- Every dashboard card
+- Every chart
+- Every role-based menu item
+
+For each, verify:
+- Does it work?
+- Does it use real Supabase data?
+- Does it handle loading?
+- Does it handle empty state?
+- Does it handle error state?
+- Does it respect user role?
+- Does it route correctly?
+- Does it scroll correctly?
+- Does it work after refresh?
+
+B. BACKEND / API AUDIT
+Check:
+- Auth validation
+- Role validation
+- Order creation
+- Order status updates
+- Notifications
+- Credit terms
+- Credit limit
+- Invoice generation
+- Reorder logic
+- Tracking link
+- Salesperson assignment
+- Admin CRUD operations
+- Product/category/brand CRUD
+- Inventory updates
+- Low stock alerts
+
+C. SUPABASE DATABASE AUDIT
+Check:
+- Tables
+- Relationships
+- Foreign keys
+- RLS policies
+- Auth-user profile mapping
+- Role permissions
+- Salesperson-user linkage
+- Admin permissions
+- B2B credit fields
+- Notification table structure
+- Order/order_items integrity
+- Product image storage references
+- Audit fields like created_at/updated_at
+
+D. SECURITY AUDIT
+Check:
+- Direct URL access
+- Unauthorized admin access
+- Unauthorized salesperson access
+- Unauthorized customer access
+- Role escalation
+- Client-side-only protection
+- Missing RLS policies
+- Exposed sensitive data
+- Public access to admin endpoints
+- Ability to modify orders/products without permission
+
+E. ROLE-BASED ACCESS RULES
+Implement clearly:
+
+Admin:
+- Full admin panel access
+
+Salesperson:
+- Salesperson dashboard only
+- Assigned customers only
+- Assigned orders only
+- No admin settings access
+- No staff access
+- No global reports unless allowed
+
+B2B customer:
+- B2B account/dashboard
+- Own orders only
+- Own invoices only
+- Own credit info only
+
+B2C customer:
+- B2C account/dashboard
+- Own orders only
+- Own addresses only
+
+Guest:
+- Public website only
+- No account/admin/dashboard access
+
+F. NOTIFICATION AUDIT
+Fix notifications for:
+- Admin new order
+- Admin low stock
+- Admin B2B credit order
+- Admin salesperson/customer activity where relevant
+- Customer order status update
+- B2B credit status update
+- Salesperson assigned order/customer
+
+Notifications must:
+- Use Supabase realtime
+- Show unread count
+- Show dropdown list
+- Persist in database
+- Work after refresh
+- Work on desktop and mobile
+
+G. REPORT BUGS BEFORE FIXING
+Before coding major changes, create a clear internal bug report/checklist with:
+- Issue title
+- Severity: Critical / High / Medium / Low
+- Affected role
+- Affected route
+- Root cause
+- Fix plan
+
+Then fix Critical and High issues first.
+
+H. REQUIRED IMMEDIATE FIX PRIORITY
+1. Lock /admin and all admin routes behind auth guard
+2. Fix role-based access control
+3. Fix salesperson auth/password flow
+4. Fix /admin/login role selector and placeholders
+5. Remove hard-coded admin/business data
+6. Fix notification realtime
+7. Audit all routes/buttons/forms
+8. Push clean code to GitHub
+
+STRICT RULES:
+- Do not fake completion.
+- Do not say done unless routes are tested directly.
+- Do not leave admin accessible without login.
+- Do not use Replit DB/local storage for real business data.
+- Use Supabase Auth, Supabase DB, Supabase Storage, and Supabase Realtime.
+- Keep existing brand colors.
+- Do not break working B2C/B2B order flow.
+- Push frontend/backend changes to GitHub after completion.
+
+FINAL OUTPUT REQUIRED:
+After completing this audit and fixes, provide:
+1. Fixed critical issues list
+2. Remaining medium/low issues list
+3. Routes tested
+4. Roles tested
+5. Supabase tables/policies touched
+6. GitHub commit confirmation

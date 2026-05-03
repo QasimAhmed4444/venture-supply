@@ -1,4 +1,4 @@
-import { ReactNode } from "react";
+import { ReactNode, useEffect } from "react";
 import { Link, useLocation } from "wouter";
 import { Logo } from "@/components/Logo";
 import { ScrollToTop } from "@/components/ScrollToTop";
@@ -10,8 +10,16 @@ import { useRole } from "@/contexts/RoleContext";
 
 export function AdminLayout({ children }: { children: ReactNode }) {
   const { t, isRTL } = useLanguage();
-  const { adminName, logout } = useRole();
+  const { role, adminName, logout } = useRole();
   const [location, setLocation] = useLocation();
+
+  useEffect(() => {
+    if (role !== "admin") {
+      setLocation("/admin/login");
+    }
+  }, [role, setLocation]);
+
+  if (role !== "admin") return null;
 
   const items = [
     { href: "/admin", icon: LayoutDashboard, label: t("admin.dashboard") },

@@ -1,6 +1,8 @@
 import { Router } from "express";
 import { getSupabase } from "../lib/supabase.js";
 import { seedCustomers } from "../lib/seedData.js";
+import { requireAuth, requireRole, requireAdmin } from "../middlewares/requireAuth.js";
+import type { VerifiedSession } from "../lib/sessionToken.js";
 
 const router = Router();
 
@@ -21,7 +23,8 @@ function toCamel(row: Record<string, unknown>) {
   };
 }
 
-router.get("/customers", async (req, res) => {
+// GET /customers — admin and sales only
+router.get("/customers", requireRole("admin", "sales"), async (req, res) => {
   const sb = getSupabase();
   if (!sb) return res.json(seedCustomers);
   try {
@@ -35,7 +38,8 @@ router.get("/customers", async (req, res) => {
   }
 });
 
-router.post("/customers", async (req, res) => {
+// POST /customers — admin and sales only
+router.post("/customers", requireRole("admin", "sales"), async (req, res) => {
   const sb = getSupabase();
   if (!sb) return res.status(503).json({ error: "db unavailable" });
   const b = req.body;
@@ -63,9 +67,20 @@ router.post("/customers", async (req, res) => {
   return res.status(201).json(toCamel(data as Record<string, unknown>));
 });
 
-router.put("/customers/:id", async (req, res) => {
+// PUT /customers/:id — authenticated (admin/sales or own record)
+router.put("/customers/:id", requireAuth, async (req, res) => {
+  const session = (req as any).session as VerifiedSession;
   const sb = getSupabase();
   if (!sb) return res.status(503).json({ error: "db unavailable" });
+
+  // B2C/B2B can only update their own record; verify ownership
+  if (session.role === "b2c" || session.role === "b2b") {
+    const { data: existing } = await sb.from("customers").select("id,email").eq("id", req.params.id).maybeSingle();
+    if (!existing || existing.email !== session.email) {
+      return res.status(403).json({ error: "Forbidden" });
+    }
+  }
+
   const b = req.body;
   const payload: Record<string, unknown> = {};
   if (b.name !== undefined) payload.name = b.name;
@@ -81,7 +96,8 @@ router.put("/customers/:id", async (req, res) => {
   return res.json(toCamel(data as Record<string, unknown>));
 });
 
-router.delete("/customers/:id", async (req, res) => {
+// DELETE /customers/:id — admin only
+router.delete("/customers/:id", requireAdmin, async (req, res) => {
   const sb = getSupabase();
   if (!sb) return res.status(503).json({ error: "db unavailable" });
   const { error } = await sb.from("customers").delete().eq("id", req.params.id);
@@ -89,7 +105,9 @@ router.delete("/customers/:id", async (req, res) => {
   return res.status(204).send();
 });
 
-router.get("/customers/:id", async (req, res) => {
+// GET /customers/:id — authenticated
+router.get("/customers/:id", requireAuth, async (req, res) => {
+  const session = (req as any).session as VerifiedSession;
   const sb = getSupabase();
   if (!sb) {
     const c = seedCustomers.find((x: any) => x.id === req.params.id);
@@ -99,6 +117,14 @@ router.get("/customers/:id", async (req, res) => {
   try {
     const { data } = await sb.from("customers").select("*").eq("id", req.params.id).single();
     if (!data) return res.status(404).json({ error: "not found" });
+
+    // B2C/B2B can only see their own record
+    if (session.role === "b2c" || session.role === "b2b") {
+      if ((data as any).email !== session.email) {
+        return res.status(403).json({ error: "Forbidden" });
+      }
+    }
+
     return res.json(toCamel(data as Record<string, unknown>));
   } catch {
     return res.status(500).json({ error: "internal" });

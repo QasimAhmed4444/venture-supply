@@ -1,6 +1,8 @@
 import { Router } from "express";
 import { getSupabase } from "../lib/supabase.js";
 import { seedOrders } from "../lib/seedData.js";
+import { requireAuth, requireRole, requireAdmin } from "../middlewares/requireAuth.js";
+import type { VerifiedSession } from "../lib/sessionToken.js";
 
 const router = Router();
 
@@ -32,43 +34,63 @@ function toCamel(row: Record<string, unknown>) {
   };
 }
 
-router.get("/orders", async (req, res) => {
+// GET /orders — scoped by role
+router.get("/orders", requireAuth, async (req, res) => {
+  const session = (req as any).session as VerifiedSession;
   const sb = getSupabase();
-  // Determine whether any scoping filters are active
-  const hasFilter = !!(req.query.customerId || req.query.salespersonId);
-  if (!sb) {
-    // When filtered, return only matching seed rows (or empty)
-    if (hasFilter) {
-      let rows = seedOrders as any[];
-      if (req.query.customerId) rows = rows.filter((o) => o.customerId === req.query.customerId);
-      if (req.query.salespersonId) rows = rows.filter((o) => o.salespersonId === req.query.salespersonId);
-      if (req.query.status && req.query.status !== "all") rows = rows.filter((o) => o.status === req.query.status);
-      return res.json(rows);
+
+  let customerIdFilter: string | undefined;
+  let salespersonIdFilter: string | undefined;
+
+  if (session.role === "b2c" || session.role === "b2b") {
+    if (sb) {
+      const { data: cust } = await sb.from("customers").select("id").eq("email", session.email).maybeSingle();
+      customerIdFilter = (cust?.id as string | undefined) ?? undefined;
     }
-    return res.json(seedOrders);
+    if (!customerIdFilter) return res.json([]);
+  } else if (session.role === "sales") {
+    if (sb) {
+      const { data: staff } = await sb.from("staff").select("salesperson_id").eq("id", session.sub).maybeSingle();
+      salespersonIdFilter = (staff?.salesperson_id as string | undefined) ?? undefined;
+    }
+    if (!salespersonIdFilter) return res.json([]);
+  } else if (session.role === "admin") {
+    customerIdFilter = req.query.customerId as string | undefined;
+    salespersonIdFilter = req.query.salespersonId as string | undefined;
   }
+
+  if (!sb) {
+    if (session.role !== "admin") return res.json([]);
+    let rows = seedOrders as any[];
+    if (customerIdFilter) rows = rows.filter((o) => o.customerId === customerIdFilter);
+    if (salespersonIdFilter) rows = rows.filter((o) => o.salespersonId === salespersonIdFilter);
+    if (req.query.status && req.query.status !== "all") rows = rows.filter((o) => o.status === req.query.status);
+    return res.json(rows);
+  }
+
   try {
     let q = sb.from("orders").select("*").order("placed_at", { ascending: false });
     if (req.query.status && req.query.status !== "all") q = q.eq("status", req.query.status as string);
-    if (req.query.customerId) q = q.eq("customer_id", req.query.customerId as string);
-    if (req.query.salespersonId) q = q.eq("salesperson_id", req.query.salespersonId as string);
+    if (customerIdFilter) q = q.eq("customer_id", customerIdFilter);
+    if (salespersonIdFilter) q = q.eq("salesperson_id", salespersonIdFilter);
     const { data, error } = await q;
     if (error || !data) {
-      // On DB error, fall back to seed only for unfiltered admin queries
-      return hasFilter ? res.json([]) : res.json(seedOrders);
+      return session.role === "admin" ? res.json(seedOrders) : res.json([]);
     }
-    // Empty result: respect the filter — don't leak other customers' orders
-    if (data.length === 0) {
-      return hasFilter ? res.json([]) : res.json(seedOrders);
+    if (data.length === 0 && session.role === "admin" && !customerIdFilter && !salespersonIdFilter) {
+      return res.json(seedOrders);
     }
     return res.json(data.map(toCamel));
   } catch {
-    return hasFilter ? res.json([]) : res.json(seedOrders);
+    return session.role === "admin" ? res.json(seedOrders) : res.json([]);
   }
 });
 
-router.get("/orders/:id", async (req, res) => {
+// GET /orders/:id — scoped by role
+router.get("/orders/:id", requireAuth, async (req, res) => {
+  const session = (req as any).session as VerifiedSession;
   const sb = getSupabase();
+
   if (!sb) {
     const o = seedOrders.find((x: any) => x.id === req.params.id || x.trackingId === req.params.id);
     if (!o) return res.status(404).json({ error: "not found" });
@@ -77,21 +99,46 @@ router.get("/orders/:id", async (req, res) => {
   try {
     const { data } = await sb.from("orders").select("*").or(`id.eq.${req.params.id},tracking_id.eq.${req.params.id}`).single();
     if (!data) return res.status(404).json({ error: "not found" });
-    return res.json(toCamel(data as Record<string, unknown>));
+
+    const order = toCamel(data as Record<string, unknown>);
+
+    if (session.role === "b2c" || session.role === "b2b") {
+      const { data: cust } = await sb.from("customers").select("id").eq("email", session.email).maybeSingle();
+      if (!cust || cust.id !== order.customerId) {
+        return res.status(404).json({ error: "not found" });
+      }
+    } else if (session.role === "sales") {
+      const { data: staff } = await sb.from("staff").select("salesperson_id").eq("id", session.sub).maybeSingle();
+      if (!staff?.salesperson_id || staff.salesperson_id !== order.salespersonId) {
+        return res.status(404).json({ error: "not found" });
+      }
+    }
+
+    return res.json(order);
   } catch {
     return res.status(500).json({ error: "internal" });
   }
 });
 
-router.post("/orders", async (req, res) => {
+// POST /orders — any authenticated user can place an order
+router.post("/orders", requireAuth, async (req, res) => {
+  const session = (req as any).session as VerifiedSession;
   const sb = getSupabase();
   if (!sb) return res.status(503).json({ error: "db unavailable" });
+
   try {
     const b = req.body as Record<string, unknown>;
+
+    let customerId = b.customerId as string | undefined;
+    if (session.role === "b2c" || session.role === "b2b") {
+      const { data: cust } = await sb.from("customers").select("id").eq("email", session.email).maybeSingle();
+      if (cust) customerId = cust.id as string;
+    }
+
     const row = {
       id: b.id,
       tracking_id: b.trackingId,
-      customer_id: b.customerId,
+      customer_id: customerId ?? b.customerId,
       customer_name: b.customerName,
       customer_type: b.customerType ?? "b2c",
       salesperson_id: b.salespersonId ?? null,
@@ -103,6 +150,8 @@ router.post("/orders", async (req, res) => {
       delivery_address: b.deliveryAddress,
       city: b.city,
       notes: b.notes ?? null,
+      coupon_code: (b.couponCode as string | undefined) ?? null,
+      discount: b.discount ? Number(b.discount) : 0,
       items: b.items ?? [],
       subtotal: b.subtotal ?? 0,
       vat: b.vat ?? 0,
@@ -110,15 +159,37 @@ router.post("/orders", async (req, res) => {
       total: b.total ?? 0,
       history: b.history ?? [{ status: "new", at: new Date().toISOString() }],
     };
+
     const { data, error } = await sb.from("orders").insert(row).select().single();
     if (error || !data) return res.status(400).json({ error: error?.message ?? "insert failed" });
+
+    // Increment coupon uses_count atomically
+    if (row.coupon_code) {
+      try {
+        const { data: cp } = await sb
+          .from("coupons")
+          .select("id,uses_count")
+          .ilike("code", row.coupon_code as string)
+          .maybeSingle();
+        if (cp) {
+          await sb
+            .from("coupons")
+            .update({ uses_count: ((cp.uses_count as number) || 0) + 1 })
+            .eq("id", cp.id as string);
+        }
+      } catch {
+        // best-effort — don't fail the order
+      }
+    }
+
     return res.json(toCamel(data as Record<string, unknown>));
   } catch (err: any) {
     return res.status(500).json({ error: err?.message ?? "internal" });
   }
 });
 
-router.put("/orders/:id", async (req, res) => {
+// PUT /orders/:id — admin and sales only
+router.put("/orders/:id", requireRole("admin", "sales"), async (req, res) => {
   const sb = getSupabase();
   if (!sb) return res.status(503).json({ error: "db unavailable" });
   try {
@@ -138,7 +209,8 @@ router.put("/orders/:id", async (req, res) => {
   }
 });
 
-router.delete("/orders/:id", async (req, res) => {
+// DELETE /orders/:id — admin only
+router.delete("/orders/:id", requireAdmin, async (req, res) => {
   const sb = getSupabase();
   if (!sb) return res.status(503).json({ error: "db unavailable" });
   try {

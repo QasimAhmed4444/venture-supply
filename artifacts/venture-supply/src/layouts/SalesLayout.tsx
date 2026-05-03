@@ -1,4 +1,4 @@
-import { ReactNode, useMemo } from "react";
+import { ReactNode, useEffect, useMemo } from "react";
 import { Link, useLocation } from "wouter";
 import { Logo } from "@/components/Logo";
 import { ScrollToTop } from "@/components/ScrollToTop";
@@ -10,8 +10,16 @@ import { useRole } from "@/contexts/RoleContext";
 
 export function SalesLayout({ children }: { children: ReactNode }) {
   const { t, isRTL } = useLanguage();
-  const { salesperson, logout } = useRole();
+  const { role, salesperson, logout } = useRole();
   const [location, setLocation] = useLocation();
+
+  useEffect(() => {
+    if (role !== "sales") {
+      setLocation("/admin/login");
+    }
+  }, [role, setLocation]);
+
+  if (role !== "sales") return null;
 
   const salesFilter = useMemo(
     () =>

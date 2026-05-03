@@ -15,7 +15,7 @@ export function CartPage() {
   const { role } = useRole();
   const { toast } = useToast();
   const [, setLocation] = useLocation();
-  const deliveryCharge = subtotal >= 200 ? 0 : 25;
+  const deliveryCharge = role === "b2b" || subtotal >= 200 ? 0 : 25;
   const grandTotal = +(total + deliveryCharge).toFixed(2);
 
   if (items.length === 0) {

@@ -1,4 +1,5 @@
 import * as React from "react";
+import { useEffect, useRef } from "react";
 import { Switch, Route, Router as WouterRouter } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -6,8 +7,8 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { LanguageProvider } from "@/contexts/LanguageContext";
 import { NotificationPreferencesProvider } from "@/contexts/NotificationPreferencesContext";
 import { RealtimeOrdersProvider } from "@/contexts/RealtimeOrdersContext";
-import { RoleProvider } from "@/contexts/RoleContext";
-import { CartProvider } from "@/contexts/CartContext";
+import { RoleProvider, useRole } from "@/contexts/RoleContext";
+import { CartProvider, useCart } from "@/contexts/CartContext";
 
 import { StorefrontLayout } from "@/layouts/StorefrontLayout";
 import { AccountLayout } from "@/layouts/AccountLayout";
@@ -62,6 +63,21 @@ import {
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient();
+
+function CartClearOnLogout() {
+  const { role } = useRole();
+  const { clear } = useCart();
+  const prevRole = useRef<string>(role);
+
+  useEffect(() => {
+    if (prevRole.current !== "guest" && role === "guest") {
+      clear();
+    }
+    prevRole.current = role;
+  }, [role, clear]);
+
+  return null;
+}
 
 function withStorefront(Component: React.ComponentType) {
   return () => (
@@ -180,6 +196,7 @@ function App() {
           <RoleProvider>
             <RealtimeOrdersProvider>
               <CartProvider>
+                <CartClearOnLogout />
                 <TooltipProvider>
                   <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
                     <AppRouter />

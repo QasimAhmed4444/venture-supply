@@ -71,12 +71,21 @@ export function AdminDashboardPage() {
     return { day: `${d.getMonth() + 1}/${d.getDate()}`, revenue: dayRevenue };
   });
 
-  const statusData = (["new", "delivered"] as const).map((s) => ({
+  const statusData = ORDER_STATUSES.map((s) => ({
     name: t(`status.${s}`),
     value: orders.filter((o) => o.status === s).length,
-  }));
+  })).filter((d) => d.value > 0);
   const statusTotal = statusData.reduce((a, b) => a + b.value, 0);
-  const STATUS_COLORS = ["hsl(220 80% 55%)", "hsl(155 55% 38%)"];
+  const STATUS_COLORS = [
+    "hsl(220 80% 55%)",
+    "hsl(155 55% 38%)",
+    "hsl(38 92% 50%)",
+    "hsl(280 65% 55%)",
+    "hsl(15 80% 55%)",
+    "hsl(195 75% 45%)",
+    "hsl(340 70% 50%)",
+    "hsl(100 55% 40%)",
+  ];
 
   const topCategories = useMemo(() => {
     const catMap: Record<string, number> = {};

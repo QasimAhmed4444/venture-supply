@@ -9,10 +9,12 @@ interface RoleContextType {
   role: UserRole;
   setRole: (role: UserRole) => void;
   setRoleWithCustomer: (role: UserRole, customer: Customer | null) => void;
+  setRoleWithSalespersonId: (role: UserRole, salespersonId: string | null) => void;
   isAuthenticated: boolean;
   customer: Customer | null;
   setCustomer: (c: Customer | null) => void;
   salesperson: Salesperson | null;
+  currentSalespersonId: string | null;
   adminName: string;
   logout: () => void;
 }
@@ -21,6 +23,8 @@ const RoleContext = createContext<RoleContextType | undefined>(undefined);
 
 const ROLE_KEY = "vs.role";
 const CUSTOMER_KEY = "vs.customer";
+const SALESPERSON_ID_KEY = "vs.salesperson_id";
+const CART_KEY = "vs.cart";
 
 function readStoredCustomer(): Customer | null {
   try {
@@ -47,9 +51,13 @@ export function RoleProvider({ children }: { children: ReactNode }) {
   const [customer, setCustomerState] = useState<Customer | null>(() => {
     if (typeof window === "undefined") return null;
     const storedRole = window.localStorage.getItem(ROLE_KEY) as UserRole | null;
-    // Try to restore a real customer from storage, fall back to demo
     const stored = readStoredCustomer();
     return stored ?? deriveDefaultCustomer(storedRole ?? "guest");
+  });
+
+  const [currentSalespersonId, setCurrentSalespersonIdState] = useState<string | null>(() => {
+    if (typeof window === "undefined") return null;
+    return window.localStorage.getItem(SALESPERSON_ID_KEY) ?? null;
   });
 
   useEffect(() => {
@@ -64,29 +72,45 @@ export function RoleProvider({ children }: { children: ReactNode }) {
     } catch {}
   };
 
-  // Demo login — sets role and falls back to demo customer
+  const setCurrentSalespersonId = (id: string | null) => {
+    setCurrentSalespersonIdState(id);
+    try {
+      if (id) window.localStorage.setItem(SALESPERSON_ID_KEY, id);
+      else window.localStorage.removeItem(SALESPERSON_ID_KEY);
+    } catch {}
+  };
+
   const setRole = (r: UserRole) => {
     setRoleState(r);
     if (r === "b2c" || r === "b2b") {
-      // Only use demo customer if no real customer is stored
       const stored = readStoredCustomer();
       if (!stored) setCustomer(deriveDefaultCustomer(r));
     } else {
       setCustomer(null);
     }
+    if (r !== "sales") setCurrentSalespersonId(null);
   };
 
-  // Real login / register — sets role AND real customer together
   const setRoleWithCustomer = (r: UserRole, c: Customer | null) => {
     setRoleState(r);
     setCustomer(c);
+    setCurrentSalespersonId(null);
+  };
+
+  const setRoleWithSalespersonId = (r: UserRole, salespersonId: string | null) => {
+    setRoleState(r);
+    setCustomer(null);
+    setCurrentSalespersonId(salespersonId);
   };
 
   const logout = () => {
     setRoleState("guest");
-    setCustomer(null);
+    setCustomerState(null);
+    setCurrentSalespersonIdState(null);
     setSessionToken(null);
     try { window.localStorage.removeItem(CUSTOMER_KEY); } catch {}
+    try { window.localStorage.removeItem(SALESPERSON_ID_KEY); } catch {}
+    try { window.localStorage.removeItem(CART_KEY); } catch {}
   };
 
   const isAuthenticated = role !== "guest";
@@ -95,7 +119,12 @@ export function RoleProvider({ children }: { children: ReactNode }) {
 
   return (
     <RoleContext.Provider
-      value={{ role, setRole, setRoleWithCustomer, isAuthenticated, customer, setCustomer, salesperson, adminName, logout }}
+      value={{
+        role, setRole, setRoleWithCustomer, setRoleWithSalespersonId,
+        isAuthenticated, customer, setCustomer,
+        salesperson, currentSalespersonId,
+        adminName, logout,
+      }}
     >
       {children}
     </RoleContext.Provider>

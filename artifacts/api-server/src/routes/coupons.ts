@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { getSupabase } from "../lib/supabase.js";
+import { requireAdmin, requireAuth } from "../middlewares/requireAuth.js";
 
 const router = Router();
 
@@ -30,7 +31,8 @@ function toCamel(row: Record<string, unknown>) {
   };
 }
 
-router.get("/coupons", async (_req, res) => {
+// GET /coupons — admin only (list for admin management panel)
+router.get("/coupons", requireAdmin, async (_req, res) => {
   const sb = getSupabase();
   if (!sb) return res.json([]);
   const { data, error } = await sb.from("coupons").select("*").order("created_at", { ascending: false });
@@ -38,7 +40,8 @@ router.get("/coupons", async (_req, res) => {
   return res.json((data ?? []).map(toCamel));
 });
 
-router.get("/coupons/validate", async (req, res) => {
+// GET /coupons/validate — authenticated customers validating a coupon at checkout
+router.get("/coupons/validate", requireAuth, async (req, res) => {
   const { code, total, audience } = req.query as Record<string, string>;
   if (!code) return res.status(400).json({ error: "code required" });
 
@@ -80,7 +83,8 @@ router.get("/coupons/validate", async (req, res) => {
   return res.json({ ...coupon, discount, freeDelivery: coupon.type === "free_delivery" });
 });
 
-router.post("/coupons", async (req, res) => {
+// POST /coupons — admin only
+router.post("/coupons", requireAdmin, async (req, res) => {
   const sb = getSupabase();
   if (!sb) return res.status(503).json({ error: "db unavailable" });
   const b = req.body as Record<string, unknown>;
@@ -105,7 +109,8 @@ router.post("/coupons", async (req, res) => {
   return res.status(201).json(toCamel(data as Record<string, unknown>));
 });
 
-router.put("/coupons/:id", async (req, res) => {
+// PUT /coupons/:id — admin only
+router.put("/coupons/:id", requireAdmin, async (req, res) => {
   const sb = getSupabase();
   if (!sb) return res.status(503).json({ error: "db unavailable" });
   const b = req.body as Record<string, unknown>;
@@ -126,7 +131,8 @@ router.put("/coupons/:id", async (req, res) => {
   return res.json(toCamel(data as Record<string, unknown>));
 });
 
-router.delete("/coupons/:id", async (req, res) => {
+// DELETE /coupons/:id — admin only
+router.delete("/coupons/:id", requireAdmin, async (req, res) => {
   const sb = getSupabase();
   if (!sb) return res.status(503).json({ error: "db unavailable" });
   const { error } = await sb.from("coupons").delete().eq("id", req.params.id);

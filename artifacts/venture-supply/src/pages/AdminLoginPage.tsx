@@ -11,9 +11,24 @@ import { useRole, type UserRole } from "@/contexts/RoleContext";
 import { useToast } from "@/hooks/use-toast";
 import { apiFetch, setSessionToken } from "@/lib/api";
 
+const PORTAL_LABELS = {
+  admin: {
+    emailLabel: "Admin Email",
+    emailPlaceholder: "admin@venturesupply.sa",
+    passwordLabel: "Admin Password",
+    buttonText: "Sign in as Admin",
+  },
+  sales: {
+    emailLabel: "Salesperson Email",
+    emailPlaceholder: "salesperson@venturesupply.sa",
+    passwordLabel: "Salesperson Password",
+    buttonText: "Sign in as Salesperson",
+  },
+} as const;
+
 export function AdminLoginPage() {
   const { t } = useLanguage();
-  const { setRole } = useRole();
+  const { setRoleWithSalespersonId } = useRole();
   const [, setLocation] = useLocation();
   const { toast } = useToast();
 
@@ -21,6 +36,8 @@ export function AdminLoginPage() {
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [portal, setPortal] = useState<"admin" | "sales">("admin");
+
+  const labels = PORTAL_LABELS[portal];
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -51,7 +68,7 @@ export function AdminLoginPage() {
           return;
         }
         if (result.token) setSessionToken(result.token);
-        setRole(result.role as UserRole);
+        setRoleWithSalespersonId(result.role as UserRole, result.salespersonId ?? null);
         if (result.role === "admin") setLocation("/admin");
         else setLocation("/sales");
         toast({ title: `Welcome back, ${result.name}` });
@@ -115,20 +132,20 @@ export function AdminLoginPage() {
 
             <form className="space-y-4" onSubmit={handleLogin}>
               <div>
-                <Label htmlFor="admin-email">Email</Label>
+                <Label htmlFor="admin-email">{labels.emailLabel}</Label>
                 <Input
                   id="admin-email"
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="staff@venturesupply.sa"
+                  placeholder={labels.emailPlaceholder}
                   required
                   autoComplete="email"
                   data-testid="input-admin-email"
                 />
               </div>
               <div>
-                <Label htmlFor="admin-password">Password</Label>
+                <Label htmlFor="admin-password">{labels.passwordLabel}</Label>
                 <Input
                   id="admin-password"
                   type="password"
@@ -148,7 +165,7 @@ export function AdminLoginPage() {
               >
                 {isLoading
                   ? <><Loader2 className="w-4 h-4 me-2 animate-spin" /> Signing in…</>
-                  : "Sign In"}
+                  : labels.buttonText}
               </Button>
             </form>
           </CardContent>
