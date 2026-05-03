@@ -1415,10 +1415,11 @@ export function AdminCustomersPage() {
 
 const BLANK_SP = { name: "", email: "", phone: "", region: "", monthlyTarget: "80000", monthlyNewCustomerTarget: "5", monthlyOrderTarget: "20", status: "active" as "active" | "inactive", joinedDate: "", password: "", categoriesServed: [] as string[], assignedCustomerIds: [] as string[] };
 
-function CustomerMultiSelect({ selected, onChange, customers }: {
+function CustomerMultiSelect({ selected, onChange, customers, businessTypes }: {
   selected: string[];
   onChange: (ids: string[]) => void;
   customers: Customer[];
+  businessTypes: BusinessType[];
 }) {
   const [search, setSearch] = useState("");
   const [open, setOpen] = useState(false);
@@ -1427,16 +1428,23 @@ function CustomerMultiSelect({ selected, onChange, customers }: {
     return !q || c.name.toLowerCase().includes(q) || (c.business?.name ?? "").toLowerCase().includes(q) || c.city.toLowerCase().includes(q);
   });
   const selectedCustomers = customers.filter((c) => selected.includes(c.id));
+  const getBtName = (c: Customer) => {
+    const btId = (c.business as any)?.businessTypeId;
+    return btId ? (businessTypes.find((bt) => bt.id === btId)?.name ?? null) : null;
+  };
   return (
     <div>
       {selectedCustomers.length > 0 && (
         <div className="flex flex-wrap gap-1.5 mb-2">
-          {selectedCustomers.map((c) => (
-            <span key={c.id} className="flex items-center gap-1 px-2 py-0.5 bg-primary/10 text-primary rounded-full text-xs border border-primary/20">
-              {c.business?.name || c.name}
-              <button type="button" onClick={() => onChange(selected.filter((id) => id !== c.id))} className="hover:text-rose-600 leading-none"><X className="w-3 h-3" /></button>
-            </span>
-          ))}
+          {selectedCustomers.map((c) => {
+            const btName = getBtName(c);
+            return (
+              <span key={c.id} className="flex items-center gap-1 px-2 py-0.5 bg-primary/10 text-primary rounded-full text-xs border border-primary/20">
+                {c.business?.name || c.name}{btName ? ` · ${btName}` : ""}
+                <button type="button" onClick={() => onChange(selected.filter((id) => id !== c.id))} className="hover:text-rose-600 leading-none"><X className="w-3 h-3" /></button>
+              </span>
+            );
+          })}
         </div>
       )}
       <div className="relative">
@@ -1454,6 +1462,7 @@ function CustomerMultiSelect({ selected, onChange, customers }: {
         <div className="mt-1 border rounded-md bg-popover shadow-md max-h-40 overflow-y-auto">
           {filtered.map((c) => {
             const checked = selected.includes(c.id);
+            const btName = getBtName(c);
             return (
               <button key={c.id} type="button"
                 className={`w-full text-left px-3 py-1.5 text-sm hover:bg-muted flex items-center gap-2 ${checked ? "bg-primary/5" : ""}`}
@@ -1464,7 +1473,9 @@ function CustomerMultiSelect({ selected, onChange, customers }: {
                 </div>
                 <div className="min-w-0">
                   <p className="font-medium text-xs truncate">{c.business?.name || c.name}</p>
-                  <p className="text-xs text-muted-foreground truncate">{c.name} · {c.city}</p>
+                  <p className="text-xs text-muted-foreground truncate">
+                    {c.name} · {c.city}{btName ? ` · ${btName}` : ""}
+                  </p>
                 </div>
               </button>
             );
@@ -1475,12 +1486,13 @@ function CustomerMultiSelect({ selected, onChange, customers }: {
   );
 }
 
-function SPForm({ data, setData, categories, regions, b2bCustomers }: {
+function SPForm({ data, setData, categories, regions, b2bCustomers, businessTypes }: {
   data: typeof BLANK_SP;
   setData: (fn: (p: typeof BLANK_SP) => typeof BLANK_SP) => void;
   categories: Category[];
   regions: Region[];
   b2bCustomers: Customer[];
+  businessTypes: BusinessType[];
 }) {
   const { t } = useLanguage();
   return (
@@ -1525,6 +1537,7 @@ function SPForm({ data, setData, categories, regions, b2bCustomers }: {
             selected={data.assignedCustomerIds}
             onChange={(ids) => setData((p) => ({ ...p, assignedCustomerIds: ids }))}
             customers={b2bCustomers}
+            businessTypes={businessTypes}
           />
         </div>
       </div>
@@ -1554,6 +1567,7 @@ export function AdminSalespersonsPage() {
   const { data: salespersons = [], isLoading } = useSalespersons();
   const { data: regions = [] } = useRegions();
   const { data: categories = [] } = useCategories();
+  const { data: businessTypes = [] } = useBusinessTypes();
   const { data: b2bCustomers = [] } = useCustomers("b2b");
   const createSP = useCreateSalesperson();
   const updateSP = useUpdateSalesperson();
@@ -1591,7 +1605,7 @@ export function AdminSalespersonsPage() {
           </DialogTrigger>
           <DialogContent className="max-w-lg">
             <DialogHeader><DialogTitle>Add Salesperson</DialogTitle></DialogHeader>
-            <SPForm data={newSP} setData={setNewSP} categories={categories} regions={regions} b2bCustomers={b2bCustomers} />
+            <SPForm data={newSP} setData={setNewSP} categories={categories} regions={regions} b2bCustomers={b2bCustomers} businessTypes={businessTypes} />
             <DialogFooter>
               <Button variant="outline" onClick={() => setAddOpen(false)}>Cancel</Button>
               <Button onClick={() => {
@@ -1684,7 +1698,7 @@ export function AdminSalespersonsPage() {
       <Dialog open={!!editSP} onOpenChange={() => setEditSP(null)}>
         <DialogContent className="max-w-lg">
           <DialogHeader><DialogTitle>Edit Salesperson</DialogTitle></DialogHeader>
-          <SPForm data={editData} setData={setEditData} categories={categories} regions={regions} b2bCustomers={b2bCustomers} />
+          <SPForm data={editData} setData={setEditData} categories={categories} regions={regions} b2bCustomers={b2bCustomers} businessTypes={businessTypes} />
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditSP(null)}>Cancel</Button>
             <Button onClick={() => {

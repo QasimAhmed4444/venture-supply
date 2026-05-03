@@ -12,6 +12,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { useRole, type UserRole } from "@/contexts/RoleContext";
 import { useToast } from "@/hooks/use-toast";
 import { apiFetch, setSessionToken } from "@/lib/api";
+import { useBusinessTypes } from "@/hooks/useBusinessTypes";
 import type { Customer } from "@/data/customers";
 
 interface Props { mode?: "login" | "register"; }
@@ -47,6 +48,9 @@ export function AuthPage({ mode = "login" }: Props) {
   const [regBizName, setRegBizName] = useState("");
   const [regCR, setRegCR] = useState("");
   const [regVAT, setRegVAT] = useState("");
+  const [regBusinessTypeId, setRegBusinessTypeId] = useState("");
+
+  const { data: businessTypes = [] } = useBusinessTypes();
 
   function redirectAfterAuth(role: string) {
     if (role === "admin") { setLocation("/admin"); return; }
@@ -95,6 +99,10 @@ export function AuthPage({ mode = "login" }: Props) {
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!regName || !regEmail || !regPhone || !regPassword) return;
+    if (accountType === "b2b" && !regBusinessTypeId) {
+      toast({ title: "Business Type required", description: "Please select your business type to continue.", variant: "destructive" });
+      return;
+    }
     setIsLoading(true);
     try {
       const result = await apiFetch<{
@@ -109,6 +117,7 @@ export function AuthPage({ mode = "login" }: Props) {
           password: regPassword,
           type: accountType,
           businessName: accountType === "b2b" ? regBizName : undefined,
+          businessTypeId: accountType === "b2b" ? regBusinessTypeId : undefined,
           crNumber: accountType === "b2b" ? regCR : undefined,
           vatNumber: accountType === "b2b" ? regVAT : undefined,
         }),
@@ -244,6 +253,20 @@ export function AuthPage({ mode = "login" }: Props) {
                   {accountType === "b2b" && (
                     <>
                       <div><Label>{t("checkout.business_name")}</Label><Input value={regBizName} onChange={(e) => setRegBizName(e.target.value)} placeholder="Restaurant LLC" required /></div>
+                      <div>
+                        <Label>Business Type <span className="text-rose-500">*</span></Label>
+                        <select
+                          className="w-full h-9 px-3 border rounded-md bg-background text-sm mt-1.5"
+                          value={regBusinessTypeId}
+                          onChange={(e) => setRegBusinessTypeId(e.target.value)}
+                          required
+                        >
+                          <option value="">— Select business type —</option>
+                          {businessTypes.filter((bt) => bt.status === "active").map((bt) => (
+                            <option key={bt.id} value={bt.id}>{bt.name}</option>
+                          ))}
+                        </select>
+                      </div>
                       <div><Label>{t("checkout.cr_number")}</Label><Input value={regCR} onChange={(e) => setRegCR(e.target.value)} placeholder="1010 234 567" /></div>
                       <div><Label>{t("checkout.vat_number")}</Label><Input value={regVAT} onChange={(e) => setRegVAT(e.target.value)} placeholder="300 123 456 7800003" /></div>
                     </>

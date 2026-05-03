@@ -113,9 +113,9 @@ router.post("/auth/login", async (req, res) => {
 });
 
 router.post("/auth/register", async (req, res) => {
-  const { name, email, phone, password, type, businessName, crNumber, vatNumber } = req.body as {
+  const { name, email, phone, password, type, businessName, crNumber, vatNumber, businessTypeId } = req.body as {
     name: string; email: string; phone: string; password: string;
-    type?: string; businessName?: string; crNumber?: string; vatNumber?: string;
+    type?: string; businessName?: string; crNumber?: string; vatNumber?: string; businessTypeId?: string;
   };
 
   if (!name || !email || !phone || !password) {
@@ -149,9 +149,18 @@ router.post("/auth/register", async (req, res) => {
   // Build customer record
   const customerId = `c-${Date.now().toString(36)}`;
   const accountType = type === "b2b" ? "b2b" : "b2c";
+
+  // Resolve business type name/code from Supabase if provided
+  let resolvedBtName = "retailer";
+  let resolvedBtId: string | null = null;
+  if (accountType === "b2b" && businessTypeId) {
+    const { data: bt } = await sb.from("business_types").select("id, code").eq("id", businessTypeId).maybeSingle();
+    if (bt) { resolvedBtName = bt.code?.toLowerCase() ?? "retailer"; resolvedBtId = bt.id; }
+  }
+
   const business =
     accountType === "b2b" && businessName
-      ? { name: businessName, type: "retailer", crNumber: crNumber ?? "", vatNumber: vatNumber ?? "" }
+      ? { name: businessName, type: resolvedBtName, crNumber: crNumber ?? "", vatNumber: vatNumber ?? "", businessTypeId: resolvedBtId }
       : null;
 
   const { data: newCustomer, error: custErr } = await sb
