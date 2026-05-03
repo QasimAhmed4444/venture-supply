@@ -199,12 +199,16 @@ export function HomePage() {
       </section>
 
       {/* ── TRUST STRIP (scrolling marquee) ──────────────────────── */}
-      <section className="border-b border-border/50 bg-white overflow-hidden">
-        <div className="py-3.5">
-          <div
-            className={`trust-marquee-track${isRTL ? " trust-marquee-rtl" : ""}`}
-            aria-hidden="true"
-          >
+      <section className="border-b border-border/50 bg-white overflow-hidden" aria-label={isRTL ? "مزايا الخدمة" : "Service highlights"}>
+        {/* Accessible static list — visible to screen readers, hidden visually */}
+        <ul className="sr-only">
+          {trustItems.map((b) => (
+            <li key={b.en}>{isRTL ? b.ar : b.en}</li>
+          ))}
+        </ul>
+        {/* Animated marquee — visual only */}
+        <div className="py-3.5" aria-hidden="true">
+          <div className={`trust-marquee-track${isRTL ? " trust-marquee-rtl" : ""}`}>
             {[...trustItems, ...trustItems, ...trustItems].map((b, i) => (
               <div key={i} className="trust-marquee-item">
                 <b.icon className="w-4 h-4 shrink-0 text-secondary" />
