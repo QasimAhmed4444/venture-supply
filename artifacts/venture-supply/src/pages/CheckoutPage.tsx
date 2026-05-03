@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -35,6 +35,11 @@ export function CheckoutPage() {
   const createOrder = useCreateOrder();
   const [, setLocation] = useLocation();
   const isB2B = role === "b2b";
+
+  // ── Guest guard ─────────────────────────────────────────────────────────────
+  useEffect(() => {
+    if (role === "guest") setLocation("/auth");
+  }, [role, setLocation]);
 
   const [orderType, setOrderType] = useState<"delivery" | "pickup">("delivery");
   const [paymentMethod, setPaymentMethod] = useState<string>(isB2B ? "credit" : "cod");

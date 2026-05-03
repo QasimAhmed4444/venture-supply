@@ -5,11 +5,15 @@ import { Separator } from "@/components/ui/separator";
 import { Plus, Minus, Trash2, ShoppingBag, ArrowRight } from "lucide-react";
 import { useCart } from "@/contexts/CartContext";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { useRole } from "@/contexts/RoleContext";
+import { useToast } from "@/hooks/use-toast";
 import { PriceTag } from "@/components/PriceTag";
 
 export function CartPage() {
   const { items, count, subtotal, vat, total, updateQty, removeItem } = useCart();
   const { t, language, isRTL } = useLanguage();
+  const { role } = useRole();
+  const { toast } = useToast();
   const [, setLocation] = useLocation();
   const deliveryCharge = subtotal >= 200 ? 0 : 25;
   const grandTotal = +(total + deliveryCharge).toFixed(2);
@@ -79,7 +83,22 @@ export function CartPage() {
                 <PriceTag amount={grandTotal} size="xl" />
               </div>
             </div>
-            <Button size="lg" className="w-full bg-primary hover:bg-primary/90 gap-2" onClick={() => setLocation("/checkout")} data-testid="button-proceed-checkout">
+            <Button
+              size="lg"
+              className="w-full bg-primary hover:bg-primary/90 gap-2"
+              onClick={() => {
+                if (role === "guest") {
+                  toast({
+                    title: language === "ar" ? "يجب تسجيل الدخول أولاً" : "Sign in required",
+                    description: language === "ar" ? "سجّل دخولك لإتمام طلبك" : "Please sign in or create an account to place an order.",
+                  });
+                  setLocation("/auth");
+                } else {
+                  setLocation("/checkout");
+                }
+              }}
+              data-testid="button-proceed-checkout"
+            >
               {t("cart.proceed_checkout")} <ArrowRight className={`w-4 h-4 ${isRTL ? "rotate-180" : ""}`} />
             </Button>
             <Link href="/products"><Button variant="ghost" className="w-full">{t("cart.continue_shopping")}</Button></Link>
