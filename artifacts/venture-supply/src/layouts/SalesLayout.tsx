@@ -10,7 +10,7 @@ import { useRole } from "@/contexts/RoleContext";
 
 export function SalesLayout({ children }: { children: ReactNode }) {
   const { t, isRTL } = useLanguage();
-  const { role, salesperson, logout } = useRole();
+  const { role, salesperson, isSalespersonLoading, logout } = useRole();
   const [location, setLocation] = useLocation();
 
   useEffect(() => {
@@ -71,8 +71,14 @@ export function SalesLayout({ children }: { children: ReactNode }) {
           <header className="bg-card border-b py-3 px-6 flex items-center justify-between">
             <div>
               <p className="text-sm text-muted-foreground">{t("sales.welcome")},</p>
-              <h2 className="font-semibold">{salesperson?.name}</h2>
-              <p className="text-xs text-muted-foreground">{salesperson?.region}</p>
+              {isSalespersonLoading
+                ? <div className="h-5 w-32 bg-muted animate-pulse rounded mt-0.5" />
+                : <h2 className="font-semibold">{salesperson?.name}</h2>
+              }
+              {isSalespersonLoading
+                ? <div className="h-3.5 w-24 bg-muted animate-pulse rounded mt-1" />
+                : <p className="text-xs text-muted-foreground">{salesperson?.region}</p>
+              }
             </div>
             <NotificationBell variant="sales" filter={salesFilter} align="end" />
           </header>

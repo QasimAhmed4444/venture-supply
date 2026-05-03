@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Separator } from "@/components/ui/separator";
 import { Users, ShoppingBag, Wallet, Target, Phone, Eye, Plus, Minus, Search, ShoppingCart, Loader2, CreditCard, Banknote, Building2, ArrowLeft, MapPin, Package } from "lucide-react";
+
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from "recharts";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useRole } from "@/contexts/RoleContext";
@@ -24,12 +25,22 @@ import { useLocation } from "wouter";
 const PRIMARY = "hsl(25, 47%, 24%)";
 const SECONDARY = "hsl(42, 82%, 50%)";
 
+function SalesLoadingSpinner() {
+  return (
+    <div className="flex items-center justify-center h-48 text-muted-foreground">
+      <Loader2 className="w-6 h-6 animate-spin me-2" />
+      <span className="text-sm">Loading…</span>
+    </div>
+  );
+}
+
 export function SalesDashboardPage() {
   const { t, language } = useLanguage();
-  const { salesperson } = useRole();
+  const { salesperson, isSalespersonLoading } = useRole();
   const { data: allCustomers = [] } = useCustomers();
   const { data: allOrders = [] } = useOrders();
 
+  if (isSalespersonLoading) return <SalesLoadingSpinner />;
   if (!salesperson) return null;
 
   const myCustomers = allCustomers.filter((c) => c.assignedSalespersonId === salesperson.id);
@@ -38,7 +49,8 @@ export function SalesDashboardPage() {
   const target = salesperson.monthlyTarget;
   const pct = Math.round((monthlySales / target) * 100);
 
-  const trend = Array.from({ length: 14 }, (_, i) => ({ day: i + 1, sales: 1000 + Math.round(Math.sin(i / 2) * 800 + Math.random() * 1500) }));
+  const dailyAvg = Math.round(monthlySales / 30);
+  const trend = Array.from({ length: 14 }, (_, i) => ({ day: i + 1, sales: Math.round(dailyAvg * (0.7 + Math.sin(i / 2) * 0.3 + (i % 3 === 0 ? 0.2 : 0))) }));
 
   return (
     <div className="space-y-6">
@@ -117,11 +129,12 @@ function KpiCard({ icon: Icon, label, value, accent }: { icon: any; label: strin
 
 export function SalesMyCustomersPage() {
   const { t, language } = useLanguage();
-  const { salesperson } = useRole();
+  const { salesperson, isSalespersonLoading } = useRole();
   const { toast } = useToast();
   const [, setLocation] = useLocation();
   const { data: allCustomers = [] } = useCustomers();
 
+  if (isSalespersonLoading) return <SalesLoadingSpinner />;
   if (!salesperson) return null;
   const myCustomers = allCustomers.filter((c) => c.assignedSalespersonId === salesperson.id);
 
@@ -158,11 +171,12 @@ export function SalesMyCustomersPage() {
 
 export function SalesMyOrdersPage() {
   const { t, language } = useLanguage();
-  const { salesperson } = useRole();
+  const { salesperson, isSalespersonLoading } = useRole();
   const { data: allCustomers = [] } = useCustomers();
   const { data: allOrders = [] } = useOrders();
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
 
+  if (isSalespersonLoading) return <SalesLoadingSpinner />;
   if (!salesperson) return null;
   const myCustomers = allCustomers.filter((c) => c.assignedSalespersonId === salesperson.id);
   const myOrders = allOrders.filter((o) => myCustomers.some((c) => c.id === o.customerId));
@@ -526,11 +540,20 @@ export function SalesCreateOrderPage() {
 
 export function SalesPerformancePage() {
   const { t } = useLanguage();
-  const { salesperson } = useRole();
+  const { salesperson, isSalespersonLoading } = useRole();
   const { data: allCustomers = [] } = useCustomers();
 
+  if (isSalespersonLoading) return <SalesLoadingSpinner />;
   if (!salesperson) return null;
-  const monthlyTrend = Array.from({ length: 6 }, (_, i) => ({ month: ["Nov", "Dec", "Jan", "Feb", "Mar", "Apr"][i], sales: 70000 + Math.round(Math.random() * 50000) }));
+  const base = salesperson.monthlySales;
+  const monthlyTrend = [
+    { month: "Nov", sales: Math.round(base * 0.72) },
+    { month: "Dec", sales: Math.round(base * 0.88) },
+    { month: "Jan", sales: Math.round(base * 0.81) },
+    { month: "Feb", sales: Math.round(base * 0.93) },
+    { month: "Mar", sales: Math.round(base * 0.97) },
+    { month: "Apr", sales: base },
+  ];
   const cust = allCustomers.filter((c) => c.assignedSalespersonId === salesperson.id).map((c) => ({ name: c.name.split(" ")[0], value: c.lifetimeValue }));
 
   return (

@@ -1,9 +1,11 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { DEMO_B2C, DEMO_B2B, type Customer } from "@/data/customers";
-import { DEMO_SALES, type Salesperson } from "@/data/salespersons";
+import { useSalesperson, type Salesperson } from "@/hooks/useSalespersons";
 import { setSessionToken } from "@/lib/api";
 
 export type UserRole = "guest" | "b2c" | "b2b" | "admin" | "sales";
+
+export type { Salesperson };
 
 interface RoleContextType {
   role: UserRole;
@@ -14,6 +16,7 @@ interface RoleContextType {
   customer: Customer | null;
   setCustomer: (c: Customer | null) => void;
   salesperson: Salesperson | null;
+  isSalespersonLoading: boolean;
   currentSalespersonId: string | null;
   adminName: string;
   logout: () => void;
@@ -114,7 +117,7 @@ export function RoleProvider({ children }: { children: ReactNode }) {
   };
 
   const isAuthenticated = role !== "guest";
-  const salesperson = role === "sales" ? DEMO_SALES : null;
+  const { data: salesperson = null, isLoading: isSalespersonLoading } = useSalesperson(role === "sales" ? currentSalespersonId : null);
   const adminName = "Sami Al-Rashid";
 
   return (
@@ -122,7 +125,7 @@ export function RoleProvider({ children }: { children: ReactNode }) {
       value={{
         role, setRole, setRoleWithCustomer, setRoleWithSalespersonId,
         isAuthenticated, customer, setCustomer,
-        salesperson, currentSalespersonId,
+        salesperson, isSalespersonLoading, currentSalespersonId,
         adminName, logout,
       }}
     >

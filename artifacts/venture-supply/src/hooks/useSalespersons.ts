@@ -26,6 +26,15 @@ export function useSalespersons() {
   });
 }
 
+export function useSalesperson(id: string | null) {
+  return useQuery<Salesperson>({
+    queryKey: ["salespersons", id],
+    queryFn: () => apiFetch<Salesperson>(`/salespersons/${id}`),
+    enabled: !!id,
+    staleTime: 30_000,
+  });
+}
+
 export function useCreateSalesperson() {
   const qc = useQueryClient();
   return useMutation({
