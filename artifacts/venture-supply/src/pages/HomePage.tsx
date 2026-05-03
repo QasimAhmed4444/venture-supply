@@ -9,6 +9,15 @@ import { useRole } from "@/contexts/RoleContext";
 import { useProducts } from "@/hooks/useProducts";
 import { useCategories } from "@/hooks/useCategories";
 import { useBrands } from "@/hooks/useBrands";
+import chefLogo from "@assets/Brand_Chef_logo_1777479525959.png";
+import malkaLogo from "@assets/Brand_Malka_logo_1777479525961.png";
+import vitalLogo from "@assets/Brand_Vital_logo_1777479525962.png";
+
+const BRAND_LOGO_OVERRIDES: Record<string, string> = {
+  "chef-flavor": chefLogo,
+  malka: malkaLogo,
+  vital: vitalLogo,
+};
 
 const heroSlides = [
   {
@@ -199,14 +208,14 @@ export function HomePage() {
         </div>
       </section>
 
-      {/* ── DEAL BLOCKS ──────────────────────────────────────────── */}
+      {/* ── DEAL BLOCKS (large promo banners) ────────────────────── */}
       <section className="max-w-7xl mx-auto px-4 mt-8">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-5">
           {dealBlocks.map((block) => (
             <Link key={block.enLabel} href={block.href}>
               <div
-                className={`relative rounded-xl overflow-hidden cursor-pointer group`}
-                style={{ height: 160 }}
+                className="relative rounded-2xl overflow-hidden cursor-pointer group shadow-md hover:shadow-xl transition-shadow"
+                style={{ height: 240 }}
               >
                 {/* BG image */}
                 <img
@@ -215,23 +224,22 @@ export function HomePage() {
                   className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                 />
                 {/* Color overlay gradient */}
-                <div className={`absolute inset-0 bg-gradient-to-br ${block.bg} opacity-85`} />
+                <div className={`absolute inset-0 bg-gradient-to-br ${block.bg} opacity-80`} />
 
                 {/* Text content */}
-                <div className="relative h-full flex flex-col justify-between p-4">
+                <div className="relative h-full flex flex-col justify-between p-6 md:p-7">
                   <p
-                    className="text-xs font-bold uppercase tracking-widest"
+                    className="text-sm font-bold uppercase tracking-widest"
                     style={{ color: block.accent }}
                   >
                     {isRTL ? block.arSub : block.enSub}
                   </p>
-                  <div>
-                    <h3 className="text-white font-extrabold text-lg md:text-xl leading-tight">
+                  <div className="space-y-3">
+                    <h3 className="text-white font-extrabold text-3xl md:text-4xl leading-tight">
                       {isRTL ? block.arLabel : block.enLabel}
                     </h3>
                     <span
-                      className="inline-flex items-center gap-1 text-xs font-bold mt-1.5"
-                      style={{ color: block.accent }}
+                      className="inline-flex items-center gap-2 text-sm font-bold px-4 py-2 rounded-full bg-white/15 backdrop-blur-sm border border-white/20 text-white group-hover:bg-white/25 transition-colors"
                     >
                       {isRTL ? "تسوق الآن" : "SHOP NOW"} {Chevron}
                     </span>
@@ -257,15 +265,14 @@ export function HomePage() {
           </Link>
         </div>
 
-        <div className="flex gap-4 overflow-x-auto pb-3" style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}>
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
           {categories.map((c) => (
             <Link key={c.id} href={`/categories/${c.id}`}>
               <div
-                className="group flex-shrink-0 cursor-pointer rounded-xl overflow-hidden bg-card border border-border/60 hover:border-secondary/60 hover:shadow-md transition-all"
-                style={{ width: 170 }}
+                className="group cursor-pointer rounded-2xl overflow-hidden bg-card border border-border/60 hover:border-secondary/60 hover:shadow-lg transition-all h-full flex flex-col"
                 data-testid={`card-category-${c.id}`}
               >
-                <div className="relative overflow-hidden bg-muted" style={{ height: 130 }}>
+                <div className="relative overflow-hidden bg-muted aspect-square">
                   <img
                     src={c.image}
                     alt={t(`category.${c.id}`)}
@@ -273,13 +280,10 @@ export function HomePage() {
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                     onError={(e) => { (e.target as HTMLImageElement).src = "https://images.unsplash.com/photo-1604908176997-125f25cc6f3d?w=400&q=80"; }}
                   />
-                  <span className="absolute bottom-2 start-2 bg-primary/85 text-white text-[10px] font-semibold px-2 py-0.5 rounded-full backdrop-blur-sm">
-                    {t(`category.${c.id}`)}
-                  </span>
                 </div>
-                <div className="p-3 text-center">
-                  <h3 className="font-semibold text-sm text-primary leading-tight">{t(`category.${c.id}`)}</h3>
-                  <p className="text-xs text-muted-foreground mt-0.5">{c.productCount} products</p>
+                <div className="p-4 text-center flex-1 flex flex-col justify-center">
+                  <h3 className="font-bold text-sm md:text-base text-primary leading-tight">{t(`category.${c.id}`)}</h3>
+                  <p className="text-xs text-muted-foreground mt-1">{c.productCount} {isRTL ? "منتج" : "products"}</p>
                 </div>
               </div>
             </Link>
@@ -387,9 +391,9 @@ export function HomePage() {
                     </>
                   ) : (
                     <div className="w-full h-full flex items-center justify-center bg-white p-6 border-b border-border/40">
-                      {b.logo ? (
+                      {(BRAND_LOGO_OVERRIDES[b.id] ?? b.logo) ? (
                         <img
-                          src={b.logo}
+                          src={BRAND_LOGO_OVERRIDES[b.id] ?? b.logo}
                           alt={b.name}
                           className="max-h-full max-w-full object-contain group-hover:scale-105 transition-transform duration-300"
                         />
@@ -451,7 +455,7 @@ export function HomePage() {
                     {isRTL ? "فتح حساب مؤسسي" : "Open Corporate Account"}
                   </Button>
                 </Link>
-                <Link href="/login">
+                <Link href="/register?as=b2b">
                   <Button size="default" variant="outline" className="border-white/30 bg-white/10 text-white hover:bg-white/15 font-semibold text-sm h-10 gap-2" data-testid="button-b2b-retailer">
                     <Store className="w-4 h-4" />
                     {isRTL ? "تسجيل كبائع تجزئة" : "Retailer Registration"}

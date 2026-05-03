@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useLocation } from "wouter";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -24,10 +24,21 @@ export function AuthPage({ mode = "login" }: Props) {
 
   const [activeTab, setActiveTab] = useState<"login" | "register">(mode);
   const [accountType, setAccountType] = useState<"b2c" | "b2b">("b2c");
+  const [loginType, setLoginType] = useState<"b2c" | "b2b">("b2c");
   const [isLoading, setIsLoading] = useState(false);
 
   const [loginEmail, setLoginEmail] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    const as = params.get("as");
+    if (as === "b2b" || as === "b2c") {
+      setLoginType(as);
+      setAccountType(as);
+    }
+  }, []);
 
   const [regName, setRegName] = useState("");
   const [regEmail, setRegEmail] = useState("");
@@ -125,6 +136,27 @@ export function AuthPage({ mode = "login" }: Props) {
                 <div>
                   <h1 className="text-2xl font-bold">{t("auth.welcome_back")}</h1>
                   <p className="text-sm text-muted-foreground mt-1">{t("auth.login_subtitle")}</p>
+                </div>
+
+                <div>
+                  <Label className="text-sm font-semibold mb-2 block">{t("auth.account_type")}</Label>
+                  <div className="grid grid-cols-2 gap-2 p-1 bg-muted rounded-md">
+                    {(["b2c", "b2b"] as const).map((opt) => (
+                      <button
+                        key={opt}
+                        type="button"
+                        onClick={() => setLoginType(opt)}
+                        className={`text-sm font-semibold py-2 rounded-sm transition-colors ${
+                          loginType === opt
+                            ? "bg-card text-primary shadow-sm"
+                            : "text-muted-foreground hover:text-foreground"
+                        }`}
+                        data-testid={`button-login-type-${opt}`}
+                      >
+                        {t(`auth.account.${opt}`)}
+                      </button>
+                    ))}
+                  </div>
                 </div>
 
                 <form className="space-y-4" onSubmit={handleLogin}>
