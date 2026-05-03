@@ -26,7 +26,7 @@ export function Footer() {
       <div className="max-w-7xl mx-auto px-4 py-14 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-10">
         {/* Brand block */}
         <div className="lg:col-span-4 space-y-5">
-          <div className="bg-white/95 inline-flex p-3 rounded-md shadow-md">
+          <div className="inline-flex">
             <Logo size="xl" />
           </div>
           <p className="text-sm text-white/80 leading-relaxed">

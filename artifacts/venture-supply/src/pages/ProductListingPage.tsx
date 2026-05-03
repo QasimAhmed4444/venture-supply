@@ -109,7 +109,7 @@ export function ProductListingPage({ scope = "all" }: Props) {
       <div className="grid grid-cols-1 lg:grid-cols-[240px_1fr] gap-6">
         {/* Sidebar Filters */}
         <aside>
-          <Card className="sticky top-24 max-h-[calc(100vh-7rem)] overflow-y-auto">
+          <Card>
             <CardContent className="p-4 space-y-5">
               <div className="flex items-center gap-2 text-sm font-semibold pb-2 border-b text-primary">
                 <Filter className="w-4 h-4" /> {t("common.filters")}

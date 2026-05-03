@@ -155,12 +155,10 @@ export function NotificationBell({
           data-testid="button-notification-bell"
         >
           <Bell className={`w-5 h-5 ${pulse && visualPulseEnabled ? "text-secondary" : ""}`} />
-          {unread > 0 ? (
+          {unread > 0 && (
             <Badge className="absolute -top-1 -end-1 h-5 min-w-5 px-1 flex items-center justify-center text-[10px] font-bold bg-secondary text-secondary-foreground border-0 rounded-full">
               {unread > 99 ? "99+" : unread}
             </Badge>
-          ) : (
-            <span className="absolute top-1.5 end-1.5 w-2 h-2 bg-emerald-500 rounded-full" />
           )}
         </Button>
       </PopoverTrigger>

@@ -56,54 +56,49 @@ export function Header() {
 
   return (
     <header className="bg-card border-b sticky top-0 z-40 shadow-sm" dir={isRTL ? "rtl" : "ltr"}>
-      <div className="max-w-7xl mx-auto px-4 py-3 grid grid-cols-[1fr_auto_1fr] items-center gap-4">
-        {/* LEFT: hamburger + search */}
-        <div className="flex items-center gap-3 min-w-0">
-          <Sheet>
-            <SheetTrigger asChild>
-              <Button variant="ghost" size="icon" className="lg:hidden shrink-0">
-                <Menu className="w-5 h-5" />
-              </Button>
-            </SheetTrigger>
-            <SheetContent side={language === "ar" ? "right" : "left"} className="w-72">
-              <nav className="flex flex-col gap-2 mt-8">
-                {navItems.map((item) => (
-                  <Link key={item.href} href={item.href}>
-                    <span className="block px-3 py-2 hover-elevate rounded-md text-sm font-medium">{item.label}</span>
-                  </Link>
-                ))}
-                <div className="border-t my-2" />
-                <p className="text-xs text-muted-foreground px-3 mb-1 uppercase">{t("home.categories.title")}</p>
-                {categories.map((c) => (
-                  <Link key={c.id} href={`/categories/${c.slug}`}>
-                    <span className="block px-3 py-1.5 hover-elevate rounded-md text-sm">{t(`category.${c.id}`)}</span>
-                  </Link>
-                ))}
-              </nav>
-            </SheetContent>
-          </Sheet>
+      <div className="max-w-7xl mx-auto px-4 py-3 flex items-center gap-4">
+        <Sheet>
+          <SheetTrigger asChild>
+            <Button variant="ghost" size="icon" className="lg:hidden">
+              <Menu className="w-5 h-5" />
+            </Button>
+          </SheetTrigger>
+          <SheetContent side={language === "ar" ? "right" : "left"} className="w-72">
+            <nav className="flex flex-col gap-2 mt-8">
+              {navItems.map((item) => (
+                <Link key={item.href} href={item.href}>
+                  <span className="block px-3 py-2 hover-elevate rounded-md text-sm font-medium">{item.label}</span>
+                </Link>
+              ))}
+              <div className="border-t my-2" />
+              <p className="text-xs text-muted-foreground px-3 mb-1 uppercase">{t("home.categories.title")}</p>
+              {categories.map((c) => (
+                <Link key={c.id} href={`/categories/${c.slug}`}>
+                  <span className="block px-3 py-1.5 hover-elevate rounded-md text-sm">{t(`category.${c.id}`)}</span>
+                </Link>
+              ))}
+            </nav>
+          </SheetContent>
+        </Sheet>
 
-          <form onSubmit={handleSearch} className="flex-1 min-w-0 max-w-md hidden sm:block">
-            <div className="relative">
-              <Search className={`absolute top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground ${isRTL ? "right-3" : "left-3"}`} />
-              <Input
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder={t("nav.search_placeholder")}
-                className={`bg-muted/50 border-border/60 focus-visible:bg-card ${isRTL ? "pr-10" : "pl-10"}`}
-                data-testid="input-search"
-              />
-            </div>
-          </form>
-        </div>
-
-        {/* CENTER: logo */}
-        <Link href="/" className="shrink-0 justify-self-center">
+        <Link href="/" className="shrink-0">
           <Logo size="lg" />
         </Link>
 
-        {/* RIGHT: actions */}
-        <div className="flex items-center gap-1 justify-end">
+        <form onSubmit={handleSearch} className="flex-1 max-w-2xl mx-auto hidden sm:block">
+          <div className="relative">
+            <Search className={`absolute top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground ${isRTL ? "right-3" : "left-3"}`} />
+            <Input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder={t("nav.search_placeholder")}
+              className={`bg-muted/50 border-border/60 focus-visible:bg-card ${isRTL ? "pr-10" : "pl-10"}`}
+              data-testid="input-search"
+            />
+          </div>
+        </form>
+
+        <div className="flex items-center gap-1">
           <DropdownMenu open={langOpen} onOpenChange={setLangOpen}>
             <DropdownMenuTrigger asChild>
               <Button
@@ -142,7 +137,7 @@ export function Header() {
             </DropdownMenuContent>
           </DropdownMenu>
 
-          {isAuthenticated && customer && (
+          {isAuthenticated && (
             <NotificationBell
               variant="customer"
               filter={customerFilter}
