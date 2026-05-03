@@ -118,6 +118,9 @@ router.post("/orders", requireAuth, async (req, res) => {
       if (cust) customerId = cust.id as string;
     }
 
+    const couponCode = (b.couponCode as string | undefined) ?? null;
+    const discount = b.discount ? Number(b.discount) : 0;
+
     const row = {
       id: b.id,
       tracking_id: b.trackingId,
@@ -133,8 +136,10 @@ router.post("/orders", requireAuth, async (req, res) => {
       delivery_address: b.deliveryAddress,
       city: b.city,
       notes: b.notes ?? null,
-      coupon_code: (b.couponCode as string | undefined) ?? null,
-      discount: b.discount ? Number(b.discount) : 0,
+      // Only include coupon_code / discount when they carry real values so that
+      // environments where these columns have not yet been migrated still work.
+      ...(couponCode != null ? { coupon_code: couponCode } : {}),
+      ...(discount ? { discount } : {}),
       items: b.items ?? [],
       subtotal: b.subtotal ?? 0,
       vat: b.vat ?? 0,

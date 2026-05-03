@@ -669,3 +669,8 @@ grant select, insert, update, delete on public.coupons        to authenticated;
 -- staff (credentials) is intentionally NOT granted to anon/authenticated;
 -- the API server uses the service-role key (which bypasses RLS) for any
 -- credential operations.
+-- The service_role and postgres roles need explicit INSERT/UPDATE/DELETE
+-- grants because PostgREST checks table-level privileges in addition to
+-- bypassing RLS for those roles.
+grant select, insert, update, delete on public.staff to service_role;
+grant select, insert, update, delete on public.staff to postgres;

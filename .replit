@@ -1,4 +1,4 @@
-modules = ["nodejs-24", "postgresql-16", "python-3.11"]
+modules = ["nodejs-24", "python-3.11", "postgresql-16"]
 
 [deployment]
 router = "application"
@@ -10,6 +10,26 @@ env = { "CI" = "true" }
 
 [workflows]
 runButton = "Project"
+
+[[workflows.workflow]]
+name = "Project"
+mode = "parallel"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "e2e"
+
+[[workflows.workflow]]
+name = "e2e"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "cd tests && pnpm exec playwright test --reporter=list"
+
+[workflows.workflow.metadata]
+isValidation = true
 
 [agent]
 stack = "PNPM_WORKSPACE"
@@ -41,3 +61,12 @@ externalPort = 3000
 
 [nix]
 channel = "stable-25_05"
+
+[userenv]
+
+[userenv.shared]
+BOOTSTRAP_TOKEN = "venture-test-bootstrap-2024"
+SEED_ADMIN_EMAIL = "admin@venturesupply.sa"
+SEED_ADMIN_PASSWORD = "TestAdmin@2024!"
+SEED_SALES_EMAIL = "sales@venturesupply.sa"
+SEED_SALES_PASSWORD = "TestSales@2024!"
