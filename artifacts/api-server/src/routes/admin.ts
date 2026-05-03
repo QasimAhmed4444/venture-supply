@@ -23,16 +23,8 @@ router.post("/admin/seed", async (_req, res) => {
     .from("products").upsert(seedProducts, { onConflict: "id" }).select("id");
   results.products = prodErr ? { error: prodErr.message } : { upserted: prodData?.length };
 
-  const customerRows = seedCustomers.map((c) => ({
-    id: c.id, name: c.name, email: c.email, phone: c.phone, city: c.city, type: c.type,
-    total_orders: c.totalOrders, lifetime_value: c.lifetimeValue,
-    assigned_salesperson_id: c.assignedSalespersonId,
-    joined_date: c.joinedDate, business: c.business, addresses: c.addresses,
-  }));
-  const { error: custErr, data: custData } = await sb
-    .from("customers").upsert(customerRows, { onConflict: "id" }).select("id");
-  results.customers = custErr ? { error: custErr.message } : { upserted: custData?.length };
-
+  // Salespersons must exist before customers (customers.assigned_salesperson_id FK)
+  // and before orders (orders.salesperson_id FK).
   const spRows = seedSalespersons.map((s) => ({
     id: s.id, name: s.name, email: s.email, phone: s.phone, region: s.region,
     monthly_target: s.monthlyTarget, monthly_sales: s.monthlySales,
@@ -42,6 +34,16 @@ router.post("/admin/seed", async (_req, res) => {
   const { error: spErr, data: spData } = await sb
     .from("salespersons").upsert(spRows, { onConflict: "id" }).select("id");
   results.salespersons = spErr ? { error: spErr.message } : { upserted: spData?.length };
+
+  const customerRows = seedCustomers.map((c) => ({
+    id: c.id, name: c.name, email: c.email, phone: c.phone, city: c.city, type: c.type,
+    total_orders: c.totalOrders, lifetime_value: c.lifetimeValue,
+    assigned_salesperson_id: c.assignedSalespersonId,
+    joined_date: c.joinedDate, business: c.business, addresses: c.addresses,
+  }));
+  const { error: custErr, data: custData } = await sb
+    .from("customers").upsert(customerRows, { onConflict: "id" }).select("id");
+  results.customers = custErr ? { error: custErr.message } : { upserted: custData?.length };
 
   const orderRows = seedOrders.map((o: any) => ({
     id: o.id, tracking_id: o.trackingId, customer_id: o.customerId,

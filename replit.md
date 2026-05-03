@@ -24,4 +24,12 @@ pnpm workspace monorepo using TypeScript. Each package manages its own dependenc
 - `pnpm --filter @workspace/db run push` — push DB schema changes (dev only)
 - `pnpm --filter @workspace/api-server run dev` — run API server locally
 
+## Database
+
+The Venture Supply API talks to a Supabase PostgreSQL project. The
+production schema (tables, constraints, indexes, RLS policies, grants)
+lives in `supabase/schema.sql`; design rationale and operational notes are
+in `supabase/README.md`. Use `supabase/purge_demo.sql` to remove the demo
+seed rows inserted by `POST /api/admin/seed` before going live.
+
 See the `pnpm-workspace` skill for workspace structure, TypeScript setup, and package details.
