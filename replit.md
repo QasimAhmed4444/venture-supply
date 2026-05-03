@@ -67,7 +67,9 @@ Rule: agent computes the SQL (including any bcrypt hashes needed) and gives it t
 - All staff passwords are bcrypt-hashed ($2a$ / $2b$ format)
 
 ### API Authentication
-- `GET /orders`, `POST /orders`, `GET /orders/:id` — `requireAuth` (any role)
+- `GET /orders` — `requireAuth` (any role)
+- `GET /orders/:id` — **public** (no auth required — allows order tracking by shared link; customer-scoped orders still restricted if authenticated as b2c/b2b)
+- `POST /orders` — `requireAuth` (any role)
 - `PUT /orders/:id` — `requireRole("admin", "sales")`
 - `DELETE /orders/:id` — `requireAdmin`
 - `GET /customers`, `POST /customers` — `requireRole("admin", "sales")`

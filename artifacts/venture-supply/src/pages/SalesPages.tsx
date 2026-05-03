@@ -538,61 +538,69 @@ export function SalesCreateOrderPage() {
   );
 }
 
-export function SalesPerformancePage() {
-  const { t } = useLanguage();
-  const { salesperson, isSalespersonLoading } = useRole();
-  const { data: allCustomers = [] } = useCustomers();
+export function SalesSettingsPage() {
+  const { toast } = useToast();
+  const [pwForm, setPwForm] = useState({ email: "", currentPassword: "", newPassword: "", confirm: "" });
+  const [pwLoading, setPwLoading] = useState(false);
 
-  if (isSalespersonLoading) return <SalesLoadingSpinner />;
-  if (!salesperson) return null;
-  const base = salesperson.monthlySales;
-  const monthlyTrend = [
-    { month: "Nov", sales: Math.round(base * 0.72) },
-    { month: "Dec", sales: Math.round(base * 0.88) },
-    { month: "Jan", sales: Math.round(base * 0.81) },
-    { month: "Feb", sales: Math.round(base * 0.93) },
-    { month: "Mar", sales: Math.round(base * 0.97) },
-    { month: "Apr", sales: base },
-  ];
-  const cust = allCustomers.filter((c) => c.assignedSalespersonId === salesperson.id).map((c) => ({ name: c.name.split(" ")[0], value: c.lifetimeValue }));
+  const handleChangePassword = async () => {
+    if (!pwForm.email || !pwForm.currentPassword || !pwForm.newPassword) {
+      toast({ title: "All fields required", variant: "destructive" }); return;
+    }
+    if (pwForm.newPassword !== pwForm.confirm) {
+      toast({ title: "Passwords don't match", variant: "destructive" }); return;
+    }
+    if (pwForm.newPassword.length < 8) {
+      toast({ title: "New password must be at least 8 characters", variant: "destructive" }); return;
+    }
+    setPwLoading(true);
+    try {
+      const BASE = (import.meta.env.BASE_URL ?? "").replace(/\/$/, "");
+      const token = localStorage.getItem("vs.token") ?? "";
+      const res = await fetch(`${BASE}/api/auth/change-password`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ email: pwForm.email, currentPassword: pwForm.currentPassword, newPassword: pwForm.newPassword }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: "Unknown error" }));
+        throw new Error((err as any).error ?? "Failed");
+      }
+      toast({ title: "Password updated successfully" });
+      setPwForm({ email: "", currentPassword: "", newPassword: "", confirm: "" });
+    } catch (e) {
+      toast({ title: "Error", description: (e as Error).message, variant: "destructive" });
+    } finally {
+      setPwLoading(false);
+    }
+  };
 
   return (
-    <div className="space-y-4">
-      <h1 className="text-3xl font-bold">{t("sales.performance")}</h1>
-      <div className="grid lg:grid-cols-2 gap-4">
-        <Card>
-          <CardContent className="p-5">
-            <h2 className="font-bold mb-4">Monthly sales trend</h2>
-            <div className="h-64">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={monthlyTrend}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                  <XAxis dataKey="month" tick={{ fontSize: 11 }} />
-                  <YAxis tick={{ fontSize: 11 }} />
-                  <Tooltip />
-                  <Line type="monotone" dataKey="sales" stroke={PRIMARY} strokeWidth={2.5} />
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-5">
-            <h2 className="font-bold mb-4">Top customers</h2>
-            <div className="h-64">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={cust} layout="vertical">
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                  <XAxis type="number" tick={{ fontSize: 11 }} />
-                  <YAxis dataKey="name" type="category" tick={{ fontSize: 10 }} width={80} />
-                  <Tooltip />
-                  <Bar dataKey="value" fill={SECONDARY} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+    <div className="space-y-4 max-w-xl">
+      <h1 className="text-3xl font-bold">Settings</h1>
+      <Card>
+        <CardContent className="p-5 space-y-4">
+          <h2 className="font-semibold">Change Password</h2>
+          <p className="text-sm text-muted-foreground">Enter your login email and current password to set a new one.</p>
+          <div>
+            <Label>Email</Label>
+            <Input type="email" placeholder="Your login email" value={pwForm.email} onChange={(e) => setPwForm((p) => ({ ...p, email: e.target.value }))} />
+          </div>
+          <div>
+            <Label>Current Password</Label>
+            <Input type="password" placeholder="••••••••" value={pwForm.currentPassword} onChange={(e) => setPwForm((p) => ({ ...p, currentPassword: e.target.value }))} />
+          </div>
+          <div>
+            <Label>New Password</Label>
+            <Input type="password" placeholder="Min. 8 characters" value={pwForm.newPassword} onChange={(e) => setPwForm((p) => ({ ...p, newPassword: e.target.value }))} />
+          </div>
+          <div>
+            <Label>Confirm New Password</Label>
+            <Input type="password" placeholder="Repeat new password" value={pwForm.confirm} onChange={(e) => setPwForm((p) => ({ ...p, confirm: e.target.value }))} />
+          </div>
+          <Button onClick={handleChangePassword} disabled={pwLoading} className="bg-primary hover:bg-primary/90">{pwLoading ? "Saving…" : "Update Password"}</Button>
+        </CardContent>
+      </Card>
     </div>
   );
 }

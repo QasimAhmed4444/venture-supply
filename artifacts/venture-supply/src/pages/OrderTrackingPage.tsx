@@ -422,6 +422,7 @@ export function OrderTrackingPage() {
         <div class="row"><span>${ar ? "المجموع الفرعي" : "Subtotal"}</span><span>${fmt(order.subtotal)}</span></div>
         <div class="row"><span>${ar ? "ضريبة القيمة المضافة (15%)" : "VAT (15%)"}</span><span>${fmt(order.vat)}</span></div>
         <div class="row"><span>${ar ? "التوصيل" : "Delivery"}</span><span>${order.deliveryCharge === 0 ? (ar ? "مجاني" : "Free") : fmt(order.deliveryCharge)}</span></div>
+        ${(order as any).discount > 0 ? `<div class="row" style="color:#059669"><span>${ar ? "خصم الكوبون" : "Coupon Discount"}</span><span>- ${fmt((order as any).discount)}</span></div>` : ""}
         <div class="row grand"><span>${ar ? "الإجمالي" : "Grand total"}</span><span>${fmt(order.total)}</span></div>
       </div>
       <p class="muted" style="margin-top:24px">${ar ? "شكراً لاختياركم فينتشر سبلاي." : "Thank you for shopping with Venture Supply."}</p>

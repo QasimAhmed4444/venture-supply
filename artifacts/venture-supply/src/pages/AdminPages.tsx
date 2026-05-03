@@ -30,6 +30,7 @@ import { useOrders, useUpdateOrderStatus } from "@/hooks/useOrders";
 import { useDashboard } from "@/hooks/useDashboard";
 import { useSalespersons, useCreateSalesperson, useUpdateSalesperson, useDeleteSalesperson, type Salesperson } from "@/hooks/useSalespersons";
 import { useCreateStaff } from "@/hooks/useStaff";
+import { apiFetch } from "@/lib/api";
 import { useBusinessTypes, useCreateBusinessType, useUpdateBusinessType, useDeleteBusinessType, type BusinessType } from "@/hooks/useBusinessTypes";
 import { useCreateCustomer, useUpdateCustomer, useDeleteCustomer } from "@/hooks/useCustomerMutations";
 import {
@@ -1409,7 +1410,7 @@ export function AdminCustomersPage() {
 
 // ─── Salespersons ──────────────────────────────────────────────────────────────
 
-const BLANK_SP = { name: "", email: "", phone: "", region: "", monthlyTarget: "80000", monthlySales: "0", customersCount: "0", ordersThisMonth: "0", pendingOrders: "0", status: "active" as "active" | "inactive", joinedDate: "", password: "", categoriesServed: [] as string[] };
+const BLANK_SP = { name: "", email: "", phone: "", region: "", monthlyTarget: "80000", monthlyNewCustomerTarget: "5", monthlyOrderTarget: "20", status: "active" as "active" | "inactive", joinedDate: "", password: "", categoriesServed: [] as string[] };
 
 function SPForm({ data, setData, businessTypes }: {
   data: typeof BLANK_SP;
@@ -1427,14 +1428,10 @@ function SPForm({ data, setData, businessTypes }: {
         <div><Label>Region</Label><Input value={data.region} onChange={(e) => setData((p) => ({ ...p, region: e.target.value }))} /></div>
       </div>
       <div><Label>Password <span className="text-muted-foreground text-xs">(login account)</span></Label><Input type="password" value={data.password} onChange={(e) => setData((p) => ({ ...p, password: e.target.value }))} placeholder="Min. 8 characters" autoComplete="new-password" /></div>
-      <div className="grid grid-cols-2 gap-3">
-        <div><Label>Monthly Target (SAR)</Label><Input type="number" value={data.monthlyTarget} onChange={(e) => setData((p) => ({ ...p, monthlyTarget: e.target.value }))} /></div>
-        <div><Label>Monthly Sales (SAR)</Label><Input type="number" value={data.monthlySales} onChange={(e) => setData((p) => ({ ...p, monthlySales: e.target.value }))} /></div>
-      </div>
       <div className="grid grid-cols-3 gap-3">
-        <div><Label>Customers</Label><Input type="number" value={data.customersCount} onChange={(e) => setData((p) => ({ ...p, customersCount: e.target.value }))} /></div>
-        <div><Label>Orders / Month</Label><Input type="number" value={data.ordersThisMonth} onChange={(e) => setData((p) => ({ ...p, ordersThisMonth: e.target.value }))} /></div>
-        <div><Label>Pending</Label><Input type="number" value={data.pendingOrders} onChange={(e) => setData((p) => ({ ...p, pendingOrders: e.target.value }))} /></div>
+        <div><Label>Monthly Target (SAR)</Label><Input type="number" value={data.monthlyTarget} onChange={(e) => setData((p) => ({ ...p, monthlyTarget: e.target.value }))} /></div>
+        <div><Label>New Customers / Month</Label><Input type="number" value={data.monthlyNewCustomerTarget} onChange={(e) => setData((p) => ({ ...p, monthlyNewCustomerTarget: e.target.value }))} /></div>
+        <div><Label>Orders / Month Target</Label><Input type="number" value={data.monthlyOrderTarget} onChange={(e) => setData((p) => ({ ...p, monthlyOrderTarget: e.target.value }))} /></div>
       </div>
       <div className="grid grid-cols-2 gap-3">
         <div><Label>Status</Label>
@@ -1482,14 +1479,15 @@ export function AdminSalespersonsPage() {
 
   const openEdit = (s: Salesperson) => {
     setEditSP(s);
-    setEditData({ name: s.name, email: s.email, phone: s.phone ?? "", region: s.region ?? "", monthlyTarget: String(s.monthlyTarget), monthlySales: String(s.monthlySales), customersCount: String(s.customersCount), ordersThisMonth: String(s.ordersThisMonth), pendingOrders: String(s.pendingOrders), status: s.status, joinedDate: s.joinedDate ? s.joinedDate.slice(0, 10) : "", password: "", categoriesServed: (s as any).categoriesServed ?? [] });
+    setEditData({ name: s.name, email: s.email, phone: s.phone ?? "", region: s.region ?? "", monthlyTarget: String(s.monthlyTarget), monthlyNewCustomerTarget: String((s as any).monthlyNewCustomerTarget ?? 5), monthlyOrderTarget: String((s as any).monthlyOrderTarget ?? 20), status: s.status, joinedDate: s.joinedDate ? s.joinedDate.slice(0, 10) : "", password: "", categoriesServed: (s as any).categoriesServed ?? [] });
   };
 
   const toPayload = (d: typeof BLANK_SP) => ({
     name: d.name, email: d.email, phone: d.phone, region: d.region,
-    monthlyTarget: Number(d.monthlyTarget), monthlySales: Number(d.monthlySales),
-    customersCount: Number(d.customersCount), ordersThisMonth: Number(d.ordersThisMonth),
-    pendingOrders: Number(d.pendingOrders), status: d.status,
+    monthlyTarget: Number(d.monthlyTarget),
+    monthlyNewCustomerTarget: Number(d.monthlyNewCustomerTarget),
+    monthlyOrderTarget: Number(d.monthlyOrderTarget),
+    status: d.status,
     joinedDate: d.joinedDate || undefined,
     categoriesServed: d.categoriesServed,
   });
@@ -2085,7 +2083,7 @@ export function AdminReportsPage() {
             <div className="h-72">
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
-                  <Pie data={customerSplit} dataKey="value" cx="50%" cy="50%" outerRadius={90} label>
+                  <Pie data={customerSplit} dataKey="value" cx="50%" cy="50%" innerRadius={55} outerRadius={90} paddingAngle={3} label>
                     <Cell fill={SECONDARY} /><Cell fill={PRIMARY} />
                   </Pie>
                   <Tooltip /><Legend />
@@ -2122,6 +2120,34 @@ export function AdminReportsPage() {
 export function AdminSettingsPage() {
   const { t } = useLanguage();
   const { toast } = useToast();
+  const [pwForm, setPwForm] = useState({ email: "", currentPassword: "", newPassword: "", confirm: "" });
+  const [pwLoading, setPwLoading] = useState(false);
+
+  const handleChangePassword = async () => {
+    if (!pwForm.email || !pwForm.currentPassword || !pwForm.newPassword) {
+      toast({ title: "All fields required", variant: "destructive" }); return;
+    }
+    if (pwForm.newPassword !== pwForm.confirm) {
+      toast({ title: "Passwords don't match", variant: "destructive" }); return;
+    }
+    if (pwForm.newPassword.length < 8) {
+      toast({ title: "New password must be at least 8 characters", variant: "destructive" }); return;
+    }
+    setPwLoading(true);
+    try {
+      await apiFetch("/auth/change-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: pwForm.email, currentPassword: pwForm.currentPassword, newPassword: pwForm.newPassword }),
+      });
+      toast({ title: "Password updated successfully" });
+      setPwForm({ email: "", currentPassword: "", newPassword: "", confirm: "" });
+    } catch (e) {
+      toast({ title: "Error", description: (e as Error).message, variant: "destructive" });
+    } finally {
+      setPwLoading(false);
+    }
+  };
 
   return (
     <div className="space-y-4 max-w-3xl">
@@ -2168,6 +2194,20 @@ export function AdminSettingsPage() {
         </CardContent>
       </Card>
       <Button onClick={() => toast({ title: t("common.save"), description: "Coming soon" })} className="bg-primary hover:bg-primary/90">{t("common.save")}</Button>
+      <Card>
+        <CardContent className="p-5 space-y-4">
+          <h2 className="font-semibold">Change Account Password</h2>
+          <p className="text-sm text-muted-foreground">Enter your email and current password to set a new one.</p>
+          <div className="grid sm:grid-cols-2 gap-3">
+            <div className="sm:col-span-2"><Label>Email</Label><Input type="email" placeholder="Your login email" value={pwForm.email} onChange={(e) => setPwForm((p) => ({ ...p, email: e.target.value }))} /></div>
+            <div><Label>Current Password</Label><Input type="password" placeholder="••••••••" value={pwForm.currentPassword} onChange={(e) => setPwForm((p) => ({ ...p, currentPassword: e.target.value }))} /></div>
+            <div></div>
+            <div><Label>New Password</Label><Input type="password" placeholder="Min. 8 characters" value={pwForm.newPassword} onChange={(e) => setPwForm((p) => ({ ...p, newPassword: e.target.value }))} /></div>
+            <div><Label>Confirm New Password</Label><Input type="password" placeholder="Repeat new password" value={pwForm.confirm} onChange={(e) => setPwForm((p) => ({ ...p, confirm: e.target.value }))} /></div>
+          </div>
+          <Button onClick={handleChangePassword} disabled={pwLoading} className="bg-primary hover:bg-primary/90">{pwLoading ? "Saving…" : "Update Password"}</Button>
+        </CardContent>
+      </Card>
     </div>
   );
 }

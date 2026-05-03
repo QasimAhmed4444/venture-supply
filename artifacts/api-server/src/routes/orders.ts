@@ -73,9 +73,9 @@ router.get("/orders", requireAuth, async (req, res) => {
   }
 });
 
-// GET /orders/:id — scoped by role
-router.get("/orders/:id", requireAuth, async (req, res) => {
-  const session = (req as any).session as VerifiedSession;
+// GET /orders/:id — public for tracking links; scoped by role for authenticated users
+router.get("/orders/:id", async (req, res) => {
+  const session = (req as any).session as VerifiedSession | undefined;
   const sb = getSupabase();
 
   if (!sb) return res.status(404).json({ error: "not found" });
@@ -85,17 +85,14 @@ router.get("/orders/:id", requireAuth, async (req, res) => {
 
     const order = toCamel(data as Record<string, unknown>);
 
-    if (session.role === "b2c" || session.role === "b2b") {
+    // If authenticated as a customer, scope to their own orders only
+    if (session?.role === "b2c" || session?.role === "b2b") {
       const { data: cust } = await sb.from("customers").select("id").eq("email", session.email).maybeSingle();
       if (!cust || cust.id !== order.customerId) {
         return res.status(404).json({ error: "not found" });
       }
-    } else if (session.role === "sales") {
-      const { data: staff } = await sb.from("staff").select("salesperson_id").eq("id", session.sub).maybeSingle();
-      if (!staff?.salesperson_id || staff.salesperson_id !== order.salespersonId) {
-        return res.status(404).json({ error: "not found" });
-      }
     }
+    // Admin / sales can see everything; unauthenticated guests can track by ID
 
     return res.json(order);
   } catch {

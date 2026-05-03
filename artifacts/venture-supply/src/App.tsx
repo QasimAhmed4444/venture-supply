@@ -57,7 +57,7 @@ import {
   SalesMyCustomersPage,
   SalesMyOrdersPage,
   SalesCreateOrderPage,
-  SalesPerformancePage,
+  SalesSettingsPage,
 } from "@/pages/SalesPages";
 
 import NotFound from "@/pages/not-found";
@@ -181,7 +181,7 @@ function AppRouter() {
       <Route path="/sales/customers" component={withSales(SalesMyCustomersPage)} />
       <Route path="/sales/orders" component={withSales(SalesMyOrdersPage)} />
       <Route path="/sales/create-order" component={withSales(SalesCreateOrderPage)} />
-      <Route path="/sales/performance" component={withSales(SalesPerformancePage)} />
+      <Route path="/sales/settings" component={withSales(SalesSettingsPage)} />
 
       <Route component={NotFound} />
     </Switch>

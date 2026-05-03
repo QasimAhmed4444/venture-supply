@@ -4,7 +4,7 @@ import { Logo } from "@/components/Logo";
 import { ScrollToTop } from "@/components/ScrollToTop";
 import { Button } from "@/components/ui/button";
 import { NotificationBell } from "@/components/NotificationBell";
-import { LayoutDashboard, Users, ShoppingBag, PlusCircle, TrendingUp, LogOut } from "lucide-react";
+import { LayoutDashboard, Users, ShoppingBag, PlusCircle, Settings, LogOut } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useRole } from "@/contexts/RoleContext";
 
@@ -35,7 +35,7 @@ export function SalesLayout({ children }: { children: ReactNode }) {
     { href: "/sales/customers", icon: Users, label: t("sales.my_customers") },
     { href: "/sales/orders", icon: ShoppingBag, label: t("sales.my_orders") },
     { href: "/sales/create-order", icon: PlusCircle, label: t("sales.create_order") },
-    { href: "/sales/performance", icon: TrendingUp, label: t("sales.performance") },
+    { href: "/sales/settings", icon: Settings, label: t("admin.settings") },
   ];
 
   return (

@@ -27,7 +27,7 @@ export function useOrders(filters?: { status?: string; customerId?: string; sale
   return useQuery<Order[]>({
     queryKey: ["orders", filters],
     queryFn: () => apiFetch<Order[]>(`/orders${qs ? `?${qs}` : ""}`),
-    placeholderData: mockOrders,
+    placeholderData: (prev: Order[] | undefined) => prev ?? mockOrders,
     staleTime: 0,
     retry: 1,
   });
