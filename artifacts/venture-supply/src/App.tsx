@@ -30,6 +30,7 @@ import {
   AccountOrdersPage,
   AccountAddressesPage,
   AccountProfilePage,
+  AccountBusinessPage,
   AccountNotificationsPage,
   AccountSettingsPage,
 } from "@/pages/AccountPages";
@@ -140,6 +141,7 @@ function AppRouter() {
       <Route path="/account/orders" component={withAccount(AccountOrdersPage)} />
       <Route path="/account/addresses" component={withAccount(AccountAddressesPage)} />
       <Route path="/account/profile" component={withAccount(AccountProfilePage)} />
+      <Route path="/account/business" component={withAccount(AccountBusinessPage)} />
       <Route path="/account/notifications" component={withAccount(AccountNotificationsPage)} />
       <Route path="/account/settings" component={withAccount(AccountSettingsPage)} />
 

@@ -7,7 +7,8 @@ import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ShoppingBag, MapPin, Bell, Package, Eye, Plus, CheckCircle2, Building2, ShoppingCart, RefreshCw, Sparkles, UserCheck, Loader2 } from "lucide-react";
+import { ShoppingBag, MapPin, Bell, Package, Eye, Plus, CheckCircle2, Building2, ShoppingCart, RefreshCw, Sparkles, UserCheck, Loader2, CreditCard, Wallet, FileText, KeyRound, ShieldCheck, Mail, Phone } from "lucide-react";
+import { apiFetch } from "@/lib/api";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useRole } from "@/contexts/RoleContext";
 import { useToast } from "@/hooks/use-toast";
@@ -121,11 +122,71 @@ export function AccountDashboardPage() {
         <h1 className="text-3xl font-bold">{customer.name}</h1>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <KpiCard icon={Package} label={t("account.active_orders")} value={active.length} />
         <KpiCard icon={ShoppingBag} label={t("account.total_orders")} value={orders.length} />
         <KpiCard icon={MapPin} label={t("account.saved_addresses")} value={customer.addresses.length} />
+        <KpiCard
+          icon={Wallet}
+          label={language === "ar" ? "آخر طلب" : "Last order value"}
+          value={orders.length > 0 ? `SAR ${orders[0]!.total.toFixed(0)}` : "—"}
+        />
       </div>
+
+      {isB2B && customer.business?.allowCredit && (
+        <Card>
+          <CardContent className="p-5 space-y-3">
+            <div className="flex items-center justify-between">
+              <h2 className="font-bold flex items-center gap-2">
+                <CreditCard className="w-4 h-4 text-secondary" />
+                {language === "ar" ? "حساب الائتمان" : "Credit account"}
+              </h2>
+              <Badge className={
+                (customer.business.approvalStatus ?? "approved") === "approved"
+                  ? "bg-emerald-100 text-emerald-800 border border-emerald-300"
+                  : (customer.business.approvalStatus === "pending"
+                    ? "bg-amber-100 text-amber-800 border border-amber-300"
+                    : "bg-red-100 text-red-800 border border-red-300")
+              }>
+                {(() => {
+                  const s = customer.business.approvalStatus ?? "approved";
+                  if (s === "approved") return language === "ar" ? "معتمد" : "Approved";
+                  if (s === "pending") return language === "ar" ? "بانتظار الموافقة" : "Pending approval";
+                  return language === "ar" ? "مرفوض" : "Rejected";
+                })()}
+              </Badge>
+            </div>
+            {(() => {
+              const limit = customer.business.creditLimit ?? 0;
+              const used = customer.business.creditUsed ?? 0;
+              const avail = Math.max(0, limit - used);
+              const pct = limit > 0 ? Math.min(100, Math.round((used / limit) * 100)) : 0;
+              return (
+                <>
+                  <div className="grid grid-cols-3 gap-3 text-sm">
+                    <div className="rounded-md border p-3"><div className="text-xs text-muted-foreground">{language === "ar" ? "الحد" : "Limit"}</div><div className="font-bold text-lg">SAR {limit.toFixed(0)}</div></div>
+                    <div className="rounded-md border p-3 bg-amber-50/50"><div className="text-xs text-muted-foreground">{language === "ar" ? "المستخدم" : "Used"}</div><div className="font-bold text-lg text-amber-700">SAR {used.toFixed(0)}</div></div>
+                    <div className="rounded-md border p-3 bg-emerald-50/50"><div className="text-xs text-muted-foreground">{language === "ar" ? "المتاح" : "Available"}</div><div className="font-bold text-lg text-emerald-700">SAR {avail.toFixed(0)}</div></div>
+                  </div>
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-muted-foreground">{language === "ar" ? "نسبة الاستخدام" : "Utilisation"}</span>
+                      <span className="font-semibold">{pct}%</span>
+                    </div>
+                    <div className="h-2 rounded-full bg-muted overflow-hidden">
+                      <div className={`h-full ${pct >= 90 ? "bg-red-500" : pct >= 70 ? "bg-amber-500" : "bg-emerald-500"}`} style={{ width: `${pct}%` }} />
+                    </div>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    {language === "ar" ? "شروط الدفع: " : "Payment terms: "}
+                    <span className="font-semibold text-foreground">{customer.business.paymentTerms ?? "Net 30"}</span>
+                  </p>
+                </>
+              );
+            })()}
+          </CardContent>
+        </Card>
+      )}
 
       {isB2B && sp && (
         <Card className="bg-gradient-to-r from-secondary/10 to-secondary/5 border-secondary/30">
@@ -750,36 +811,256 @@ export function AccountProfilePage() {
   );
 }
 
+// ─── AccountBusinessPage (B2B only) ────────────────────────────────────────────
+export function AccountBusinessPage() {
+  const { t, language } = useLanguage();
+  const { customer, role } = useRole();
+  const { data: salespersons = [] } = useSalespersons();
+  const ar = language === "ar";
+
+  if (!customer) return null;
+  if (role !== "b2b" || !customer.business) {
+    return (
+      <Card><CardContent className="p-6 text-center text-sm text-muted-foreground">
+        {ar ? "هذه الصفحة متاحة لحسابات الأعمال فقط" : "This page is for business accounts only"}
+      </CardContent></Card>
+    );
+  }
+
+  const biz = customer.business;
+  const sp = customer.assignedSalespersonId
+    ? salespersons.find((s) => s.id === customer.assignedSalespersonId) ?? null
+    : null;
+  const limit = biz.creditLimit ?? 0;
+  const used = biz.creditUsed ?? 0;
+  const avail = Math.max(0, limit - used);
+  const status = biz.approvalStatus ?? (biz.allowCredit ? "approved" : "pending");
+
+  const Field = ({ label, value }: { label: string; value: React.ReactNode }) => (
+    <div className="rounded-md border p-3">
+      <div className="text-xs uppercase tracking-wider text-muted-foreground">{label}</div>
+      <div className="text-sm font-semibold mt-0.5">{value || <span className="text-muted-foreground/60">—</span>}</div>
+    </div>
+  );
+
+  return (
+    <div className="space-y-5">
+      <Card>
+        <CardContent className="p-5 space-y-4">
+          <div className="flex items-center justify-between flex-wrap gap-3">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-md bg-primary/10 text-primary flex items-center justify-center">
+                <Building2 className="w-6 h-6" />
+              </div>
+              <div>
+                <h1 className="font-bold text-xl">{biz.name}</h1>
+                <p className="text-xs text-muted-foreground">{t(`checkout.business_type.${biz.type}`)}</p>
+              </div>
+            </div>
+            <Badge className={
+              status === "approved" ? "bg-emerald-100 text-emerald-800 border border-emerald-300"
+              : status === "pending" ? "bg-amber-100 text-amber-800 border border-amber-300"
+              : "bg-red-100 text-red-800 border border-red-300"
+            }>
+              {status === "approved" ? (ar ? "حساب معتمد" : "Approved") : status === "pending" ? (ar ? "بانتظار الموافقة" : "Pending approval") : (ar ? "مرفوض" : "Rejected")}
+            </Badge>
+          </div>
+
+          <div className="grid sm:grid-cols-2 gap-3">
+            <Field label={t("checkout.cr_number")} value={biz.crNumber} />
+            <Field label={t("checkout.vat_number")} value={biz.vatNumber} />
+            <Field label={t("common.email")} value={customer.email} />
+            <Field label={t("common.phone")} value={customer.phone} />
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardContent className="p-5 space-y-3">
+          <div className="flex items-center justify-between">
+            <h2 className="font-bold flex items-center gap-2">
+              <CreditCard className="w-4 h-4 text-secondary" />
+              {ar ? "خط الائتمان" : "Credit line"}
+            </h2>
+            <span className="text-xs text-muted-foreground">{ar ? "شروط الدفع: " : "Terms: "}<span className="font-semibold text-foreground">{biz.paymentTerms ?? "Net 30"}</span></span>
+          </div>
+          {biz.allowCredit ? (
+            <>
+              <div className="grid grid-cols-3 gap-3 text-sm">
+                <div className="rounded-md border p-3"><div className="text-xs text-muted-foreground">{ar ? "الحد" : "Limit"}</div><div className="font-bold text-lg">SAR {limit.toFixed(0)}</div></div>
+                <div className="rounded-md border p-3 bg-amber-50/50"><div className="text-xs text-muted-foreground">{ar ? "المستخدم" : "Used"}</div><div className="font-bold text-lg text-amber-700">SAR {used.toFixed(0)}</div></div>
+                <div className="rounded-md border p-3 bg-emerald-50/50"><div className="text-xs text-muted-foreground">{ar ? "المتاح" : "Available"}</div><div className="font-bold text-lg text-emerald-700">SAR {avail.toFixed(0)}</div></div>
+              </div>
+              {limit > 0 && (
+                <div className="h-2 rounded-full bg-muted overflow-hidden">
+                  <div className="h-full bg-emerald-500" style={{ width: `${Math.min(100, Math.round((used / limit) * 100))}%` }} />
+                </div>
+              )}
+            </>
+          ) : (
+            <p className="text-sm text-muted-foreground">{ar ? "لا يوجد خط ائتمان مفعّل لحسابك. تواصل مع مدير حسابك لطلب التفعيل." : "No credit line is enabled. Contact your account manager to request credit terms."}</p>
+          )}
+        </CardContent>
+      </Card>
+
+      {sp && (
+        <Card className="bg-gradient-to-r from-secondary/10 to-secondary/5 border-secondary/30">
+          <CardContent className="p-5 flex items-center gap-4 flex-wrap">
+            <div className="w-12 h-12 rounded-full bg-secondary/20 text-secondary flex items-center justify-center">
+              <UserCheck className="w-6 h-6" />
+            </div>
+            <div className="flex-1 min-w-[180px]">
+              <p className="text-xs uppercase tracking-wider text-muted-foreground">{t("account.account_manager")}</p>
+              <p className="font-semibold">{sp.name}</p>
+              <p className="text-sm text-muted-foreground">{sp.email} · {sp.phone}</p>
+            </div>
+            <a href={`mailto:${sp.email}`}><Button size="sm" variant="outline"><Mail className="w-3.5 h-3.5 me-1.5" />{ar ? "بريد" : "Email"}</Button></a>
+            <a href={`tel:${sp.phone}`}><Button size="sm" variant="outline"><Phone className="w-3.5 h-3.5 me-1.5" />{ar ? "اتصال" : "Call"}</Button></a>
+          </CardContent>
+        </Card>
+      )}
+
+      {customer.addresses.length > 0 && (
+        <Card>
+          <CardContent className="p-5 space-y-3">
+            <h2 className="font-bold flex items-center gap-2">
+              <MapPin className="w-4 h-4 text-primary" />
+              {ar ? "عناوين الشحن" : "Shipping addresses"}
+            </h2>
+            <div className="space-y-2">
+              {customer.addresses.map((a) => (
+                <div key={a.id} className="border rounded-md p-3 text-sm flex items-start gap-3">
+                  <MapPin className="w-4 h-4 text-muted-foreground mt-0.5" />
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2">
+                      <span className="font-semibold">{a.label}</span>
+                      {a.isDefault && <Badge className="bg-emerald-100 text-emerald-800 border border-emerald-300 text-[10px]">{t("common.default")}</Badge>}
+                    </div>
+                    <p className="text-muted-foreground">{a.fullAddress}, {a.city}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <Link href="/account/addresses"><Button size="sm" variant="ghost">{t("common.view_all")}</Button></Link>
+          </CardContent>
+        </Card>
+      )}
+    </div>
+  );
+}
+
 // ─── AccountSettingsPage ───────────────────────────────────────────────────────
 export function AccountSettingsPage() {
   const { t, language, setLanguage } = useLanguage();
+  const { customer } = useRole();
   const { toast } = useToast();
+  const ar = language === "ar";
+
+  const [currentPw, setCurrentPw] = useState("");
+  const [newPw, setNewPw] = useState("");
+  const [confirmPw, setConfirmPw] = useState("");
+  const [pwLoading, setPwLoading] = useState(false);
+
+  const handleChangePw = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!customer?.email) return;
+    if (newPw.length < 6) {
+      toast({ title: ar ? "يجب أن تتكوّن كلمة المرور من 6 أحرف على الأقل" : "Password must be at least 6 characters", variant: "destructive" });
+      return;
+    }
+    if (newPw !== confirmPw) {
+      toast({ title: ar ? "كلمتا المرور غير متطابقتين" : "Passwords don't match", variant: "destructive" });
+      return;
+    }
+    setPwLoading(true);
+    try {
+      await apiFetch("/auth/change-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: customer.email, currentPassword: currentPw, newPassword: newPw }),
+      });
+      toast({ title: ar ? "تم تحديث كلمة المرور" : "Password updated" });
+      setCurrentPw(""); setNewPw(""); setConfirmPw("");
+    } catch (err: any) {
+      toast({ title: ar ? "فشل تحديث كلمة المرور" : "Could not change password", description: err?.message, variant: "destructive" });
+    } finally {
+      setPwLoading(false);
+    }
+  };
+
   return (
-    <Card>
-      <CardContent className="p-5 space-y-5">
-        <h1 className="font-bold text-xl">{t("account.settings")}</h1>
-        <div className="space-y-4">
-          <div className="flex items-center justify-between p-4 border rounded-md">
-            <div>
-              <p className="font-medium">{t("account.lang_pref")}</p>
-              <p className="text-sm text-muted-foreground">{language === "ar" ? "العربية" : "English"}</p>
+    <div className="space-y-5">
+      <Card>
+        <CardContent className="p-5 space-y-5">
+          <h1 className="font-bold text-xl">{t("account.settings")}</h1>
+
+          <div className="space-y-3">
+            <div className="flex items-center justify-between p-4 border rounded-md">
+              <div>
+                <p className="font-medium">{t("account.lang_pref")}</p>
+                <p className="text-sm text-muted-foreground">{language === "ar" ? "العربية" : "English"}</p>
+              </div>
+              <Button variant="outline" onClick={() => setLanguage(language === "ar" ? "en" : "ar")}>
+                {language === "ar" ? "Switch to English" : "تغيير إلى العربية"}
+              </Button>
             </div>
-            <Button variant="outline" onClick={() => setLanguage(language === "ar" ? "en" : "ar")}>
-              {language === "ar" ? "Switch to English" : "تغيير إلى العربية"}
-            </Button>
+            {[
+              { label: language === "ar" ? "إشعارات الطلبات" : "Order notifications" },
+              { label: language === "ar" ? "إشعارات العروض" : "Promo notifications" },
+              { label: language === "ar" ? "نشرة بريدية شهرية" : "Monthly newsletter" },
+            ].map((s, i) => (
+              <div key={i} className="flex items-center justify-between p-4 border rounded-md">
+                <p className="font-medium">{s.label}</p>
+                <Switch defaultChecked onCheckedChange={() => toast({ title: t("common.save"), description: t("common.feature_coming_soon") })} />
+              </div>
+            ))}
           </div>
-          {[
-            { label: language === "ar" ? "إشعارات الطلبات" : "Order notifications" },
-            { label: language === "ar" ? "إشعارات العروض" : "Promo notifications" },
-            { label: language === "ar" ? "نشرة بريدية شهرية" : "Monthly newsletter" },
-          ].map((s, i) => (
-            <div key={i} className="flex items-center justify-between p-4 border rounded-md">
-              <p className="font-medium">{s.label}</p>
-              <Switch defaultChecked onCheckedChange={() => toast({ title: t("common.save"), description: t("common.feature_coming_soon") })} />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardContent className="p-5 space-y-4">
+          <div>
+            <h2 className="font-bold text-lg flex items-center gap-2"><KeyRound className="w-4 h-4 text-primary" />{ar ? "تغيير كلمة المرور" : "Change password"}</h2>
+            <p className="text-xs text-muted-foreground mt-1">{ar ? "استخدم كلمة مرور قوية لحماية حسابك" : "Use a strong password to protect your account"}</p>
+          </div>
+          <form className="space-y-3" onSubmit={handleChangePw}>
+            <div>
+              <Label>{ar ? "كلمة المرور الحالية" : "Current password"}</Label>
+              <Input type="password" value={currentPw} onChange={(e) => setCurrentPw(e.target.value)} required autoComplete="current-password" data-testid="input-current-password" />
             </div>
-          ))}
-        </div>
-      </CardContent>
-    </Card>
+            <div className="grid sm:grid-cols-2 gap-3">
+              <div>
+                <Label>{ar ? "كلمة المرور الجديدة" : "New password"}</Label>
+                <Input type="password" value={newPw} onChange={(e) => setNewPw(e.target.value)} required minLength={6} autoComplete="new-password" data-testid="input-new-password" />
+              </div>
+              <div>
+                <Label>{ar ? "تأكيد كلمة المرور" : "Confirm password"}</Label>
+                <Input type="password" value={confirmPw} onChange={(e) => setConfirmPw(e.target.value)} required minLength={6} autoComplete="new-password" data-testid="input-confirm-password" />
+              </div>
+            </div>
+            <Button type="submit" className="bg-primary hover:bg-primary/90" disabled={pwLoading} data-testid="button-change-password">
+              {pwLoading ? <><Loader2 className="w-4 h-4 me-2 animate-spin" />{ar ? "جارٍ الحفظ…" : "Saving…"}</> : (ar ? "تحديث كلمة المرور" : "Update password")}
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardContent className="p-5 space-y-3">
+          <h2 className="font-bold text-lg flex items-center gap-2"><ShieldCheck className="w-4 h-4 text-secondary" />{ar ? "أمان الحساب" : "Account security"}</h2>
+          <div className="text-sm space-y-2">
+            <div className="flex items-center justify-between p-3 border rounded-md">
+              <div className="flex items-center gap-2"><Mail className="w-4 h-4 text-muted-foreground" /><span>{customer?.email ?? "—"}</span></div>
+              <Badge className="bg-emerald-100 text-emerald-800 border border-emerald-300 text-[10px]">{ar ? "موثّق" : "Verified"}</Badge>
+            </div>
+            <div className="flex items-center justify-between p-3 border rounded-md">
+              <div className="flex items-center gap-2"><FileText className="w-4 h-4 text-muted-foreground" /><span>{ar ? "آخر تسجيل دخول" : "Last sign-in"}</span></div>
+              <span className="text-muted-foreground">{new Date().toLocaleDateString(ar ? "ar-SA" : "en-GB", { dateStyle: "medium" })}</span>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
   );
 }

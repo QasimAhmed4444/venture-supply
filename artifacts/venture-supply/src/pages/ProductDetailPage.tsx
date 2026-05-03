@@ -130,13 +130,33 @@ export function ProductDetailPage() {
 
           <Card>
             <CardContent className="p-5 space-y-4">
-              <div className="flex items-baseline gap-3">
+              <div className="flex items-baseline gap-3 flex-wrap">
                 <PriceTag amount={unitPrice} size="xl" />
+                <span className="text-xs text-muted-foreground font-medium">
+                  / {language === "ar" ? "للعبوة" : "per pack"} ({pack.size})
+                </span>
                 {isB2B && product.b2cPrice > 0 && (
                   <PriceTag amount={product.b2cPrice} size="md" muted strike />
                 )}
+                {isB2B && (
+                  <Badge className="bg-secondary/15 text-secondary border-0 ms-1">
+                    {language === "ar" ? "طلب بالجملة" : "Bulk order"}
+                  </Badge>
+                )}
               </div>
               <p className="text-xs text-muted-foreground">{t("common.vat")} {language === "ar" ? "مشمولة" : "included"}</p>
+
+              {isB2B && qty > 0 && (
+                <div className="rounded-md bg-primary/5 border border-primary/20 p-3 flex items-center justify-between">
+                  <div className="text-xs">
+                    <p className="text-muted-foreground">
+                      {language === "ar" ? "إجمالي السطر" : "Line total"}
+                      <span className="text-muted-foreground/70 ms-1">({qty} × {pack.size})</span>
+                    </p>
+                  </div>
+                  <PriceTag amount={unitPrice * qty} size="md" />
+                </div>
+              )}
 
               <div>
                 <p className="text-sm font-semibold mb-2">{t("product.pack_size")}</p>
@@ -155,8 +175,24 @@ export function ProductDetailPage() {
               </div>
 
               {isB2B && (
-                <p className="text-xs text-muted-foreground">
-                  {t("product.min_order")}: <span className="font-semibold text-foreground">{product.minOrderQty}</span>
+                <div className="flex items-center justify-between flex-wrap gap-2 text-xs">
+                  <p className="text-muted-foreground">
+                    {t("product.min_order")}: <span className="font-semibold text-foreground">{product.minOrderQty}</span>
+                    <span className="text-muted-foreground/70 ms-1">
+                      ({language === "ar" ? "عبوات" : "packs"})
+                    </span>
+                  </p>
+                  <span className="inline-flex items-center gap-1 text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-full px-2 py-0.5 font-medium">
+                    <ShieldCheck className="w-3 h-3" />
+                    {language === "ar" ? "مؤهل لشروط الائتمان" : "Eligible for credit terms"}
+                  </span>
+                </div>
+              )}
+              {isB2B && qty < product.minOrderQty && (
+                <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-2 py-1.5">
+                  {language === "ar"
+                    ? `الحد الأدنى للطلب هو ${product.minOrderQty} عبوة`
+                    : `Minimum order quantity is ${product.minOrderQty} packs`}
                 </p>
               )}
 
@@ -170,7 +206,7 @@ export function ProductDetailPage() {
                     <Plus className="w-4 h-4" />
                   </Button>
                 </div>
-                <Button size="lg" className="flex-1 bg-primary hover:bg-primary/90 gap-2" onClick={handleAdd} disabled={product.stockStatus === "out-of-stock"} data-testid="button-add-to-cart">
+                <Button size="lg" className="flex-1 bg-primary hover:bg-primary/90 gap-2" onClick={handleAdd} disabled={product.stockStatus === "out-of-stock" || (isB2B && qty < product.minOrderQty)} data-testid="button-add-to-cart">
                   <ShoppingCart className="w-4 h-4" />
                   {t("product.add_to_cart")}
                 </Button>

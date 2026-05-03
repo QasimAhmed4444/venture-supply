@@ -1,0 +1,241 @@
+You are working on Venture Supply, a production-level B2B/B2C marketplace connected with Supabase.
+
+🚨 THIS IS PHASE 2 — B2B UX + BUSINESS FLOW FIXES ONLY
+
+Do NOT execute Salesperson/Admin full redesign yet. Only fix B2B customer flow and the admin-side items required to support B2B order visibility.
+
+I already provided screenshots in sequence. Use screenshot references exactly.
+
+---
+
+## PHASE 2 UX FINDINGS TO FIX
+
+1. B2B LOGIN ROUTING ISSUE
+   Screenshot 1:
+   After B2B login, user lands directly on dashboard.
+
+Fix:
+
+* After login, redirect B2B user to homepage or previous page.
+* Dashboard should open only when user clicks account/dashboard.
+* Use route memory with router state or localStorage.
+
+---
+
+2. BROKEN BUSINESS PROFILE ROUTE
+   Screenshot 2:
+   Clicking Business Profile opens:
+   `/account/business`
+   and shows 404 Page Not Found.
+
+Fix:
+
+* Create/fix route:
+  `/account/business`
+* This page must show real Supabase business profile data.
+
+Business profile should include:
+
+* Business name
+* Business type
+* CR number
+* VAT number
+* Contact person
+* Email
+* Phone
+* Billing address
+* Delivery address
+* Assigned salesperson, if available
+* Credit terms status
+* Credit limit
+
+---
+
+3. SETTINGS PAGE IS INCOMPLETE
+   Screenshot 3:
+   Settings only has language and notification toggles.
+
+Fix:
+Add proper account settings sections for both B2B and B2C:
+
+* Profile email
+* Change password
+* Phone number
+* Notification preferences
+* Security/session area
+
+Password change must use Supabase Auth properly.
+
+---
+
+4. B2B DASHBOARD IS TOO BASIC
+   Screenshot 1:
+   Current dashboard only shows active orders, total orders, saved addresses.
+
+For B2B, add business-specific KPIs:
+
+* Credit limit
+* Credit used
+* Available credit
+* Outstanding balance
+* Payment terms, e.g. Net 30
+* Active orders
+* Total orders
+* Last order value
+* Assigned salesperson
+
+Use real Supabase data only.
+
+---
+
+5. B2B PRODUCT PAGE NEEDS CLEARER WHOLESALE UX
+   Screenshot 4:
+   Minimum order is working, which is good.
+
+Improve display:
+
+* Show minimum order clearly
+* Show pack size clearly
+* Show unit price vs total price clearly
+* Show credit terms eligibility
+* Show “Bulk order” label for B2B users
+* Keep current brand colors and layout style
+
+Do not remove existing working min-order logic.
+
+---
+
+6. B2B CHECKOUT VALIDATION ISSUE
+   Screenshots 5 and 6:
+   Phone and business fields accept invalid random text.
+
+Fix validation:
+
+* Phone must follow Saudi format
+* CR number should be numeric
+* VAT number should follow Saudi VAT format where applicable
+* Required fields must block order submission
+* Show clear validation messages
+
+Do not allow invalid B2B orders to be placed.
+
+---
+
+7. B2B PAYMENT METHODS
+   Screenshot 6:
+   Credit Terms (Net 30) exists.
+
+Fix:
+
+* Show Credit Terms only for approved B2B accounts.
+* If account is not approved, disable it and show “Pending approval”.
+* Credit Terms should check available credit limit before allowing order.
+* If order total exceeds available credit, show warning and block or request approval.
+
+---
+
+8. ORDER DETAILS ACTIONS NOT WORKING
+   Screenshot 7:
+   Download Invoice, Reorder, and Share Tracking buttons are visible but not working.
+
+Fix:
+
+* Download Invoice should generate/download invoice from real order data.
+* Reorder should add the same items back to cart with current prices/availability.
+* Share Tracking should copy/share a clean tracking link.
+
+---
+
+9. ORDER TRACKING REAL-TIME ISSUE ON MOBILE
+   Current issue:
+   Tracking updates work on web after status change, but on mobile the user must refresh.
+
+Fix:
+
+* Use Supabase Realtime subscription for order status updates.
+* Tracking page must update live on desktop and mobile without refresh.
+* Remove technical “Connecting” text.
+* Replace with:
+  “Live” + small green animated dot
+* If connection drops, show subtle “Reconnecting...” state.
+
+---
+
+10. NAVBAR NOTIFICATION FOR B2B
+    Navbar bell must show live notifications for:
+
+* Order placed
+* Order confirmed
+* Order packed
+* Out for delivery
+* Delivered
+* Credit limit warning
+* Credit terms approval/rejection
+* Invoice generated
+
+Use Supabase notifications table/realtime events.
+
+---
+
+11. ADMIN SUPPORT REQUIRED FOR B2B
+    Only make admin changes needed to support this B2B phase.
+
+Admin notification bell should notify for:
+
+* New B2B order
+* New B2C order
+* Low stock
+* Credit limit exceeded
+* B2B account approval request
+* Payment/credit terms order placed
+* Failed order validation or suspicious incomplete order attempt, if logged
+
+---
+
+12. ADMIN DASHBOARD CHART QUICK FIXES
+    Based on screenshots:
+
+* Top categories chart should show ONLY Top 5 categories by total sales.
+* Orders donut chart should show numbers, not percentages.
+* Donut center should show total orders/sales count.
+* Donut should only compare:
+
+  * New
+  * Delivered
+
+Do not overbuild admin yet. Full admin audit will come in the next phase.
+
+---
+
+13. ADMIN / SALESPERSON LOGIN ROUTE PREPARATION
+    Current admin login route:
+    `/admin/login`
+
+Prepare this route to support role selection:
+
+* Login as Admin
+* Login as Salesperson
+
+Do not fully build salesperson module yet.
+Only prepare the login UI and routing structure cleanly.
+
+---
+
+## STRICT RULES
+
+* Use Supabase only for real data.
+* Do not use dummy/static business data.
+* Do not store data in Replit DB/local storage except temporary UI state.
+* Do not break existing working orders, coupon, cart, or min-order logic.
+* Do not change brand colors.
+* Do not redesign everything; improve production UX and fix broken flows.
+* Push completed frontend/backend changes to GitHub after implementation.
+
+---
+
+## STOP CONDITION
+
+After completing Phase 2, stop and respond only:
+
+“PHASE 2 COMPLETED ✅
+Please provide Salesperson flow instructions.”

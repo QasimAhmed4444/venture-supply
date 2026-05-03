@@ -4,7 +4,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Loader2, ArrowLeft, ShieldCheck } from "lucide-react";
+import { Loader2, ArrowLeft, ShieldCheck, UserCog, Briefcase } from "lucide-react";
 import { Logo } from "@/components/Logo";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useRole, type UserRole } from "@/contexts/RoleContext";
@@ -20,6 +20,7 @@ export function AdminLoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [portal, setPortal] = useState<"admin" | "sales">("admin");
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -37,6 +38,14 @@ export function AdminLoginPage() {
           toast({
             title: "Access Denied",
             description: "This portal is for staff only. Please use the main login.",
+            variant: "destructive",
+          });
+          return;
+        }
+        if (result.role !== portal) {
+          toast({
+            title: "Wrong portal",
+            description: `Your account is a ${result.role} account. Please pick the matching portal.`,
             variant: "destructive",
           });
           return;
@@ -71,9 +80,37 @@ export function AdminLoginPage() {
 
         <Card className="border-0 shadow-2xl">
           <CardContent className="p-7">
-            <div className="mb-6">
+            <div className="mb-5">
               <h1 className="text-xl font-bold text-primary">Staff Sign In</h1>
-              <p className="text-sm text-muted-foreground mt-1">Admin &amp; Salesperson access only</p>
+              <p className="text-sm text-muted-foreground mt-1">Choose your portal to continue</p>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2 mb-5" role="tablist">
+              {([
+                { v: "admin", label: "Admin", icon: UserCog },
+                { v: "sales", label: "Salesperson", icon: Briefcase },
+              ] as const).map((opt) => {
+                const active = portal === opt.v;
+                const Icon = opt.icon;
+                return (
+                  <button
+                    key={opt.v}
+                    type="button"
+                    role="tab"
+                    aria-selected={active}
+                    onClick={() => setPortal(opt.v)}
+                    data-testid={`tab-portal-${opt.v}`}
+                    className={`flex items-center justify-center gap-2 rounded-md border px-3 py-2.5 text-sm font-medium transition-colors ${
+                      active
+                        ? "border-primary bg-primary/5 text-primary"
+                        : "border-border text-muted-foreground hover:bg-muted/40"
+                    }`}
+                  >
+                    <Icon className="w-4 h-4" />
+                    {opt.label}
+                  </button>
+                );
+              })}
             </div>
 
             <form className="space-y-4" onSubmit={handleLogin}>

@@ -17,6 +17,12 @@ export interface Customer {
     type: BusinessType;
     crNumber: string;
     vatNumber: string;
+    allowCredit?: boolean;
+    creditLimit?: number | null;
+    creditUsed?: number;
+    paymentTerms?: string;
+    approvalStatus?: "pending" | "approved" | "rejected";
+    businessTypeId?: string | null;
   };
   addresses: Array<{
     id: string;

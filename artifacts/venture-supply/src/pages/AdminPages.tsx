@@ -71,10 +71,21 @@ export function AdminDashboardPage() {
     return { day: `${d.getMonth() + 1}/${d.getDate()}`, revenue: dayRevenue };
   });
 
-  const statusData = ORDER_STATUSES.slice(0, 6).map((s) => ({
+  const statusData = (["new", "delivered"] as const).map((s) => ({
     name: t(`status.${s}`),
-    value: orders.filter((o) => o.status === s).length || 1,
+    value: orders.filter((o) => o.status === s).length,
   }));
+  const statusTotal = statusData.reduce((a, b) => a + b.value, 0);
+  const STATUS_COLORS = ["hsl(220 80% 55%)", "hsl(155 55% 38%)"];
+
+  const topCategories = useMemo(() => {
+    const catMap: Record<string, number> = {};
+    for (const o of orders) for (const it of o.items) {
+      const prod = products.find((p) => p.id === it.productId);
+      if (prod) catMap[prod.categoryId] = (catMap[prod.categoryId] ?? 0) + it.unitPrice * it.qty;
+    }
+    return Object.entries(catMap).map(([k, v]) => ({ name: t(`category.${k}`), value: Math.round(v) })).sort((a, b) => b.value - a.value).slice(0, 5);
+  }, [orders, products, t]);
 
   const topProducts = [...products].sort((a, b) => b.reviewCount - a.reviewCount).slice(0, 5);
 
@@ -83,15 +94,6 @@ export function AdminDashboardPage() {
     const mo = orders.filter((o) => new Date(o.placedAt).getMonth() === i);
     return { month, b2c: mo.filter((o) => o.customerType === "b2c").reduce((s, o) => s + o.total, 0), b2b: mo.filter((o) => o.customerType === "b2b").reduce((s, o) => s + o.total, 0) };
   }), [orders]);
-
-  const salesByCategory = useMemo(() => {
-    const catMap: Record<string, number> = {};
-    for (const o of orders) for (const it of o.items) {
-      const prod = products.find((p) => p.id === it.productId);
-      if (prod) catMap[prod.categoryId] = (catMap[prod.categoryId] ?? 0) + it.unitPrice * it.qty;
-    }
-    return Object.entries(catMap).map(([k, v]) => ({ name: t(`category.${k}`), value: Math.round(v) })).sort((a, b) => b.value - a.value).slice(0, 6);
-  }, [orders, products, categories, t]);
 
   const spPerf = salespersons.map((s) => ({ name: s.name.split(" ")[0], sales: s.monthlySales, target: s.monthlyTarget }));
 
@@ -133,8 +135,11 @@ export function AdminDashboardPage() {
         </Card>
         <Card>
           <CardContent className="p-5">
-            <h2 className="font-bold mb-4">{t("admin.chart.orders_by_status")}</h2>
-            <div className="h-64">
+            <h2 className="font-bold mb-1">{t("admin.chart.orders_by_status")}</h2>
+            <p className="text-xs text-muted-foreground mb-3">
+              {language === "ar" ? "مقارنة: الجديدة مقابل المُسلَّمة" : "New vs Delivered"}
+            </p>
+            <div className="h-64 relative">
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie
@@ -143,28 +148,32 @@ export function AdminDashboardPage() {
                     nameKey="name"
                     cx="50%"
                     cy="50%"
-                    innerRadius={48}
-                    outerRadius={78}
-                    paddingAngle={2}
-                    label={({ cx, cy, midAngle, outerRadius: or, name, percent }) => {
+                    innerRadius={58}
+                    outerRadius={88}
+                    paddingAngle={3}
+                    label={({ cx, cy, midAngle, outerRadius: or, name, value }) => {
                       const RADIAN = Math.PI / 180;
                       const radius = or + 22;
                       const x = cx + radius * Math.cos(-midAngle * RADIAN);
                       const y = cy + radius * Math.sin(-midAngle * RADIAN);
                       return (
-                        <text x={x} y={y} textAnchor={x > cx ? "start" : "end"} dominantBaseline="central" fontSize={10} fill="#374151">
+                        <text x={x} y={y} textAnchor={x > cx ? "start" : "end"} dominantBaseline="central" fontSize={11} fill="#374151">
                           <tspan x={x} dy="0">{name}</tspan>
-                          <tspan x={x} dy="13" fontWeight="600" fill={COLORS[statusData.findIndex((d) => d.name === name) % COLORS.length]}>{`${(percent * 100).toFixed(0)}%`}</tspan>
+                          <tspan x={x} dy="13" fontWeight="700" fill={STATUS_COLORS[statusData.findIndex((d) => d.name === name) % STATUS_COLORS.length]}>{value}</tspan>
                         </text>
                       );
                     }}
                     labelLine={{ stroke: "#9ca3af", strokeWidth: 1 }}
                   >
-                    {statusData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+                    {statusData.map((_, i) => <Cell key={i} fill={STATUS_COLORS[i % STATUS_COLORS.length]} />)}
                   </Pie>
-                  <Tooltip formatter={(v: number, name: string) => [v, name]} />
+                  <Tooltip formatter={(v: number, name: string) => [`${v} orders`, name]} />
                 </PieChart>
               </ResponsiveContainer>
+              <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                <span className="text-[10px] uppercase tracking-wider text-muted-foreground">{language === "ar" ? "الإجمالي" : "Total"}</span>
+                <span className="text-2xl font-bold leading-none">{statusTotal}</span>
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -194,10 +203,11 @@ export function AdminDashboardPage() {
       <div className="grid lg:grid-cols-2 gap-4">
         <Card>
           <CardContent className="p-5">
-            <h2 className="font-bold mb-4">Sales by Category</h2>
+            <h2 className="font-bold mb-1">{language === "ar" ? "أعلى 5 فئات" : "Top 5 Categories"}</h2>
+            <p className="text-xs text-muted-foreground mb-3">{language === "ar" ? "بإجمالي المبيعات" : "By total sales"}</p>
             <div className="h-64">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={salesByCategory} layout="vertical">
+                <BarChart data={topCategories} layout="vertical">
                   <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
                   <XAxis type="number" tick={{ fontSize: 11 }} />
                   <YAxis dataKey="name" type="category" tick={{ fontSize: 10 }} width={100} />

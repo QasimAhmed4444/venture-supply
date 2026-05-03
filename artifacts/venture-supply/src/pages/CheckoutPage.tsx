@@ -8,7 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
-import { Truck, MapPin, CreditCard, Building2, Banknote, Wallet, Loader2, Tag, X, ShieldCheck, Lock } from "lucide-react";
+import { Truck, MapPin, CreditCard, Building2, Banknote, Wallet, Loader2, Tag, X, ShieldCheck, Lock, AlertCircle } from "lucide-react";
 import { useCart } from "@/contexts/CartContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useRole } from "@/contexts/RoleContext";
@@ -61,6 +61,31 @@ export function CheckoutPage() {
   const couponDiscount = appliedCoupon?.discount ?? 0;
   const grandTotal = +(total + deliveryCharge - couponDiscount).toFixed(2);
 
+  // ── Saudi-specific validation ──────────────────────────────────────────────
+  // Accept Saudi mobile (5xxxxxxxx) AND landline (1xxxxxxxx … 9xxxxxxxx, e.g. Riyadh +966 11 …).
+  const saudiPhoneOk = (v: string) => /^(?:\+?966|0)?[1-9]\d{8}$/.test(v.replace(/[\s\-]/g, ""));
+  const crOk = (v: string) => /^\d{10}$/.test(v.replace(/\s/g, ""));
+  // KSA VAT TIN: 15 digits ending in "03". Tolerate seed data with extra trailing digit (16).
+  const vatOk = (v: string) => {
+    const d = v.replace(/\s/g, "");
+    return /^\d{12}03\d$/.test(d) || /^\d{13}03\d$/.test(d);
+  };
+
+  const phoneInvalid = !!phone && !saudiPhoneOk(phone);
+  const crInvalid = isB2B && !!crNumber && !crOk(crNumber);
+  const vatInvalid = isB2B && !!vatNumber && !vatOk(vatNumber);
+
+  // ── Credit gating ──────────────────────────────────────────────────────────
+  const biz = customer?.business;
+  const allowCredit = !!biz?.allowCredit;
+  const approvalStatus = biz?.approvalStatus ?? (allowCredit ? "approved" : "pending");
+  const creditLimit = biz?.creditLimit ?? 0;
+  const creditUsed = biz?.creditUsed ?? 0;
+  const creditAvailable = Math.max(0, (creditLimit ?? 0) - creditUsed);
+  const creditApproved = isB2B && allowCredit && approvalStatus === "approved";
+  const creditExceeded = paymentMethod === "credit" && grandTotal > creditAvailable;
+  const creditBlocked = paymentMethod === "credit" && (!creditApproved || creditExceeded);
+
   const applyCoupon = async () => {
     const code = couponCode.trim().toUpperCase();
     if (!code) return;
@@ -89,6 +114,53 @@ export function CheckoutPage() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (orderType === "delivery" && phoneInvalid) {
+      toast({
+        title: language === "ar" ? "رقم جوال غير صحيح" : "Invalid Saudi mobile number",
+        description: language === "ar" ? "يرجى إدخال رقم بصيغة 05xxxxxxxx أو ‎+966" : "Use format 05xxxxxxxx or +966 5xxxxxxxx",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (isB2B) {
+      if (crInvalid) {
+        toast({
+          title: language === "ar" ? "رقم السجل التجاري غير صحيح" : "Invalid CR number",
+          description: language === "ar" ? "يجب أن يتكوّن من 10 أرقام" : "CR must be exactly 10 digits",
+          variant: "destructive",
+        });
+        return;
+      }
+      if (vatInvalid) {
+        toast({
+          title: language === "ar" ? "رقم ضريبي غير صحيح" : "Invalid VAT number",
+          description: language === "ar" ? "يجب أن يتكوّن من 15 رقماً وينتهي بـ 03" : "VAT must be 15 digits and end with 03",
+          variant: "destructive",
+        });
+        return;
+      }
+      if (paymentMethod === "credit") {
+        if (!creditApproved) {
+          toast({
+            title: language === "ar" ? "حساب الائتمان غير معتمد" : "Credit account not approved",
+            description: language === "ar" ? "يرجى التواصل مع مدير حسابك" : "Please contact your account manager",
+            variant: "destructive",
+          });
+          return;
+        }
+        if (creditExceeded) {
+          toast({
+            title: language === "ar" ? "تجاوز حد الائتمان" : "Exceeds credit limit",
+            description: language === "ar"
+              ? `المتاح: ${creditAvailable.toFixed(2)} ر.س`
+              : `Available: SAR ${creditAvailable.toFixed(2)}`,
+            variant: "destructive",
+          });
+          return;
+        }
+      }
+    }
 
     if (paymentMethod === "card") {
       const digits = cardNumber.replace(/\s/g, "");
@@ -203,7 +275,24 @@ export function CheckoutPage() {
                 <div className="flex items-center gap-2 font-semibold"><MapPin className="w-4 h-4" /> {t("checkout.delivery_address")}</div>
                 <div className="grid sm:grid-cols-2 gap-3">
                   <div><Label>{t("checkout.full_name")}</Label><Input value={name} onChange={(e) => setName(e.target.value)} required data-testid="input-name" /></div>
-                  <div><Label>{t("common.phone")}</Label><Input value={phone} onChange={(e) => setPhone(e.target.value)} required data-testid="input-phone" /></div>
+                  <div>
+                    <Label>{t("common.phone")}</Label>
+                    <Input
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value)}
+                      required
+                      placeholder="05xxxxxxxx"
+                      aria-invalid={phoneInvalid || undefined}
+                      className={phoneInvalid ? "border-red-400 focus-visible:ring-red-300" : ""}
+                      data-testid="input-phone"
+                    />
+                    {phoneInvalid && (
+                      <p className="text-xs text-red-600 mt-1 flex items-center gap-1">
+                        <AlertCircle className="w-3 h-3" />
+                        {language === "ar" ? "صيغة سعودية صحيحة (مثل 05xxxxxxxx أو ‎+966 11…)" : "Saudi format: 05xxxxxxxx, +966 5xxxxxxxx, or +966 1xxxxxxxx"}
+                      </p>
+                    )}
+                  </div>
                   <div><Label>{t("common.city")}</Label><Input value={city} onChange={(e) => setCity(e.target.value)} required data-testid="input-city" /></div>
                   <div className="sm:col-span-2"><Label>{t("checkout.full_address")}</Label><Input value={address} onChange={(e) => setAddress(e.target.value)} required data-testid="input-address" /></div>
                   <div className="sm:col-span-2"><Label>{t("checkout.additional_notes")}</Label><Textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} /></div>
@@ -226,8 +315,44 @@ export function CheckoutPage() {
                       <option value="horeca">{t("checkout.business_type.horeca")}</option>
                     </select>
                   </div>
-                  <div><Label>{t("checkout.cr_number")}</Label><Input value={crNumber} onChange={(e) => setCrNumber(e.target.value)} required /></div>
-                  <div><Label>{t("checkout.vat_number")}</Label><Input value={vatNumber} onChange={(e) => setVatNumber(e.target.value)} required /></div>
+                  <div>
+                    <Label>{t("checkout.cr_number")}</Label>
+                    <Input
+                      value={crNumber}
+                      onChange={(e) => setCrNumber(e.target.value)}
+                      required
+                      inputMode="numeric"
+                      placeholder="1010234567"
+                      aria-invalid={crInvalid || undefined}
+                      className={crInvalid ? "border-red-400 focus-visible:ring-red-300" : ""}
+                      data-testid="input-cr"
+                    />
+                    {crInvalid && (
+                      <p className="text-xs text-red-600 mt-1 flex items-center gap-1">
+                        <AlertCircle className="w-3 h-3" />
+                        {language === "ar" ? "10 أرقام بالضبط" : "Exactly 10 digits"}
+                      </p>
+                    )}
+                  </div>
+                  <div>
+                    <Label>{t("checkout.vat_number")}</Label>
+                    <Input
+                      value={vatNumber}
+                      onChange={(e) => setVatNumber(e.target.value)}
+                      required
+                      inputMode="numeric"
+                      placeholder="3001234567800003"
+                      aria-invalid={vatInvalid || undefined}
+                      className={vatInvalid ? "border-red-400 focus-visible:ring-red-300" : ""}
+                      data-testid="input-vat"
+                    />
+                    {vatInvalid && (
+                      <p className="text-xs text-red-600 mt-1 flex items-center gap-1">
+                        <AlertCircle className="w-3 h-3" />
+                        {language === "ar" ? "15 رقماً مع 03 قبل الرقم الأخير" : "15 digits with 03 before the last digit"}
+                      </p>
+                    )}
+                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -241,15 +366,42 @@ export function CheckoutPage() {
                   { v: "cod", label: t("checkout.payment.cod"), icon: Wallet },
                   { v: "card", label: t("checkout.payment.card"), icon: CreditCard },
                   { v: "bank", label: t("checkout.payment.bank"), icon: Banknote },
-                  ...(isB2B ? [{ v: "credit", label: t("checkout.payment.credit"), icon: Building2 }] : []),
-                ].map((p) => (
-                  <Label key={p.v} className={`flex items-center gap-3 border rounded-md p-3 cursor-pointer hover-elevate ${paymentMethod === p.v ? "border-primary bg-primary/5" : ""}`}>
-                    <RadioGroupItem value={p.v} data-testid={`radio-payment-${p.v}`} />
+                  ...(isB2B ? [{ v: "credit", label: t("checkout.payment.credit"), icon: Building2, disabled: !creditApproved }] : []),
+                ].map((p: any) => (
+                  <Label
+                    key={p.v}
+                    className={`flex items-center gap-3 border rounded-md p-3 cursor-pointer hover-elevate ${paymentMethod === p.v ? "border-primary bg-primary/5" : ""} ${p.disabled ? "opacity-60 cursor-not-allowed" : ""}`}
+                  >
+                    <RadioGroupItem value={p.v} data-testid={`radio-payment-${p.v}`} disabled={!!p.disabled} />
                     <p.icon className="w-4 h-4" />
-                    <span className="font-medium text-sm">{p.label}</span>
+                    <span className="font-medium text-sm flex-1">{p.label}</span>
+                    {p.v === "credit" && isB2B && !creditApproved && (
+                      <span className="text-[10px] uppercase font-bold text-amber-700 bg-amber-100 px-1.5 py-0.5 rounded">
+                        {language === "ar" ? "بانتظار الموافقة" : "Pending approval"}
+                      </span>
+                    )}
                   </Label>
                 ))}
               </RadioGroup>
+
+              {isB2B && paymentMethod === "credit" && creditApproved && (
+                <div className={`mt-2 rounded-md border p-3 text-xs ${creditExceeded ? "bg-red-50 border-red-200 text-red-800" : "bg-emerald-50 border-emerald-200 text-emerald-800"}`}>
+                  <div className="flex items-center justify-between font-semibold">
+                    <span className="flex items-center gap-1.5">
+                      {creditExceeded ? <AlertCircle className="w-3.5 h-3.5" /> : <ShieldCheck className="w-3.5 h-3.5" />}
+                      {creditExceeded
+                        ? (language === "ar" ? "تجاوز حد الائتمان" : "Exceeds credit limit")
+                        : (language === "ar" ? "شروط الدفع الآجل (Net 30)" : "Net 30 credit terms")}
+                    </span>
+                    <span>{biz?.paymentTerms ?? "Net 30"}</span>
+                  </div>
+                  <div className="mt-1.5 grid grid-cols-3 gap-2 text-[11px]">
+                    <div><div className="text-muted-foreground">{language === "ar" ? "الحد" : "Limit"}</div><div className="font-semibold">SAR {(creditLimit ?? 0).toFixed(0)}</div></div>
+                    <div><div className="text-muted-foreground">{language === "ar" ? "المستخدم" : "Used"}</div><div className="font-semibold">SAR {creditUsed.toFixed(0)}</div></div>
+                    <div><div className="text-muted-foreground">{language === "ar" ? "المتاح" : "Available"}</div><div className="font-semibold">SAR {creditAvailable.toFixed(0)}</div></div>
+                  </div>
+                </div>
+              )}
 
               {paymentMethod === "card" && (
                 <div className="mt-2 p-4 border border-primary/20 rounded-lg bg-primary/5 space-y-3">
@@ -401,7 +553,7 @@ export function CheckoutPage() {
               type="submit"
               size="lg"
               className="w-full bg-primary hover:bg-primary/90"
-              disabled={createOrder.isPending}
+              disabled={createOrder.isPending || phoneInvalid || crInvalid || vatInvalid || creditBlocked}
               data-testid="button-place-order"
             >
               {createOrder.isPending ? (

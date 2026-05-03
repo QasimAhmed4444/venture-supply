@@ -207,6 +207,40 @@ router.post("/auth/register", async (req, res) => {
 });
 
 // ---------------------------------------------------------------------------
+// Change password — verifies current password against staff table
+// ---------------------------------------------------------------------------
+router.post("/auth/change-password", async (req, res) => {
+  const { email, currentPassword, newPassword } = req.body as {
+    email?: string; currentPassword?: string; newPassword?: string;
+  };
+  if (!email || !currentPassword || !newPassword) {
+    return res.status(400).json({ error: "email, currentPassword and newPassword are required" });
+  }
+  if (newPassword.length < 6) {
+    return res.status(400).json({ error: "Password must be at least 6 characters" });
+  }
+  if (newPassword === currentPassword) {
+    return res.status(400).json({ error: "New password must differ from current password" });
+  }
+  const sb = getSupabase();
+  if (!sb) return res.status(503).json({ error: "Service unavailable" });
+
+  const lower = email.toLowerCase().trim();
+  const { data: staff, error } = await sb
+    .from("staff").select("id, password").eq("email", lower).maybeSingle();
+  if (error || !staff) return res.status(401).json({ error: "Invalid credentials" });
+
+  const ok = await verifyPassword(sb, staff.id as string, staff.password as string, currentPassword);
+  if (!ok) return res.status(401).json({ error: "Current password is incorrect" });
+
+  const newHash = await bcrypt.hash(newPassword, BCRYPT_ROUNDS);
+  const { error: updErr } = await sb.from("staff").update({ password: newHash }).eq("id", staff.id as string);
+  if (updErr) return res.status(500).json({ error: updErr.message });
+
+  return res.json({ ok: true });
+});
+
+// ---------------------------------------------------------------------------
 // Initial admin bootstrap
 // ---------------------------------------------------------------------------
 // One-shot endpoint to create the first admin staff member. To use it, the

@@ -13,9 +13,11 @@ import {
   AlertCircle, CheckCircle2, Truck, Box, ShoppingBag, Share2,
 } from "lucide-react";
 import { useOrder } from "@/hooks/useOrders";
+import { getSessionToken } from "@/lib/api";
 import type { Order, OrderStatus } from "@/data/orders";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useToast } from "@/hooks/use-toast";
+import { useCart } from "@/contexts/CartContext";
 import { PriceTag } from "@/components/PriceTag";
 import { StatusBadge } from "@/components/StatusBadge";
 
@@ -288,8 +290,10 @@ export function OrderTrackingPage() {
   const qc = useQueryClient();
   const [, setLocation] = useLocation();
   const [isLive, setIsLive] = useState(false);
+  const [hasConnected, setHasConnected] = useState(false);
   const esRef = useRef<EventSource | null>(null);
   const reconnectRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const { addItems } = useCart();
 
   const { data: order, isLoading } = useOrder(tid);
   const ar = language === "ar";
@@ -302,10 +306,12 @@ export function OrderTrackingPage() {
     function connect() {
       if (destroyed) return;
       const BASE = (import.meta.env.BASE_URL ?? "").replace(/\/$/, "");
-      const es = new EventSource(`${BASE}/api/realtime/orders`);
+      const token = getSessionToken();
+      if (!token) return;
+      const es = new EventSource(`${BASE}/api/realtime/orders?token=${encodeURIComponent(token)}`);
       esRef.current = es;
 
-      es.addEventListener("connected", () => setIsLive(true));
+      es.addEventListener("connected", () => { setIsLive(true); setHasConnected(true); });
 
       es.addEventListener("order:updated", (event: MessageEvent) => {
         try {
@@ -349,6 +355,81 @@ export function OrderTrackingPage() {
     };
   }, [tid]);
 
+  const handleReorder = useCallback(() => {
+    if (!order) return;
+    addItems(order.items.map((it) => ({
+      productId: it.productId,
+      enName: it.enName,
+      arName: it.arName,
+      packSize: it.packSize,
+      unitPrice: it.unitPrice,
+      qty: it.qty,
+      image: it.image,
+    })));
+    toast({ title: ar ? "تمت إضافة المنتجات إلى السلة" : "Items added to cart" });
+    setLocation("/cart");
+  }, [order, addItems, ar, toast, setLocation]);
+
+  const handleDownloadInvoice = useCallback(() => {
+    if (!order) return;
+    const win = window.open("", "_blank", "width=820,height=900");
+    if (!win) {
+      toast({ title: ar ? "السماح بالنوافذ المنبثقة" : "Please allow popups", variant: "destructive" });
+      return;
+    }
+    const fmt = (n: number) => `SAR ${n.toFixed(2)}`;
+    const date = new Date(order.placedAt).toLocaleDateString(ar ? "ar-SA" : "en-GB", { dateStyle: "long" });
+    const itemsHtml = order.items.map((it) => `
+      <tr>
+        <td>${ar ? it.arName : it.enName}</td>
+        <td style="text-align:center">${it.packSize}</td>
+        <td style="text-align:center">${it.qty}</td>
+        <td style="text-align:end">${fmt(it.unitPrice)}</td>
+        <td style="text-align:end">${fmt(it.unitPrice * it.qty)}</td>
+      </tr>`).join("");
+    win.document.write(`<!doctype html><html dir="${ar ? "rtl" : "ltr"}"><head><meta charset="utf-8"><title>Invoice ${order.trackingId}</title>
+      <style>
+        body{font-family:system-ui,Arial;color:#1f2937;padding:32px;max-width:780px;margin:auto}
+        h1{color:#5d3a16;margin:0 0 4px}
+        .muted{color:#6b7280;font-size:13px}
+        table{width:100%;border-collapse:collapse;margin-top:18px;font-size:13px}
+        th,td{padding:8px;border-bottom:1px solid #e5e7eb}
+        th{background:#f9fafb;text-align:start;font-weight:600}
+        .totals{margin-top:14px;font-size:13px}
+        .totals .row{display:flex;justify-content:space-between;padding:4px 0}
+        .totals .grand{border-top:2px solid #1f2937;margin-top:6px;padding-top:8px;font-size:16px;font-weight:700}
+        .head{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #5d3a16;padding-bottom:14px}
+        .meta{font-size:12px;color:#6b7280;line-height:1.6}
+      </style></head><body>
+      <div class="head">
+        <div>
+          <h1>Venture Supply</h1>
+          <div class="muted">${ar ? "فاتورة ضريبية مبسّطة" : "Simplified Tax Invoice"}</div>
+        </div>
+        <div class="meta" style="text-align:end">
+          <div><strong>${order.trackingId}</strong></div>
+          <div>${date}</div>
+          <div>${ar ? "العميل" : "Customer"}: ${order.customerName ?? ""}</div>
+          <div>${ar ? "العنوان" : "Address"}: ${order.deliveryAddress}, ${order.city}</div>
+          <div>${ar ? "الدفع" : "Payment"}: ${(order.paymentMethod ?? "").toUpperCase()}</div>
+        </div>
+      </div>
+      <table>
+        <thead><tr><th>${ar ? "المنتج" : "Item"}</th><th style="text-align:center">${ar ? "العبوة" : "Pack"}</th><th style="text-align:center">${ar ? "الكمية" : "Qty"}</th><th style="text-align:end">${ar ? "السعر" : "Unit"}</th><th style="text-align:end">${ar ? "المجموع" : "Total"}</th></tr></thead>
+        <tbody>${itemsHtml}</tbody>
+      </table>
+      <div class="totals">
+        <div class="row"><span>${ar ? "المجموع الفرعي" : "Subtotal"}</span><span>${fmt(order.subtotal)}</span></div>
+        <div class="row"><span>${ar ? "ضريبة القيمة المضافة (15%)" : "VAT (15%)"}</span><span>${fmt(order.vat)}</span></div>
+        <div class="row"><span>${ar ? "التوصيل" : "Delivery"}</span><span>${order.deliveryCharge === 0 ? (ar ? "مجاني" : "Free") : fmt(order.deliveryCharge)}</span></div>
+        <div class="row grand"><span>${ar ? "الإجمالي" : "Grand total"}</span><span>${fmt(order.total)}</span></div>
+      </div>
+      <p class="muted" style="margin-top:24px">${ar ? "شكراً لاختياركم فينتشر سبلاي." : "Thank you for shopping with Venture Supply."}</p>
+      <script>window.onload=()=>setTimeout(()=>window.print(),200);</script>
+    </body></html>`);
+    win.document.close();
+  }, [order, ar, toast]);
+
   const handleShare = useCallback(() => {
     const url = window.location.href;
     if (navigator.share) {
@@ -386,11 +467,13 @@ export function OrderTrackingPage() {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <div className={`flex items-center gap-1.5 text-xs px-2 py-1 rounded-full border ${isLive ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-border text-muted-foreground"}`}>
+          <div className={`flex items-center gap-1.5 text-xs px-2 py-1 rounded-full border ${isLive ? "border-emerald-200 bg-emerald-50 text-emerald-700" : hasConnected ? "border-amber-200 bg-amber-50 text-amber-700" : "border-border text-muted-foreground"}`}>
             {isLive ? <Wifi className="w-3 h-3" /> : <WifiOff className="w-3 h-3" />}
             {isLive
-              ? <><span>{ar ? "تتبع مباشر" : "Live tracking"}</span><span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" /></>
-              : <span>{ar ? "جارٍ الاتصال…" : "Connecting…"}</span>
+              ? <><span>{ar ? "مباشر" : "Live"}</span><span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" /></>
+              : hasConnected
+                ? <><span>{ar ? "إعادة الاتصال…" : "Reconnecting…"}</span><span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" /></>
+                : <span>{ar ? "جارٍ الاتصال…" : "Connecting…"}</span>
             }
           </div>
           <StatusBadge status={order.status} className="text-sm py-1 px-2.5" />
@@ -520,11 +603,11 @@ export function OrderTrackingPage() {
 
       {/* ── Actions ── */}
       <div className="flex flex-wrap gap-2 pb-4">
-        <Button variant="outline" onClick={() => toast({ title: ar ? "فاتورة" : "Invoice", description: ar ? "قريباً" : "Coming soon" })}>
+        <Button variant="outline" onClick={handleDownloadInvoice}>
           <Download className="w-4 h-4 me-2" />
           {ar ? "تنزيل الفاتورة" : "Download Invoice"}
         </Button>
-        <Button variant="outline" onClick={() => toast({ title: ar ? "إعادة طلب" : "Reorder", description: ar ? "قريباً" : "Coming soon" })}>
+        <Button variant="outline" onClick={handleReorder}>
           <RotateCw className="w-4 h-4 me-2" />
           {ar ? "إعادة الطلب" : "Reorder"}
         </Button>
