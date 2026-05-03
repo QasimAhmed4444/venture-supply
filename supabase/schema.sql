@@ -672,5 +672,9 @@ grant select, insert, update, delete on public.coupons        to authenticated;
 -- The service_role and postgres roles need explicit INSERT/UPDATE/DELETE
 -- grants because PostgREST checks table-level privileges in addition to
 -- bypassing RLS for those roles.
-grant select, insert, update, delete on public.staff to service_role;
-grant select, insert, update, delete on public.staff to postgres;
+grant usage on schema public to service_role;
+grant select, insert, update, delete on public.staff        to service_role, postgres;
+grant select, insert, update, delete on public.customers    to service_role, postgres;
+grant select, insert, update, delete on public.orders       to service_role, postgres;
+grant select, insert, update, delete on public.salespersons to service_role, postgres;
+grant select, insert, update, delete on public.coupons      to service_role, postgres;
