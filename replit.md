@@ -36,11 +36,25 @@ See the `pnpm-workspace` skill for workspace structure, TypeScript setup, and pa
 
 ## Security Architecture
 
+### Supabase Key — CRITICAL, READ FIRST
+
+**Project ref:** `vmesyvbuygukqosjmssv`
+**Supabase URL:** `https://vmesyvbuygukqosjmssv.supabase.co`
+
+The server uses ONE secret: `SUPABASE_SERVICE_ROLE_KEY` (Replit Secret).
+- **No `.env` file** — it was deleted. Do not recreate it.
+- **No fallback keys** — `supabase.ts` reads only `process.env["SUPABASE_SERVICE_ROLE_KEY"]`.
+- The correct key has `role: service_role` in its JWT payload and **exactly 2 dots**.
+- `supabase.ts` auto-extracts the first valid JWT if the user accidentally pastes two keys together.
+- On startup the server logs: `Supabase startup check passed — service role access confirmed`. If it instead logs `role='anon'`, the wrong key is set.
+- The anon key is in `SUPABASE_ANON_KEY` (frontend/public use only — never use it as the server key).
+- To find the service_role key: Supabase dashboard → Project Settings → Data API → "Project API keys" → **service_role row** (bottom one, hidden by default — click the eye icon to reveal).
+
 ### Row-Level Security (Supabase)
 - RLS is **enabled** on: `staff`, `orders`, `customers`, `coupons`, `salespersons`
 - Anon key access is **denied** on all these tables via `deny_anon_*` policies
 - Authenticated role (used by server) has full access
-- Service role key bypasses RLS — stored in `SUPABASE_SERVICE_ROLE_KEY` env var
+- Service role key bypasses RLS — stored in `SUPABASE_SERVICE_ROLE_KEY` Replit Secret
 - All staff passwords are bcrypt-hashed ($2a$ / $2b$ format)
 
 ### API Authentication
