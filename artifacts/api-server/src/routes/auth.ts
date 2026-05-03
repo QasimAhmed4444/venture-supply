@@ -173,7 +173,12 @@ router.post("/auth/register", async (req, res) => {
     .single();
 
   if (custErr || !newCustomer) {
-    return res.status(400).json({ error: custErr?.message ?? "Could not create account" });
+    const isRls = custErr?.message?.toLowerCase().includes("row-level security");
+    const userMsg = isRls
+      ? "Registration is temporarily unavailable — please try again in a moment."
+      : (custErr?.message ?? "Could not create account");
+    req.log?.error({ supabaseCode: custErr?.code, supabaseMsg: custErr?.message }, "customers INSERT failed");
+    return res.status(400).json({ error: userMsg });
   }
 
   // Store hashed credentials in staff table
