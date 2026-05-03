@@ -117,6 +117,7 @@ export function HomePage() {
   const [slideIdx, setSlideIdx] = useState(0);
   const brandScrollRef = useRef<HTMLDivElement>(null);
   const bestScrollRef = useRef<HTMLDivElement>(null);
+  const categoryScrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const id = setInterval(() => setSlideIdx((i) => (i + 1) % heroSlides.length), 5000);
@@ -134,6 +135,11 @@ export function HomePage() {
   const scrollBest = (dir: "left" | "right") => {
     if (!bestScrollRef.current) return;
     bestScrollRef.current.scrollBy({ left: dir === "left" ? -260 : 260, behavior: "smooth" });
+  };
+
+  const scrollCategories = (dir: "left" | "right") => {
+    if (!categoryScrollRef.current) return;
+    categoryScrollRef.current.scrollBy({ left: dir === "left" ? -260 : 260, behavior: "smooth" });
   };
 
   return (
@@ -229,14 +235,33 @@ export function HomePage() {
             <h2 className="text-2xl md:text-3xl font-bold tracking-tight text-primary">{t("home.categories.title")}</h2>
             <p className="text-sm font-bold text-muted-foreground mt-1">{t("home.categories.subtitle")}</p>
           </div>
-          <Link href="/products">
-            <Button variant="ghost" size="sm" className="gap-1 text-secondary hover:text-secondary shrink-0">
-              {t("common.view_all")} <ArrowRight className="w-3.5 h-3.5" />
-            </Button>
-          </Link>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => scrollCategories(isRTL ? "right" : "left")}
+              className="w-9 h-9 rounded-full border border-border flex items-center justify-center hover:bg-muted transition-colors text-primary"
+              aria-label="Previous categories"
+            >
+              ←
+            </button>
+            <button
+              type="button"
+              onClick={() => scrollCategories(isRTL ? "left" : "right")}
+              className="w-9 h-9 rounded-full border border-border flex items-center justify-center hover:bg-muted transition-colors text-primary"
+              aria-label="Next categories"
+            >
+              →
+            </button>
+            <Link href="/products">
+              <Button variant="ghost" size="sm" className="gap-1 text-secondary hover:text-secondary shrink-0">
+                {t("common.view_all")} <ArrowRight className="w-3.5 h-3.5" />
+              </Button>
+            </Link>
+          </div>
         </div>
 
         <div
+          ref={categoryScrollRef}
           className="flex gap-5 overflow-x-auto pb-4 snap-x snap-mandatory"
           style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
         >
