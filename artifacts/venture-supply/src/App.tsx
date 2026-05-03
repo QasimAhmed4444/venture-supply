@@ -4,6 +4,8 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { LanguageProvider } from "@/contexts/LanguageContext";
+import { NotificationPreferencesProvider } from "@/contexts/NotificationPreferencesContext";
+import { RealtimeOrdersProvider } from "@/contexts/RealtimeOrdersContext";
 import { RoleProvider } from "@/contexts/RoleContext";
 import { CartProvider } from "@/contexts/CartContext";
 
@@ -172,16 +174,20 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <LanguageProvider>
-        <RoleProvider>
-          <CartProvider>
-            <TooltipProvider>
-              <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
-                <AppRouter />
-              </WouterRouter>
-              <Toaster />
-            </TooltipProvider>
-          </CartProvider>
-        </RoleProvider>
+        <NotificationPreferencesProvider>
+          <RoleProvider>
+            <RealtimeOrdersProvider>
+              <CartProvider>
+                <TooltipProvider>
+                  <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
+                    <AppRouter />
+                  </WouterRouter>
+                  <Toaster />
+                </TooltipProvider>
+              </CartProvider>
+            </RealtimeOrdersProvider>
+          </RoleProvider>
+        </NotificationPreferencesProvider>
       </LanguageProvider>
     </QueryClientProvider>
   );

@@ -1,12 +1,15 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Bell, CheckCheck, ShoppingCart, RefreshCw, Package } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { Bell, CheckCheck, ShoppingCart, RefreshCw, Package, Volume2, Eye } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { useRealtimeOrders, type RealtimeNotification } from "@/hooks/useRealtimeOrders";
+import { useNotificationPreferences } from "@/contexts/NotificationPreferencesContext";
+import { useRealtimeOrdersContext, type RealtimeNotification } from "@/contexts/RealtimeOrdersContext";
+import { useRealtimeOrders } from "@/hooks/useRealtimeOrders";
 
 export type NotificationVariant = "admin" | "sales" | "customer";
 
@@ -65,23 +68,72 @@ export function NotificationBell({
   className = "",
 }: NotificationBellProps) {
   const { language, isRTL } = useLanguage();
+  const {
+    soundEnabled,
+    visualPulseEnabled,
+    setSoundEnabled,
+    setVisualPulseEnabled,
+    playChime,
+  } = useNotificationPreferences();
   const [, setLocation] = useLocation();
-  const [notifications, setNotifications] = useState<RealtimeNotification[]>([]);
   const [open, setOpen] = useState(false);
+  const [pulse, setPulse] = useState(false);
+  const pulseTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const handleNotification = useCallback(
+  // Staff bells (admin/sales) read from the persistent RealtimeOrdersProvider
+  // so notifications survive page navigation. Customer bell keeps its own
+  // local subscription with the legacy filter so it can run on storefront
+  // pages outside the staff provider.
+  const usesSharedState = variant === "admin" || variant === "sales";
+  const shared = useRealtimeOrdersContext();
+  const [localNotifications, setLocalNotifications] = useState<RealtimeNotification[]>([]);
+
+  const triggerPulse = useCallback(() => {
+    if (!visualPulseEnabled) return;
+    setPulse(true);
+    if (pulseTimeoutRef.current) clearTimeout(pulseTimeoutRef.current);
+    pulseTimeoutRef.current = setTimeout(() => setPulse(false), 2200);
+  }, [visualPulseEnabled]);
+
+  const handleLocalNotification = useCallback(
     (n: RealtimeNotification) => {
-      setNotifications((prev) => [n, ...prev].slice(0, 50));
+      setLocalNotifications((prev) => [n, ...prev].slice(0, 50));
+      triggerPulse();
     },
-    []
+    [triggerPulse],
   );
 
-  useRealtimeOrders(handleNotification, filter);
+  // Subscribe locally only when not using the shared provider — staff bells
+  // get their notifications from the persistent RealtimeOrdersProvider.
+  useRealtimeOrders(handleLocalNotification, filter, { enabled: !usesSharedState });
 
-  const unread = notifications.filter((n) => !n.read).length;
+  // Pulse the staff bell when the shared notification list grows.
+  const sharedCount = shared.notifications.length;
+  const prevSharedCountRef = useRef(sharedCount);
+  useEffect(() => {
+    if (!usesSharedState) return;
+    if (sharedCount > prevSharedCountRef.current) triggerPulse();
+    prevSharedCountRef.current = sharedCount;
+  }, [usesSharedState, sharedCount, triggerPulse]);
 
-  const markAllRead = () =>
-    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+  useEffect(() => {
+    return () => {
+      if (pulseTimeoutRef.current) clearTimeout(pulseTimeoutRef.current);
+    };
+  }, []);
+
+  const notifications = usesSharedState ? shared.notifications : localNotifications;
+  const unread = usesSharedState
+    ? shared.unreadCount
+    : localNotifications.filter((n) => !n.read).length;
+
+  const markAllRead = useCallback(() => {
+    if (usesSharedState) {
+      shared.markAllRead();
+    } else {
+      setLocalNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+    }
+  }, [usesSharedState, shared]);
 
   const resolvedAlign = isRTL ? (align === "end" ? "start" : "end") : align;
   const ar = language === "ar";
@@ -98,10 +150,11 @@ export function NotificationBell({
         <Button
           variant="ghost"
           size="icon"
-          className={`relative ${className}`}
+          className={`relative ${className} ${pulse && visualPulseEnabled ? "animate-pulse ring-2 ring-secondary ring-offset-1 rounded-full" : ""}`}
           aria-label={ar ? "الإشعارات" : "Notifications"}
+          data-testid="button-notification-bell"
         >
-          <Bell className="w-5 h-5" />
+          <Bell className={`w-5 h-5 ${pulse && visualPulseEnabled ? "text-secondary" : ""}`} />
           {unread > 0 ? (
             <Badge className="absolute -top-1 -end-1 h-5 min-w-5 px-1 flex items-center justify-center text-[10px] font-bold bg-secondary text-secondary-foreground border-0 rounded-full">
               {unread > 99 ? "99+" : unread}
@@ -178,6 +231,39 @@ export function NotificationBell({
             </div>
           </ScrollArea>
         )}
+
+        <div className="px-4 py-3 border-t space-y-2.5 bg-muted/30">
+          <p className="text-[11px] uppercase tracking-wider text-muted-foreground/80 font-semibold">
+            {ar ? "التفضيلات" : "Preferences"}
+          </p>
+          <div className="flex items-center justify-between">
+            <label htmlFor="notif-sound" className="flex items-center gap-2 text-xs cursor-pointer">
+              <Volume2 className="w-3.5 h-3.5 text-muted-foreground" />
+              {ar ? "تنبيه صوتي" : "Sound alert"}
+            </label>
+            <Switch
+              id="notif-sound"
+              checked={soundEnabled}
+              onCheckedChange={(v) => {
+                setSoundEnabled(v);
+                if (v) playChime();
+              }}
+              data-testid="switch-notification-sound"
+            />
+          </div>
+          <div className="flex items-center justify-between">
+            <label htmlFor="notif-pulse" className="flex items-center gap-2 text-xs cursor-pointer">
+              <Eye className="w-3.5 h-3.5 text-muted-foreground" />
+              {ar ? "نبضة بصرية" : "Visual pulse"}
+            </label>
+            <Switch
+              id="notif-pulse"
+              checked={visualPulseEnabled}
+              onCheckedChange={setVisualPulseEnabled}
+              data-testid="switch-notification-pulse"
+            />
+          </div>
+        </div>
 
         <div className="px-4 py-2 border-t">
           <Button

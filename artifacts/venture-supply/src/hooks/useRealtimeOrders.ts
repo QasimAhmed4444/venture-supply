@@ -1,7 +1,10 @@
-import { useEffect, useRef, useCallback } from "react";
+import { useEffect, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { useNotificationPreferences } from "@/contexts/NotificationPreferencesContext";
+import { useRole } from "@/contexts/RoleContext";
+import { getSessionToken } from "@/lib/api";
 
 export interface RealtimeNotification {
   id: string;
@@ -15,25 +18,36 @@ export interface RealtimeNotification {
 
 export function useRealtimeOrders(
   onNotification: (n: RealtimeNotification) => void,
-  filter?: (record: Record<string, unknown>) => boolean
+  filter?: (record: Record<string, unknown>) => boolean,
+  options?: { enabled?: boolean }
 ) {
+  const enabled = options?.enabled ?? true;
   const qc = useQueryClient();
   const { toast } = useToast();
   const { language } = useLanguage();
+  const { soundEnabled, playChime } = useNotificationPreferences();
+  const { role } = useRole();
   const esRef = useRef<EventSource | null>(null);
   const reconnectRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const onNotificationRef = useRef(onNotification);
   onNotificationRef.current = onNotification;
   const filterRef = useRef(filter);
   filterRef.current = filter;
+  const soundEnabledRef = useRef(soundEnabled);
+  soundEnabledRef.current = soundEnabled;
+  const playChimeRef = useRef(playChime);
+  playChimeRef.current = playChime;
+
+  const token = enabled && role !== "guest" ? getSessionToken() : null;
 
   useEffect(() => {
+    if (!enabled || !token) return;
     const BASE = (import.meta.env.BASE_URL ?? "").replace(/\/$/, "");
     let destroyed = false;
 
     function connect() {
       if (destroyed) return;
-      const es = new EventSource(`${BASE}/api/realtime/orders`);
+      const es = new EventSource(`${BASE}/api/realtime/orders?token=${encodeURIComponent(token!)}`);
       esRef.current = es;
 
       es.addEventListener("connected", () => {
@@ -60,6 +74,8 @@ export function useRealtimeOrders(
             read: false,
           };
           onNotificationRef.current(notif);
+
+          if (soundEnabledRef.current) playChimeRef.current();
 
           toast({
             title: language === "ar" ? "🛒 طلب جديد!" : "🛒 New Order!",
@@ -107,5 +123,5 @@ export function useRealtimeOrders(
       esRef.current?.close();
       if (reconnectRef.current) clearTimeout(reconnectRef.current);
     };
-  }, [qc, toast, language]);
+  }, [qc, token, enabled]);
 }
