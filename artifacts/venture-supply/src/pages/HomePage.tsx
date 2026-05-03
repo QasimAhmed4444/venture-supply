@@ -86,6 +86,13 @@ const dealBlocks = [
   },
 ];
 
+const trustItems = [
+  { icon: Truck, en: "Nationwide delivery", ar: "توصيل لجميع المناطق" },
+  { icon: ShieldCheck, en: "Authentic brands", ar: "علامات أصلية" },
+  { icon: HandCoins, en: "B2B credit terms", ar: "ائتمان لعملاء الأعمال" },
+  { icon: Headphones, en: "Saudi-based support", ar: "دعم سعودي" },
+];
+
 export function HomePage() {
   const { t, isRTL } = useLanguage();
   const { role } = useRole();
@@ -191,20 +198,23 @@ export function HomePage() {
         </div>
       </section>
 
-      {/* ── TRUST STRIP ──────────────────────────────────────────── */}
-      <section className="border-b border-border/50 bg-white">
-        <div className="max-w-7xl mx-auto px-4 py-4 grid grid-cols-2 md:grid-cols-4 divide-x divide-border/40">
-          {[
-            { icon: Truck, en: "Nationwide delivery", ar: "توصيل لجميع المناطق" },
-            { icon: ShieldCheck, en: "Authentic brands", ar: "علامات أصلية" },
-            { icon: HandCoins, en: "B2B credit terms", ar: "ائتمان لعملاء الأعمال" },
-            { icon: Headphones, en: "Saudi-based support", ar: "دعم سعودي" },
-          ].map((b, i) => (
-            <div key={i} className="flex items-center gap-3 px-5 py-2 first:ps-0 last:pe-0">
-              <b.icon className="w-4 h-4 shrink-0 text-secondary" />
-              <p className="text-sm font-semibold text-primary">{isRTL ? b.ar : b.en}</p>
-            </div>
-          ))}
+      {/* ── TRUST STRIP (scrolling marquee) ──────────────────────── */}
+      <section className="border-b border-border/50 bg-white overflow-hidden">
+        <div className="py-3.5">
+          <div
+            className={`trust-marquee-track${isRTL ? " trust-marquee-rtl" : ""}`}
+            aria-hidden="true"
+          >
+            {[...trustItems, ...trustItems, ...trustItems].map((b, i) => (
+              <div key={i} className="trust-marquee-item">
+                <b.icon className="w-4 h-4 shrink-0 text-secondary" />
+                <span className="text-sm font-semibold text-primary whitespace-nowrap">
+                  {isRTL ? b.ar : b.en}
+                </span>
+                <span className="trust-marquee-sep" />
+              </div>
+            ))}
+          </div>
         </div>
       </section>
 
@@ -222,25 +232,32 @@ export function HomePage() {
           </Link>
         </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+        <div
+          className="flex gap-5 overflow-x-auto pb-4 snap-x snap-mandatory"
+          style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
+        >
           {categories.map((c) => (
-            <Link key={c.id} href={`/categories/${c.id}`}>
+            <Link key={c.id} href={`/categories/${c.id}`} className="flex-shrink-0 snap-start">
               <div
-                className="group cursor-pointer rounded-2xl overflow-hidden bg-card border border-border/60 hover:border-secondary/60 hover:shadow-lg transition-all h-full flex flex-col"
+                className="group cursor-pointer rounded-2xl overflow-hidden bg-card border border-border/60 hover:border-secondary/60 hover:shadow-xl transition-all duration-300 flex flex-col"
+                style={{ width: 196 }}
                 data-testid={`card-category-${c.id}`}
               >
-                <div className="relative overflow-hidden bg-muted aspect-square">
+                <div className="relative overflow-hidden bg-muted" style={{ height: 196 }}>
                   <img
                     src={c.image}
                     alt={t(`category.${c.id}`)}
                     loading="lazy"
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
                     onError={(e) => { (e.target as HTMLImageElement).src = "https://images.unsplash.com/photo-1604908176997-125f25cc6f3d?w=400&q=80"; }}
                   />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                 </div>
-                <div className="p-4 text-center flex-1 flex flex-col justify-center">
-                  <h3 className="font-bold text-sm md:text-base text-primary leading-tight">{t(`category.${c.id}`)}</h3>
-                  <p className="text-xs text-muted-foreground mt-1">{c.productCount} {isRTL ? "منتج" : "products"}</p>
+                <div className="px-4 py-4 text-center flex-1 flex flex-col justify-center">
+                  <h3 className="font-bold text-base text-primary leading-tight">{t(`category.${c.id}`)}</h3>
+                  <p className="text-sm font-medium text-muted-foreground mt-1.5">
+                    {c.productCount} {isRTL ? "منتج" : "products"}
+                  </p>
                 </div>
               </div>
             </Link>
@@ -297,7 +314,7 @@ export function HomePage() {
         </div>
       </section>
 
-      {/* ── DEAL BLOCKS (Offers) ─────────────────────────────────── */}
+      {/* ── DEAL BLOCKS (banner-size) ─────────────────────────────── */}
       <section className="max-w-7xl mx-auto px-4 mt-14">
         <div className="flex items-end justify-between mb-5">
           <div>
@@ -309,32 +326,32 @@ export function HomePage() {
             </p>
           </div>
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 md:gap-6">
           {dealBlocks.map((block) => (
             <Link key={block.enLabel} href={block.href}>
               <div
-                className="relative rounded-2xl overflow-hidden cursor-pointer group shadow-md hover:shadow-xl transition-shadow"
-                style={{ height: 240 }}
+                className="relative rounded-2xl overflow-hidden cursor-pointer group shadow-lg hover:shadow-2xl transition-shadow duration-300"
+                style={{ height: 380 }}
               >
                 <img
                   src={block.image}
                   alt=""
-                  className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                  className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
                 />
-                <div className={`absolute inset-0 bg-gradient-to-br ${block.bg} opacity-80`} />
-                <div className="relative h-full flex flex-col justify-between p-6 md:p-7">
+                <div className={`absolute inset-0 bg-gradient-to-br ${block.bg} opacity-85`} />
+                <div className="relative h-full flex flex-col justify-between p-7 md:p-9">
                   <p
-                    className="text-sm font-bold uppercase tracking-widest"
+                    className="text-base font-bold uppercase tracking-widest"
                     style={{ color: block.accent }}
                   >
                     {isRTL ? block.arSub : block.enSub}
                   </p>
-                  <div className="space-y-3">
-                    <h3 className="text-white font-extrabold text-3xl md:text-4xl leading-tight">
+                  <div className="space-y-4">
+                    <h3 className="text-white font-extrabold text-4xl md:text-5xl leading-tight">
                       {isRTL ? block.arLabel : block.enLabel}
                     </h3>
                     <span
-                      className="inline-flex items-center gap-2 text-sm font-bold px-4 py-2 rounded-full bg-white/15 backdrop-blur-sm border border-white/20 text-white group-hover:bg-white/25 transition-colors"
+                      className="inline-flex items-center gap-2 text-sm font-bold px-5 py-2.5 rounded-full bg-white/15 backdrop-blur-sm border border-white/20 text-white group-hover:bg-white/25 transition-colors"
                     >
                       {isRTL ? "تسوق الآن" : "SHOP NOW"} {Chevron}
                     </span>

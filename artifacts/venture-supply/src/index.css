@@ -205,3 +205,42 @@ html[dir="rtl"] {
 html[dir="ltr"] {
   font-family: 'Outfit', 'Noto Sans Arabic', sans-serif;
 }
+
+/* ── TRUST STRIP MARQUEE ──────────────────────────────────────────── */
+@keyframes trust-scroll-ltr {
+  0%   { transform: translateX(0); }
+  100% { transform: translateX(-33.333%); }
+}
+@keyframes trust-scroll-rtl {
+  0%   { transform: translateX(0); }
+  100% { transform: translateX(33.333%); }
+}
+
+.trust-marquee-track {
+  display: flex;
+  width: max-content;
+  animation: trust-scroll-ltr 24s linear infinite;
+}
+.trust-marquee-track:hover {
+  animation-play-state: paused;
+}
+.trust-marquee-rtl {
+  animation-name: trust-scroll-rtl;
+}
+
+.trust-marquee-item {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  padding-inline: 2.5rem;
+  flex-shrink: 0;
+}
+
+.trust-marquee-sep {
+  display: inline-block;
+  width: 1px;
+  height: 1.125rem;
+  background: hsl(var(--border));
+  opacity: 0.5;
+  margin-inline-start: 2rem;
+}
