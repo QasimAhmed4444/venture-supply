@@ -29,6 +29,7 @@ import { useCustomers } from "@/hooks/useCustomers";
 import { useOrders, useUpdateOrderStatus } from "@/hooks/useOrders";
 import { useDashboard } from "@/hooks/useDashboard";
 import { useSalespersons, useCreateSalesperson, useUpdateSalesperson, useDeleteSalesperson, type Salesperson } from "@/hooks/useSalespersons";
+import { useCreateStaff } from "@/hooks/useStaff";
 import { useBusinessTypes, useCreateBusinessType, useUpdateBusinessType, useDeleteBusinessType, type BusinessType } from "@/hooks/useBusinessTypes";
 import { useCreateCustomer, useUpdateCustomer, useDeleteCustomer } from "@/hooks/useCustomerMutations";
 import {
@@ -1408,44 +1409,24 @@ export function AdminCustomersPage() {
 
 // ─── Salespersons ──────────────────────────────────────────────────────────────
 
-const BLANK_SP = { name: "", email: "", phone: "", region: "", monthlyTarget: "80000", monthlySales: "0", customersCount: "0", ordersThisMonth: "0", pendingOrders: "0", status: "active" as "active" | "inactive", joinedDate: "" };
+const BLANK_SP = { name: "", email: "", phone: "", region: "", monthlyTarget: "80000", monthlySales: "0", customersCount: "0", ordersThisMonth: "0", pendingOrders: "0", status: "active" as "active" | "inactive", joinedDate: "", password: "", categoriesServed: [] as string[] };
 
-export function AdminSalespersonsPage() {
-  const { t, language } = useLanguage();
-  const { toast } = useToast();
-  const { data: salespersons = [], isLoading } = useSalespersons();
-  const createSP = useCreateSalesperson();
-  const updateSP = useUpdateSalesperson();
-  const deleteSP = useDeleteSalesperson();
-
-  const [addOpen, setAddOpen] = useState(false);
-  const [newSP, setNewSP] = useState(BLANK_SP);
-  const [editSP, setEditSP] = useState<Salesperson | null>(null);
-  const [editData, setEditData] = useState(BLANK_SP);
-
-  const openEdit = (s: Salesperson) => {
-    setEditSP(s);
-    setEditData({ name: s.name, email: s.email, phone: s.phone ?? "", region: s.region ?? "", monthlyTarget: String(s.monthlyTarget), monthlySales: String(s.monthlySales), customersCount: String(s.customersCount), ordersThisMonth: String(s.ordersThisMonth), pendingOrders: String(s.pendingOrders), status: s.status, joinedDate: s.joinedDate ? s.joinedDate.slice(0, 10) : "" });
-  };
-
-  const toPayload = (d: typeof BLANK_SP) => ({
-    name: d.name, email: d.email, phone: d.phone, region: d.region,
-    monthlyTarget: Number(d.monthlyTarget), monthlySales: Number(d.monthlySales),
-    customersCount: Number(d.customersCount), ordersThisMonth: Number(d.ordersThisMonth),
-    pendingOrders: Number(d.pendingOrders), status: d.status,
-    joinedDate: d.joinedDate || undefined,
-  });
-
-  const SPForm = ({ data, setData }: { data: typeof BLANK_SP; setData: (fn: (p: typeof BLANK_SP) => typeof BLANK_SP) => void }) => (
+function SPForm({ data, setData, businessTypes }: {
+  data: typeof BLANK_SP;
+  setData: (fn: (p: typeof BLANK_SP) => typeof BLANK_SP) => void;
+  businessTypes: BusinessType[];
+}) {
+  return (
     <div className="space-y-3">
       <div className="grid grid-cols-2 gap-3">
-        <div><Label>{t("common.name")}</Label><Input value={data.name} onChange={(e) => setData((p) => ({ ...p, name: e.target.value }))} /></div>
-        <div><Label>{t("common.email")}</Label><Input type="email" value={data.email} onChange={(e) => setData((p) => ({ ...p, email: e.target.value }))} /></div>
+        <div><Label>Name</Label><Input value={data.name} onChange={(e) => setData((p) => ({ ...p, name: e.target.value }))} /></div>
+        <div><Label>Email</Label><Input type="email" value={data.email} onChange={(e) => setData((p) => ({ ...p, email: e.target.value }))} /></div>
       </div>
       <div className="grid grid-cols-2 gap-3">
-        <div><Label>{t("common.phone")}</Label><Input value={data.phone} onChange={(e) => setData((p) => ({ ...p, phone: e.target.value }))} /></div>
+        <div><Label>Phone</Label><Input value={data.phone} onChange={(e) => setData((p) => ({ ...p, phone: e.target.value }))} /></div>
         <div><Label>Region</Label><Input value={data.region} onChange={(e) => setData((p) => ({ ...p, region: e.target.value }))} /></div>
       </div>
+      <div><Label>Password <span className="text-muted-foreground text-xs">(login account)</span></Label><Input type="password" value={data.password} onChange={(e) => setData((p) => ({ ...p, password: e.target.value }))} placeholder="Min. 8 characters" autoComplete="new-password" /></div>
       <div className="grid grid-cols-2 gap-3">
         <div><Label>Monthly Target (SAR)</Label><Input type="number" value={data.monthlyTarget} onChange={(e) => setData((p) => ({ ...p, monthlyTarget: e.target.value }))} /></div>
         <div><Label>Monthly Sales (SAR)</Label><Input type="number" value={data.monthlySales} onChange={(e) => setData((p) => ({ ...p, monthlySales: e.target.value }))} /></div>
@@ -1464,8 +1445,54 @@ export function AdminSalespersonsPage() {
         </div>
         <div><Label>Joined Date</Label><Input type="date" value={data.joinedDate} onChange={(e) => setData((p) => ({ ...p, joinedDate: e.target.value }))} /></div>
       </div>
+      {businessTypes.length > 0 && (
+        <div>
+          <Label>Business Categories Served</Label>
+          <div className="mt-1.5 flex flex-wrap gap-2">
+            {businessTypes.map((bt) => {
+              const checked = data.categoriesServed.includes(bt.id);
+              return (
+                <button key={bt.id} type="button"
+                  onClick={() => setData((p) => ({ ...p, categoriesServed: checked ? p.categoriesServed.filter((id) => id !== bt.id) : [...p.categoriesServed, bt.id] }))}
+                  className={`px-3 py-1 rounded-full text-xs border transition-colors ${checked ? "bg-primary text-primary-foreground border-primary" : "bg-muted border-border text-muted-foreground hover:border-primary/40"}`}
+                >{bt.name}</button>
+              );
+            })}
+          </div>
+        </div>
+      )}
     </div>
   );
+}
+
+export function AdminSalespersonsPage() {
+  const { t } = useLanguage();
+  const { toast } = useToast();
+  const { data: salespersons = [], isLoading } = useSalespersons();
+  const { data: businessTypes = [] } = useBusinessTypes();
+  const createSP = useCreateSalesperson();
+  const updateSP = useUpdateSalesperson();
+  const deleteSP = useDeleteSalesperson();
+  const createStaff = useCreateStaff();
+
+  const [addOpen, setAddOpen] = useState(false);
+  const [newSP, setNewSP] = useState(BLANK_SP);
+  const [editSP, setEditSP] = useState<Salesperson | null>(null);
+  const [editData, setEditData] = useState(BLANK_SP);
+
+  const openEdit = (s: Salesperson) => {
+    setEditSP(s);
+    setEditData({ name: s.name, email: s.email, phone: s.phone ?? "", region: s.region ?? "", monthlyTarget: String(s.monthlyTarget), monthlySales: String(s.monthlySales), customersCount: String(s.customersCount), ordersThisMonth: String(s.ordersThisMonth), pendingOrders: String(s.pendingOrders), status: s.status, joinedDate: s.joinedDate ? s.joinedDate.slice(0, 10) : "", password: "", categoriesServed: (s as any).categoriesServed ?? [] });
+  };
+
+  const toPayload = (d: typeof BLANK_SP) => ({
+    name: d.name, email: d.email, phone: d.phone, region: d.region,
+    monthlyTarget: Number(d.monthlyTarget), monthlySales: Number(d.monthlySales),
+    customersCount: Number(d.customersCount), ordersThisMonth: Number(d.ordersThisMonth),
+    pendingOrders: Number(d.pendingOrders), status: d.status,
+    joinedDate: d.joinedDate || undefined,
+    categoriesServed: d.categoriesServed,
+  });
 
   return (
     <div className="space-y-4">
@@ -1477,15 +1504,32 @@ export function AdminSalespersonsPage() {
           </DialogTrigger>
           <DialogContent className="max-w-lg">
             <DialogHeader><DialogTitle>Add Salesperson</DialogTitle></DialogHeader>
-            <SPForm data={newSP} setData={setNewSP} />
+            <SPForm data={newSP} setData={setNewSP} businessTypes={businessTypes} />
             <DialogFooter>
               <Button variant="outline" onClick={() => setAddOpen(false)}>Cancel</Button>
               <Button onClick={() => {
+                if (!newSP.name || !newSP.email) {
+                  toast({ title: "Missing fields", description: "Name and email are required.", variant: "destructive" });
+                  return;
+                }
                 createSP.mutate(toPayload(newSP) as any, {
-                  onSuccess: () => { toast({ title: "Salesperson added" }); setAddOpen(false); setNewSP(BLANK_SP); },
+                  onSuccess: (created: any) => {
+                    if (newSP.password) {
+                      createStaff.mutate(
+                        { name: newSP.name, email: newSP.email, password: newSP.password, role: "sales", salespersonId: created.id },
+                        {
+                          onSuccess: () => toast({ title: "Salesperson added", description: "Login account created." }),
+                          onError: () => toast({ title: "Salesperson added", description: "Could not create login — add manually in Staff Access.", variant: "destructive" }),
+                        }
+                      );
+                    } else {
+                      toast({ title: "Salesperson added" });
+                    }
+                    setAddOpen(false); setNewSP(BLANK_SP);
+                  },
                   onError: (e) => toast({ title: "Error", description: (e as Error).message, variant: "destructive" }),
                 });
-              }} disabled={createSP.isPending}>{createSP.isPending ? "Saving…" : "Save"}</Button>
+              }} disabled={createSP.isPending || createStaff.isPending}>{createSP.isPending || createStaff.isPending ? "Saving…" : "Save"}</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
@@ -1553,7 +1597,7 @@ export function AdminSalespersonsPage() {
       <Dialog open={!!editSP} onOpenChange={() => setEditSP(null)}>
         <DialogContent className="max-w-lg">
           <DialogHeader><DialogTitle>Edit Salesperson</DialogTitle></DialogHeader>
-          <SPForm data={editData} setData={setEditData} />
+          <SPForm data={editData} setData={setEditData} businessTypes={businessTypes} />
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditSP(null)}>Cancel</Button>
             <Button onClick={() => {

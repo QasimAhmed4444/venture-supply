@@ -16,38 +16,19 @@ import {
   useStaff, useCreateStaff, useUpdateStaff, useDeleteStaff,
   type StaffMember, type StaffPayload,
 } from "@/hooks/useStaff";
-import { useSalespersons } from "@/hooks/useSalespersons";
+import { useSalespersons, type Salesperson } from "@/hooks/useSalespersons";
 
 const BLANK: StaffPayload = { name: "", email: "", password: "", role: "admin", salespersonId: null };
 
-export function AdminStaffPage() {
-  const { toast } = useToast();
-  const { data: staff = [], isLoading } = useStaff();
-  const { data: salespersons = [] } = useSalespersons();
-  const createStaff = useCreateStaff();
-  const updateStaff = useUpdateStaff();
-  const deleteStaff = useDeleteStaff();
-
-  const [addOpen, setAddOpen] = useState(false);
-  const [addData, setAddData] = useState<StaffPayload>(BLANK);
-  const [editTarget, setEditTarget] = useState<StaffMember | null>(null);
-  const [editData, setEditData] = useState<StaffPayload>(BLANK);
-
-  const openEdit = (s: StaffMember) => {
-    setEditTarget(s);
-    setEditData({
-      name: s.name, email: s.email, password: "",
-      role: s.role, salespersonId: s.salespersonId,
-    });
-  };
-
-  const StaffForm = ({
-    data, setData, isEdit,
-  }: {
-    data: StaffPayload;
-    setData: (fn: (p: StaffPayload) => StaffPayload) => void;
-    isEdit: boolean;
-  }) => (
+function StaffForm({
+  data, setData, isEdit, salespersons,
+}: {
+  data: StaffPayload;
+  setData: (fn: (p: StaffPayload) => StaffPayload) => void;
+  isEdit: boolean;
+  salespersons: Salesperson[];
+}) {
+  return (
     <div className="space-y-3">
       <div>
         <Label>Name</Label>
@@ -112,6 +93,28 @@ export function AdminStaffPage() {
       )}
     </div>
   );
+}
+
+export function AdminStaffPage() {
+  const { toast } = useToast();
+  const { data: staff = [], isLoading } = useStaff();
+  const { data: salespersons = [] } = useSalespersons();
+  const createStaff = useCreateStaff();
+  const updateStaff = useUpdateStaff();
+  const deleteStaff = useDeleteStaff();
+
+  const [addOpen, setAddOpen] = useState(false);
+  const [addData, setAddData] = useState<StaffPayload>(BLANK);
+  const [editTarget, setEditTarget] = useState<StaffMember | null>(null);
+  const [editData, setEditData] = useState<StaffPayload>(BLANK);
+
+  const openEdit = (s: StaffMember) => {
+    setEditTarget(s);
+    setEditData({
+      name: s.name, email: s.email, password: "",
+      role: s.role, salespersonId: s.salespersonId,
+    });
+  };
 
   return (
     <div className="space-y-4">
@@ -132,7 +135,7 @@ export function AdminStaffPage() {
           </DialogTrigger>
           <DialogContent className="max-w-md">
             <DialogHeader><DialogTitle>Add staff member</DialogTitle></DialogHeader>
-            <StaffForm data={addData} setData={setAddData} isEdit={false} />
+            <StaffForm data={addData} setData={setAddData} isEdit={false} salespersons={salespersons} />
             <DialogFooter>
               <Button variant="outline" onClick={() => setAddOpen(false)}>Cancel</Button>
               <Button
@@ -226,7 +229,7 @@ export function AdminStaffPage() {
       <Dialog open={!!editTarget} onOpenChange={(o) => { if (!o) setEditTarget(null); }}>
         <DialogContent className="max-w-md">
           <DialogHeader><DialogTitle>Edit staff member</DialogTitle></DialogHeader>
-          <StaffForm data={editData} setData={setEditData} isEdit={true} />
+          <StaffForm data={editData} setData={setEditData} isEdit={true} salespersons={salespersons} />
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditTarget(null)}>Cancel</Button>
             <Button
