@@ -3,15 +3,20 @@ import { logger } from "./logger.js";
 
 let _client: SupabaseClient | null = null;
 
+function isJwt(value: string | undefined): value is string {
+  return typeof value === "string" && value.startsWith("eyJ");
+}
+
 export function getSupabase(): SupabaseClient | null {
   if (_client) return _client;
   const url = process.env["SUPABASE_URL"];
-  // Prefer the service-role key so the API server bypasses RLS for trusted
-  // server-side operations (orders, customers, staff, etc.). Fall back to
-  // the anon key only when the service-role key is unavailable — note that
-  // most non-catalog routes will return empty results under production RLS
-  // when running with the anon key.
-  const serviceKey = process.env["SUPABASE_SERVICE_ROLE_KEY"];
+  // SUPABASE_SERVICE_ROLE_KEY_LOCAL is set via .env and won't be overridden
+  // by a Replit secret. SUPABASE_SERVICE_ROLE_KEY is the production secret.
+  // We validate both are actual JWTs before trusting them; fall back to the
+  // anon key if neither is a valid JWT.
+  const localKey = process.env["SUPABASE_SERVICE_ROLE_KEY_LOCAL"];
+  const secretKey = process.env["SUPABASE_SERVICE_ROLE_KEY"];
+  const serviceKey = isJwt(localKey) ? localKey : isJwt(secretKey) ? secretKey : undefined;
   const anonKey = process.env["SUPABASE_ANON_KEY"];
   const key = serviceKey ?? anonKey;
   if (!url || !key) {
