@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { Search, ChevronDown, Menu, User, LogOut, Bell, Package, Building2, Languages } from "lucide-react";
+import { Search, ChevronDown, Menu, User, LogOut, Bell, Package, Building2, Globe } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useRole } from "@/contexts/RoleContext";
 import { Logo } from "./Logo";
@@ -85,29 +85,43 @@ export function Header() {
         </form>
 
         <div className="flex items-center gap-1">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="hidden md:inline-flex text-muted-foreground hover:text-primary"
-            onClick={() => setLanguage(language === "en" ? "ar" : "en")}
-            aria-label="Toggle language"
-            data-testid="button-toggle-language"
-          >
-            <Languages className="w-4 h-4" />
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="hidden md:inline-flex text-muted-foreground hover:text-primary transition-colors"
+                aria-label="Change language"
+                data-testid="button-toggle-language"
+              >
+                <Globe className="w-[18px] h-[18px]" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align={isRTL ? "start" : "end"} className="w-32">
+              <DropdownMenuItem
+                onClick={() => setLanguage("en")}
+                className={language === "en" ? "bg-primary/10 text-primary font-semibold" : ""}
+                data-testid="lang-option-en"
+              >
+                English
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => setLanguage("ar")}
+                className={language === "ar" ? "bg-primary/10 text-primary font-semibold" : ""}
+                data-testid="lang-option-ar"
+              >
+                العربية
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
 
-          {isAuthenticated && customer ? (
+          {isAuthenticated && customer && (
             <NotificationBell
               variant="customer"
               filter={customerFilter}
               align="end"
               className="hidden md:inline-flex text-primary"
             />
-          ) : (
-            <Button variant="ghost" size="icon" className="hidden md:inline-flex relative text-primary" data-testid="button-notifications">
-              <Bell className="w-5 h-5" />
-              <span className="absolute top-1.5 end-1.5 w-2 h-2 bg-secondary rounded-full" />
-            </Button>
           )}
           <CartDrawer />
           {isAuthenticated ? (

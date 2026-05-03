@@ -381,11 +381,8 @@ export function HomePage() {
                         onError={(e) => { (e.target as HTMLImageElement).src = "https://images.unsplash.com/photo-1604908176997-125f25cc6f3d?w=400&q=80"; }}
                       />
                       <div className="absolute inset-0" style={{ background: "linear-gradient(to top, rgba(6,30,58,0.75) 0%, transparent 60%)" }} />
-                      <div
-                        className="absolute bottom-3 start-3 w-10 h-10 rounded-full flex items-center justify-center text-white text-lg font-extrabold shadow-md"
-                        style={{ background: b.accent }}
-                      >
-                        {b.name[0]}
+                      <div className="absolute bottom-3 start-3 end-3 text-white text-base font-extrabold drop-shadow-md">
+                        {b.name}
                       </div>
                     </>
                   ) : (
@@ -398,10 +395,10 @@ export function HomePage() {
                         />
                       ) : (
                         <div
-                          className="w-20 h-20 rounded-full flex items-center justify-center text-white text-3xl font-extrabold shadow"
+                          className="px-4 py-2 rounded-md text-white text-base font-extrabold shadow tracking-wide"
                           style={{ background: b.accent }}
                         >
-                          {b.name[0]}
+                          {b.name}
                         </div>
                       )}
                     </div>

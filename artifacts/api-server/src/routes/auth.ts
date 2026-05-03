@@ -3,9 +3,11 @@ import { getSupabase } from "../lib/supabase.js";
 
 const router = Router();
 
-const HARDCODED: Record<string, { password: string; role: string; name: string; salespersonId?: string }> = {
-  "admin@example.com": { password: "Admin@12345", role: "admin", name: "Sami Al-Rashid" },
-  "sales@example.com": { password: "Sales@12345", role: "sales", name: "Omar Al-Shehri", salespersonId: "sp-001" },
+const HARDCODED: Record<string, { password: string; role: string; name: string; salespersonId?: string; customerId?: string }> = {
+  "admin@venturesupply.sa": { password: "pakistan12345Q", role: "admin", name: "Sami Al-Rashid" },
+  "sales@venturesupply.sa": { password: "pakistan12345Q", role: "sales", name: "Omar Al-Shehri", salespersonId: "sp-001" },
+  "b2c@venturesupply.sa":   { password: "pakistan12345Q", role: "b2c",   name: "Ahmed Al-Qahtani",     customerId: "c-001" },
+  "b2b@venturesupply.sa":   { password: "pakistan12345Q", role: "b2b",   name: "Khalid Al-Harbi",      customerId: "c-005" },
 };
 
 function customerToCamel(row: Record<string, unknown>) {
@@ -45,18 +47,21 @@ router.post("/auth/login", async (req, res) => {
         .single();
 
       if (data) {
-        // For customer roles, look up their full customer record by email
+        // For customer roles, look up their full customer record by email,
+        // falling back to the demo customerId mapping if email doesn't match.
         if (data.role === "b2c" || data.role === "b2b") {
-          const { data: cust } = await sb
-            .from("customers")
-            .select("*")
-            .eq("email", lower)
-            .single();
+          let cust: Record<string, unknown> | null = null;
+          const byEmail = await sb.from("customers").select("*").eq("email", lower).maybeSingle();
+          cust = (byEmail.data as Record<string, unknown> | null) ?? null;
+          if (!cust && HARDCODED[lower]?.customerId) {
+            const byId = await sb.from("customers").select("*").eq("id", HARDCODED[lower].customerId!).maybeSingle();
+            cust = (byId.data as Record<string, unknown> | null) ?? null;
+          }
           return res.json({
             ok: true,
             role: data.role as string,
             name: data.name as string,
-            customer: cust ? customerToCamel(cust as Record<string, unknown>) : null,
+            customer: cust ? customerToCamel(cust) : null,
           });
         }
         return res.json({
@@ -73,6 +78,24 @@ router.post("/auth/login", async (req, res) => {
 
   const hc = HARDCODED[lower];
   if (hc && hc.password === password) {
+    // For B2C/B2B demo accounts, attempt to attach the matching customer record
+    if ((hc.role === "b2c" || hc.role === "b2b") && hc.customerId && sb) {
+      try {
+        const { data: cust } = await sb
+          .from("customers")
+          .select("*")
+          .eq("id", hc.customerId)
+          .single();
+        return res.json({
+          ok: true,
+          role: hc.role,
+          name: hc.name,
+          customer: cust ? customerToCamel(cust as Record<string, unknown>) : null,
+        });
+      } catch {
+        return res.json({ ok: true, role: hc.role, name: hc.name, customer: null });
+      }
+    }
     return res.json({ ok: true, role: hc.role, name: hc.name, salespersonId: hc.salespersonId });
   }
 

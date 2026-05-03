@@ -143,7 +143,6 @@ export function AuthPage({ mode = "login" }: Props) {
                       type="password"
                       value={loginPassword}
                       onChange={(e) => setLoginPassword(e.target.value)}
-                      placeholder="••••••••"
                       required
                       data-testid="input-login-password"
                     />
@@ -204,7 +203,7 @@ export function AuthPage({ mode = "login" }: Props) {
                       <div><Label>{t("checkout.vat_number")}</Label><Input value={regVAT} onChange={(e) => setRegVAT(e.target.value)} placeholder="300 123 456 7800003" /></div>
                     </>
                   )}
-                  <div><Label>{t("common.password")}</Label><Input type="password" value={regPassword} onChange={(e) => setRegPassword(e.target.value)} placeholder="••••••••" minLength={6} required /></div>
+                  <div><Label>{t("common.password")}</Label><Input type="password" value={regPassword} onChange={(e) => setRegPassword(e.target.value)} minLength={6} required /></div>
                   <Button
                     type="submit"
                     className="w-full bg-primary hover:bg-primary/90"

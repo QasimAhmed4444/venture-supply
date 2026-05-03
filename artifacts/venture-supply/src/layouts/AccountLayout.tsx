@@ -1,6 +1,5 @@
-import { ReactNode } from "react";
+import { ReactNode, useEffect } from "react";
 import { Link, useLocation } from "wouter";
-import { DemoSwitcher } from "@/components/DemoSwitcher";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { ScrollToTop } from "@/components/ScrollToTop";
@@ -11,8 +10,18 @@ import { useRole } from "@/contexts/RoleContext";
 
 export function AccountLayout({ children }: { children: ReactNode }) {
   const { t } = useLanguage();
-  const { role } = useRole();
-  const [location] = useLocation();
+  const { role, isAuthenticated } = useRole();
+  const [location, setLocation] = useLocation();
+
+  useEffect(() => {
+    if (!isAuthenticated || (role !== "b2c" && role !== "b2b")) {
+      setLocation("/login");
+    }
+  }, [isAuthenticated, role, setLocation]);
+
+  if (!isAuthenticated || (role !== "b2c" && role !== "b2b")) {
+    return null;
+  }
 
   const items = [
     { href: "/account", icon: LayoutDashboard, label: t("account.dashboard") },
@@ -28,7 +37,6 @@ export function AccountLayout({ children }: { children: ReactNode }) {
   return (
     <div className="min-h-screen flex flex-col bg-background">
       <ScrollToTop />
-      <DemoSwitcher />
       <Header />
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 py-8">
         <div className="grid grid-cols-1 lg:grid-cols-[240px_1fr] gap-6">
