@@ -38,7 +38,10 @@ export function CheckoutPage() {
 
   // ── Guest guard ─────────────────────────────────────────────────────────────
   useEffect(() => {
-    if (role === "guest") setLocation("/auth");
+    if (role === "guest") {
+      try { sessionStorage.setItem("vs.returnTo", "/checkout"); } catch {}
+      setLocation("/login");
+    }
   }, [role, setLocation]);
 
   const [orderType, setOrderType] = useState<"delivery" | "pickup">("delivery");

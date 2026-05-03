@@ -92,7 +92,8 @@ export function CartPage() {
                     title: language === "ar" ? "يجب تسجيل الدخول أولاً" : "Sign in required",
                     description: language === "ar" ? "سجّل دخولك لإتمام طلبك" : "Please sign in or create an account to place an order.",
                   });
-                  setLocation("/auth");
+                  try { sessionStorage.setItem("vs.returnTo", "/checkout"); } catch {}
+                  setLocation("/login");
                 } else {
                   setLocation("/checkout");
                 }
