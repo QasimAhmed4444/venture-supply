@@ -120,8 +120,10 @@ export function AuthPage({ mode = "login" }: Props) {
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-secondary/5 flex items-center justify-center px-4 py-12">
       <div className="w-full max-w-md">
-        <div className="text-center mb-6">
-          <Link href="/"><Logo size="lg" /></Link>
+        <div className="flex justify-center mb-6">
+          <Link href="/" className="inline-flex cursor-pointer" data-testid="link-home-logo">
+            <Logo size="lg" />
+          </Link>
         </div>
         <Card>
           <CardContent className="p-6">
