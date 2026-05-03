@@ -107,13 +107,21 @@ router.post("/orders", requireAuth, async (req, res) => {
   if (!sb) return res.status(503).json({ error: "db unavailable" });
 
   try {
-    const b = req.body as Record<string, unknown>;
+    const body = req.body as Record<string, unknown>;
+    let autoSalespersonId: string | null = null;
 
-    let customerId = b.customerId as string | undefined;
+    let customerId = body.customerId as string | undefined;
     if (session.role === "b2c" || session.role === "b2b") {
-      const { data: cust } = await sb.from("customers").select("id").eq("email", session.email).maybeSingle();
-      if (cust) customerId = cust.id as string;
+      const { data: cust } = await sb.from("customers").select("id, assigned_salesperson_id").eq("email", session.email).maybeSingle();
+      if (cust) {
+        customerId = cust.id as string;
+        // Auto-fill salesperson_id from customer's assignment if not explicitly provided
+        if (!body.salespersonId && cust.assigned_salesperson_id) {
+          autoSalespersonId = cust.assigned_salesperson_id as string;
+        }
+      }
     }
+    const b: Record<string, unknown> = { ...body, ...(autoSalespersonId ? { salespersonId: autoSalespersonId } : {}) };
 
     const couponCode = (b.couponCode as string | undefined) ?? null;
     const discount = b.discount ? Number(b.discount) : 0;

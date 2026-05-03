@@ -68,16 +68,36 @@ router.post("/salespersons", async (req, res) => {
   const payload = { id, ...toSnake(req.body) };
   const { data, error } = await sb.from("salespersons").insert(payload).select().single();
   if (error) return res.status(400).json({ error: error.message });
+
+  // Sync assignedCustomerIds → customers.assigned_salesperson_id on create
+  if (Array.isArray(req.body.assignedCustomerIds) && req.body.assignedCustomerIds.length > 0) {
+    const newIds = req.body.assignedCustomerIds as string[];
+    await sb.from("customers").update({ assigned_salesperson_id: id }).in("id", newIds);
+  }
+
   return res.status(201).json(toCamel(data as Record<string, unknown>));
 });
 
 router.put("/salespersons/:id", async (req, res) => {
   const sb = getSupabase();
   if (!sb) return res.status(503).json({ error: "db unavailable" });
+  const spId = req.params.id;
   const payload = toSnake(req.body);
   const filtered = Object.fromEntries(Object.entries(payload).filter(([, v]) => v !== undefined));
-  const { data, error } = await sb.from("salespersons").update(filtered).eq("id", req.params.id).select().single();
+  const { data, error } = await sb.from("salespersons").update(filtered).eq("id", spId).select().single();
   if (error) return res.status(400).json({ error: error.message });
+
+  // Sync assignedCustomerIds → customers.assigned_salesperson_id
+  if (Array.isArray(req.body.assignedCustomerIds)) {
+    const newIds = req.body.assignedCustomerIds as string[];
+    // Clear all customers previously assigned to this SP (full replace strategy)
+    await sb.from("customers").update({ assigned_salesperson_id: null }).eq("assigned_salesperson_id", spId);
+    // Set new assignments
+    if (newIds.length > 0) {
+      await sb.from("customers").update({ assigned_salesperson_id: spId }).in("id", newIds);
+    }
+  }
+
   return res.json(toCamel(data as Record<string, unknown>));
 });
 

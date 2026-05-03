@@ -24,11 +24,21 @@ function toCamel(row: Record<string, unknown>) {
 
 // GET /customers — admin and sales only
 router.get("/customers", requireRole("admin", "sales"), async (req, res) => {
+  const session = (req as any).session as VerifiedSession;
   const sb = getSupabase();
   if (!sb) return res.json([]);
   try {
     let q = sb.from("customers").select("*").order("created_at", { ascending: false });
     if (req.query.type && req.query.type !== "all") q = q.eq("type", req.query.type as string);
+
+    // For sales role, scope to customers assigned to this salesperson
+    if (session.role === "sales") {
+      const { data: staff } = await sb.from("staff").select("salesperson_id").eq("id", session.sub).maybeSingle();
+      const spId = (staff?.salesperson_id as string | null) ?? null;
+      if (!spId) return res.json([]);
+      q = q.eq("assigned_salesperson_id", spId);
+    }
+
     const { data, error } = await q;
     if (error || !data) return res.json([]);
     return res.json(data.map(toCamel));
