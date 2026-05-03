@@ -1,0 +1,128 @@
+🚨 CRITICAL SECURITY & CONFIG RESET — MUST FOLLOW STRICTLY
+
+We have identified a severe misconfiguration issue:
+The system is still using the WRONG Supabase key (anon instead of service_role), even after updates.
+
+This indicates:
+- Keys are duplicated
+- Keys are hardcoded somewhere
+- Environment variables are overridden
+- Multiple Supabase clients may exist
+
+Your task is to perform a COMPLETE RESET of all Supabase keys and configuration.
+
+⚠️ DO NOT SKIP ANY STEP
+⚠️ DO NOT ASSUME ANYTHING
+⚠️ VERIFY EVERYTHING
+
+-----------------------------------
+PHASE 1 — FULL CLEANUP (MANDATORY)
+-----------------------------------
+
+1. REMOVE ALL HARDCODED KEYS
+- Search entire codebase
+- Delete ANY direct Supabase key strings
+- Especially inside:
+  - createClient(...)
+  - config files
+  - utils/supabase files
+
+2. REMOVE ALL ENV FILE KEYS
+- Check and clean:
+  - .env
+  - .env.local
+  - .env.development
+  - .env.production
+
+- REMOVE:
+  SUPABASE_SERVICE_ROLE_KEY
+  SUPABASE_ANON_KEY
+
+3. VERIFY NO DUPLICATES EXIST
+- There must be ZERO Supabase keys remaining in codebase or env files
+
+-----------------------------------
+PHASE 2 — CORRECT CONFIG SETUP
+-----------------------------------
+
+Now ONLY use Replit Secrets (single source of truth):
+
+SET EXACTLY THESE:
+
+SUPABASE_URL = <project url>
+SUPABASE_ANON_KEY = <anon public key>
+SUPABASE_SERVICE_ROLE_KEY = <service_role secret key>
+
+-----------------------------------
+PHASE 3 — CORRECT CLIENT ARCHITECTURE
+-----------------------------------
+
+STRICTLY enforce:
+
+1. FRONTEND CLIENT:
+- Uses ONLY:
+  SUPABASE_ANON_KEY
+
+2. BACKEND CLIENT:
+- Uses ONLY:
+  SUPABASE_SERVICE_ROLE_KEY
+
+3. NEVER MIX THEM
+
+-----------------------------------
+PHASE 4 — VALIDATION (MANDATORY)
+-----------------------------------
+
+Add runtime verification:
+
+- Decode JWT of SERVICE ROLE KEY
+- Log role
+
+Expected output:
+role: service_role ✅
+
+If:
+role: anon ❌ → STOP and FIX
+
+-----------------------------------
+PHASE 5 — SERVER RESET
+-----------------------------------
+
+- Restart server completely
+- Ensure no cached env is used
+- Fresh boot only
+
+-----------------------------------
+PHASE 6 — FUNCTIONAL TEST
+-----------------------------------
+
+Test:
+- Registration
+- Auth
+- DB insert (should bypass RLS with service_role)
+
+-----------------------------------
+STRICT RULES
+-----------------------------------
+
+❌ DO NOT:
+- Use anon key in backend
+- Hardcode any key
+- Keep duplicate env configs
+
+✅ MUST:
+- Use env variables only
+- Separate frontend/backend usage
+- Verify JWT role
+
+-----------------------------------
+
+After completing ALL phases:
+Respond ONLY with:
+
+✅ CLEANUP DONE
+✅ CONFIG VERIFIED
+✅ ROLE = service_role
+✅ SYSTEM HEALTHY
+
+Then WAIT for next instructions.
