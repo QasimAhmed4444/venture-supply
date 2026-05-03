@@ -17,45 +17,35 @@ function decodeJwtRole(jwt: string): string | undefined {
   }
 }
 
-function pickServiceRoleKey(): string | undefined {
-  // SUPABASE_SERVICE_ROLE_KEY_LOCAL is loaded from the .env file and takes
-  // priority over the Replit secret so a correct dev key always wins even
-  // when the secret was accidentally set to the anon key.
-  const local = process.env["SUPABASE_SERVICE_ROLE_KEY_LOCAL"];
-  const secret = process.env["SUPABASE_SERVICE_ROLE_KEY"];
-
-  for (const [label, key] of [
-    ["SUPABASE_SERVICE_ROLE_KEY_LOCAL", local],
-    ["SUPABASE_SERVICE_ROLE_KEY", secret],
-  ] as [string, string | undefined][]) {
-    if (!key || !key.startsWith("eyJ")) continue;
-    const role = decodeJwtRole(key);
-    if (role === "service_role") return key;
-    logger.warn(
-      { envVar: label, roleInToken: role },
-      `${label} JWT claims role='${role}' — skipping (need service_role)`,
-    );
-  }
-  return undefined;
-}
-
 export function getSupabase(): SupabaseClient | null {
   if (_client) return _client;
 
   const url = process.env["SUPABASE_URL"];
-  const key = pickServiceRoleKey();
+  const key = process.env["SUPABASE_SERVICE_ROLE_KEY"];
 
-  if (!url) {
-    logger.error("SUPABASE_URL is not set");
+  if (!url || !key) {
+    logger.error(
+      "SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be set as Replit Secrets",
+    );
     return null;
   }
 
-  if (!key) {
+  if (!key.startsWith("eyJ")) {
     logger.error(
-      "No valid service_role JWT found in SUPABASE_SERVICE_ROLE_KEY_LOCAL or SUPABASE_SERVICE_ROLE_KEY. " +
-        "In Replit Secrets, set SUPABASE_SERVICE_ROLE_KEY to the service_role (secret) key from " +
-        "Supabase → Project Settings → API. Make sure you copy the bottom key labelled " +
-        "'service_role secret', NOT the anon/public key at the top.",
+      { keyPrefix: key.slice(0, 8) },
+      "SUPABASE_SERVICE_ROLE_KEY is not a JWT — it looks like a PAT token (sbp_...). " +
+        "In Replit Secrets, paste the service_role key from Supabase → Project Settings → API.",
+    );
+    return null;
+  }
+
+  const roleInToken = decodeJwtRole(key);
+  if (roleInToken !== "service_role") {
+    logger.error(
+      { roleInToken },
+      `SUPABASE_SERVICE_ROLE_KEY JWT has role='${roleInToken ?? "unknown"}' — expected 'service_role'. ` +
+        "You copied the anon/public key instead of the service_role key. " +
+        "In Supabase → Project Settings → API, copy the BOTTOM key labelled 'service_role secret'.",
     );
     return null;
   }
