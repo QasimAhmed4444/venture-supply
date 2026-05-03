@@ -111,6 +111,7 @@ export function RoleProvider({ children }: { children: ReactNode }) {
     setCustomerState(null);
     setCurrentSalespersonIdState(null);
     setSessionToken(null);
+    try { window.localStorage.removeItem(ROLE_KEY); } catch {}
     try { window.localStorage.removeItem(CUSTOMER_KEY); } catch {}
     try { window.localStorage.removeItem(SALESPERSON_ID_KEY); } catch {}
     try { window.localStorage.removeItem(CART_KEY); } catch {}
