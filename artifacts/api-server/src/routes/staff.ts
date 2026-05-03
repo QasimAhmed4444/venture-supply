@@ -1,0 +1,138 @@
+import { Router } from "express";
+import bcrypt from "bcryptjs";
+import { getSupabase } from "../lib/supabase.js";
+import { requireAdmin } from "../middlewares/requireAuth.js";
+
+const router = Router();
+
+// All staff-management endpoints require an authenticated admin session.
+router.use("/staff", requireAdmin);
+
+const BCRYPT_ROUNDS = 10;
+const STAFF_ROLES = new Set(["admin", "sales"]);
+
+function toCamel(row: Record<string, unknown>) {
+  return {
+    id: row.id,
+    email: row.email,
+    name: row.name,
+    role: row.role,
+    salespersonId: (row.salesperson_id as string | null) ?? null,
+    createdAt: row.created_at,
+  };
+}
+
+// Admin/sales staff only — customer rows (role b2c/b2b) live alongside the
+// auth credentials but are managed through /customers and /auth/register.
+router.get("/staff", async (_req, res) => {
+  const sb = getSupabase();
+  if (!sb) return res.json([]);
+  const { data, error } = await sb
+    .from("staff")
+    .select("id,email,name,role,salesperson_id,created_at")
+    .in("role", ["admin", "sales"])
+    .order("created_at", { ascending: true });
+  if (error) return res.status(500).json({ error: error.message });
+  return res.json((data ?? []).map((r) => toCamel(r as Record<string, unknown>)));
+});
+
+router.post("/staff", async (req, res) => {
+  const { name, email, password, role, salespersonId } = req.body as {
+    name?: string; email?: string; password?: string; role?: string; salespersonId?: string | null;
+  };
+
+  if (!name || !email || !password || !role) {
+    return res.status(400).json({ error: "name, email, password and role are required" });
+  }
+  if (!STAFF_ROLES.has(role)) {
+    return res.status(400).json({ error: "role must be 'admin' or 'sales'" });
+  }
+  if (password.length < 8) {
+    return res.status(400).json({ error: "Password must be at least 8 characters" });
+  }
+
+  const sb = getSupabase();
+  if (!sb) return res.status(503).json({ error: "db unavailable" });
+
+  const lower = email.toLowerCase().trim();
+
+  const { data: existing } = await sb.from("staff").select("id").eq("email", lower).maybeSingle();
+  if (existing) return res.status(409).json({ error: "Email is already registered" });
+
+  const passwordHash = await bcrypt.hash(password, BCRYPT_ROUNDS);
+  const { data, error } = await sb
+    .from("staff")
+    .insert({
+      email: lower,
+      password: passwordHash,
+      role,
+      name,
+      salesperson_id: role === "sales" ? salespersonId ?? null : null,
+    })
+    .select("id,email,name,role,salesperson_id,created_at")
+    .single();
+
+  if (error) return res.status(400).json({ error: error.message });
+  return res.status(201).json(toCamel(data as Record<string, unknown>));
+});
+
+router.put("/staff/:id", async (req, res) => {
+  const { name, email, password, role, salespersonId } = req.body as {
+    name?: string; email?: string; password?: string; role?: string; salespersonId?: string | null;
+  };
+
+  const sb = getSupabase();
+  if (!sb) return res.status(503).json({ error: "db unavailable" });
+
+  const update: Record<string, unknown> = {};
+  if (name !== undefined) update.name = name;
+  if (email !== undefined) update.email = email.toLowerCase().trim();
+  if (role !== undefined) {
+    if (!STAFF_ROLES.has(role)) return res.status(400).json({ error: "role must be 'admin' or 'sales'" });
+    update.role = role;
+  }
+  if (salespersonId !== undefined) update.salesperson_id = salespersonId;
+  if (password !== undefined && password !== "") {
+    if (password.length < 8) {
+      return res.status(400).json({ error: "Password must be at least 8 characters" });
+    }
+    update.password = await bcrypt.hash(password, BCRYPT_ROUNDS);
+  }
+
+  const { data, error } = await sb
+    .from("staff")
+    .update(update)
+    .eq("id", req.params.id)
+    .in("role", ["admin", "sales"])
+    .select("id,email,name,role,salesperson_id,created_at")
+    .single();
+
+  if (error || !data) return res.status(400).json({ error: error?.message ?? "Not found" });
+  return res.json(toCamel(data as Record<string, unknown>));
+});
+
+router.delete("/staff/:id", async (req, res) => {
+  const sb = getSupabase();
+  if (!sb) return res.status(503).json({ error: "db unavailable" });
+
+  // Refuse to delete the last remaining admin so the panel can never be locked out.
+  const { data: target } = await sb
+    .from("staff").select("role").eq("id", req.params.id).maybeSingle();
+  if (target?.role === "admin") {
+    const { count } = await sb
+      .from("staff").select("id", { count: "exact", head: true }).eq("role", "admin");
+    if ((count ?? 0) <= 1) {
+      return res.status(400).json({ error: "Cannot remove the last admin" });
+    }
+  }
+
+  const { error } = await sb
+    .from("staff")
+    .delete()
+    .eq("id", req.params.id)
+    .in("role", ["admin", "sales"]);
+  if (error) return res.status(400).json({ error: error.message });
+  return res.status(204).send();
+});
+
+export default router;

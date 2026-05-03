@@ -1,14 +1,38 @@
 import { Router } from "express";
+import bcrypt from "bcryptjs";
 import { getSupabase } from "../lib/supabase.js";
+import { signSessionToken } from "../lib/sessionToken.js";
 
 const router = Router();
 
-const HARDCODED: Record<string, { password: string; role: string; name: string; salespersonId?: string; customerId?: string }> = {
-  "admin@venturesupply.sa": { password: "pakistan12345Q", role: "admin", name: "Sami Al-Rashid" },
-  "sales@venturesupply.sa": { password: "pakistan12345Q", role: "sales", name: "Omar Al-Shehri", salespersonId: "sp-001" },
-  "b2c@venturesupply.sa":   { password: "pakistan12345Q", role: "b2c",   name: "Ahmed Al-Qahtani",     customerId: "c-001" },
-  "b2b@venturesupply.sa":   { password: "pakistan12345Q", role: "b2b",   name: "Khalid Al-Harbi",      customerId: "c-005" },
-};
+const BCRYPT_ROUNDS = 10;
+
+function isBcryptHash(value: unknown): value is string {
+  return typeof value === "string" && /^\$2[aby]\$/.test(value);
+}
+
+async function verifyPassword(
+  sb: ReturnType<typeof getSupabase>,
+  staffId: string,
+  storedPassword: string,
+  submittedPassword: string,
+): Promise<boolean> {
+  if (isBcryptHash(storedPassword)) {
+    return bcrypt.compare(submittedPassword, storedPassword);
+  }
+  // Legacy plaintext row (e.g. created by an older demo seed). Accept once
+  // and silently upgrade to a bcrypt hash so subsequent logins are secure.
+  if (storedPassword !== submittedPassword) return false;
+  if (sb) {
+    try {
+      const upgraded = await bcrypt.hash(submittedPassword, BCRYPT_ROUNDS);
+      await sb.from("staff").update({ password: upgraded }).eq("id", staffId);
+    } catch {
+      // best-effort upgrade; do not fail the login on hash error
+    }
+  }
+  return true;
+}
 
 function customerToCamel(row: Record<string, unknown>) {
   return {
@@ -37,69 +61,55 @@ router.post("/auth/login", async (req, res) => {
   const lower = email.toLowerCase().trim();
   const sb = getSupabase();
 
-  if (sb) {
-    try {
-      const { data } = await sb
-        .from("staff")
-        .select("*")
-        .eq("email", lower)
-        .eq("password", password)
-        .single();
-
-      if (data) {
-        // For customer roles, look up their full customer record by email,
-        // falling back to the demo customerId mapping if email doesn't match.
-        if (data.role === "b2c" || data.role === "b2b") {
-          let cust: Record<string, unknown> | null = null;
-          const byEmail = await sb.from("customers").select("*").eq("email", lower).maybeSingle();
-          cust = (byEmail.data as Record<string, unknown> | null) ?? null;
-          if (!cust && HARDCODED[lower]?.customerId) {
-            const byId = await sb.from("customers").select("*").eq("id", HARDCODED[lower].customerId!).maybeSingle();
-            cust = (byId.data as Record<string, unknown> | null) ?? null;
-          }
-          return res.json({
-            ok: true,
-            role: data.role as string,
-            name: data.name as string,
-            customer: cust ? customerToCamel(cust) : null,
-          });
-        }
-        return res.json({
-          ok: true,
-          role: data.role as string,
-          name: data.name as string,
-          salespersonId: (data.salesperson_id as string | undefined) ?? undefined,
-        });
-      }
-    } catch {
-      // fall through to hardcoded
-    }
+  if (!sb) {
+    return res.status(503).json({ error: "Authentication service unavailable" });
   }
 
-  const hc = HARDCODED[lower];
-  if (hc && hc.password === password) {
-    // For B2C/B2B demo accounts, attempt to attach the matching customer record
-    if ((hc.role === "b2c" || hc.role === "b2b") && hc.customerId && sb) {
-      try {
-        const { data: cust } = await sb
-          .from("customers")
-          .select("*")
-          .eq("id", hc.customerId)
-          .single();
-        return res.json({
-          ok: true,
-          role: hc.role,
-          name: hc.name,
-          customer: cust ? customerToCamel(cust as Record<string, unknown>) : null,
-        });
-      } catch {
-        return res.json({ ok: true, role: hc.role, name: hc.name, customer: null });
-      }
-    }
-    return res.json({ ok: true, role: hc.role, name: hc.name, salespersonId: hc.salespersonId });
+  const { data: staff, error } = await sb
+    .from("staff")
+    .select("*")
+    .eq("email", lower)
+    .maybeSingle();
+
+  if (error || !staff) {
+    return res.status(401).json({ error: "Invalid credentials" });
   }
 
-  return res.status(401).json({ error: "Invalid credentials" });
+  const ok = await verifyPassword(
+    sb,
+    staff.id as string,
+    staff.password as string,
+    password,
+  );
+  if (!ok) {
+    return res.status(401).json({ error: "Invalid credentials" });
+  }
+
+  const role = staff.role as string;
+  const token = signSessionToken({ sub: staff.id as string, role, email: lower });
+
+  if (role === "b2c" || role === "b2b") {
+    const { data: cust } = await sb
+      .from("customers")
+      .select("*")
+      .eq("email", lower)
+      .single();
+    return res.json({
+      ok: true,
+      role,
+      name: staff.name as string,
+      token,
+      customer: cust ? customerToCamel(cust as Record<string, unknown>) : null,
+    });
+  }
+
+  return res.json({
+    ok: true,
+    role,
+    name: staff.name as string,
+    token,
+    salespersonId: (staff.salesperson_id as string | undefined) ?? undefined,
+  });
 });
 
 router.post("/auth/register", async (req, res) => {
@@ -110,6 +120,9 @@ router.post("/auth/register", async (req, res) => {
 
   if (!name || !email || !phone || !password) {
     return res.status(400).json({ error: "name, email, phone and password are required" });
+  }
+  if (password.length < 6) {
+    return res.status(400).json({ error: "Password must be at least 6 characters" });
   }
 
   const lower = email.toLowerCase().trim();
@@ -163,10 +176,11 @@ router.post("/auth/register", async (req, res) => {
     return res.status(400).json({ error: custErr?.message ?? "Could not create account" });
   }
 
-  // Store credentials in staff table
+  // Store hashed credentials in staff table
+  const passwordHash = await bcrypt.hash(password, BCRYPT_ROUNDS);
   const { error: staffErr } = await sb.from("staff").insert({
     email: lower,
-    password,
+    password: passwordHash,
     role: accountType,
     name,
   });
@@ -177,12 +191,77 @@ router.post("/auth/register", async (req, res) => {
     return res.status(400).json({ error: staffErr.message });
   }
 
+  const { data: createdStaff } = await sb
+    .from("staff").select("id").eq("email", lower).maybeSingle();
+  const token = createdStaff
+    ? signSessionToken({ sub: createdStaff.id as string, role: accountType, email: lower })
+    : undefined;
+
   return res.status(201).json({
     ok: true,
     role: accountType,
     name,
+    token,
     customer: customerToCamel(newCustomer as Record<string, unknown>),
   });
+});
+
+// ---------------------------------------------------------------------------
+// Initial admin bootstrap
+// ---------------------------------------------------------------------------
+// One-shot endpoint to create the first admin staff member. To use it, the
+// operator must:
+//   1. Set BOOTSTRAP_TOKEN to a strong, secret value in the deployment env
+//      (the endpoint returns 403 / "disabled" if it is unset).
+//   2. Send that exact token in the `X-Bootstrap-Token` header.
+//   3. Have zero existing admin rows (returns 409 once any admin exists, so
+//      this path cannot be used for privilege escalation later).
+// All three checks must pass — there is no public path to create an admin.
+router.post("/auth/bootstrap-admin", async (req, res) => {
+  const expectedToken = process.env["BOOTSTRAP_TOKEN"];
+  if (!expectedToken || expectedToken.length < 16) {
+    return res.status(403).json({
+      error: "Bootstrap is disabled. Set BOOTSTRAP_TOKEN (>=16 chars) in the server environment to enable it.",
+    });
+  }
+  const provided = req.headers["x-bootstrap-token"];
+  if (typeof provided !== "string" || provided.length !== expectedToken.length) {
+    return res.status(401).json({ error: "Invalid bootstrap token" });
+  }
+  // Constant-time comparison
+  const a = Buffer.from(provided);
+  const b = Buffer.from(expectedToken);
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) diff |= a[i]! ^ b[i]!;
+  if (diff !== 0) {
+    return res.status(401).json({ error: "Invalid bootstrap token" });
+  }
+
+  const { name, email, password } = req.body as { name?: string; email?: string; password?: string };
+  if (!name || !email || !password) {
+    return res.status(400).json({ error: "name, email and password are required" });
+  }
+  if (password.length < 8) {
+    return res.status(400).json({ error: "Password must be at least 8 characters" });
+  }
+
+  const sb = getSupabase();
+  if (!sb) return res.status(503).json({ error: "Service unavailable" });
+
+  const { data: existingAdmins, error: chkErr } = await sb
+    .from("staff").select("id").eq("role", "admin").limit(1);
+  if (chkErr) return res.status(500).json({ error: chkErr.message });
+  if (existingAdmins && existingAdmins.length > 0) {
+    return res.status(409).json({ error: "An admin already exists. Use the staff management UI." });
+  }
+
+  const lower = email.toLowerCase().trim();
+  const passwordHash = await bcrypt.hash(password, BCRYPT_ROUNDS);
+  const { error: insErr } = await sb.from("staff").insert({
+    email: lower, password: passwordHash, role: "admin", name,
+  });
+  if (insErr) return res.status(400).json({ error: insErr.message });
+  return res.status(201).json({ ok: true });
 });
 
 export default router;

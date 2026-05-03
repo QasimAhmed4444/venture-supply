@@ -1,11 +1,17 @@
 import { Router } from "express";
+import bcrypt from "bcryptjs";
 import { getSupabase } from "../lib/supabase.js";
 import { seedProducts, seedCategories, seedBrands, seedCustomers, seedSalespersons, seedOrders } from "../lib/seedData.js";
+import { requireAdmin } from "../middlewares/requireAuth.js";
 import { logger } from "../lib/logger.js";
 
 const router = Router();
 
-router.post("/admin/seed", async (_req, res) => {
+// /admin/seed re-creates demo catalog/orders/staff data. Restricted to
+// authenticated admins so a production endpoint can never be hit by an
+// unauthenticated caller (which previously could re-introduce well-known
+// demo credentials).
+router.post("/admin/seed", requireAdmin, async (_req, res) => {
   const sb = getSupabase();
   if (!sb) return res.status(503).json({ error: "Supabase not configured" });
 
@@ -58,13 +64,38 @@ router.post("/admin/seed", async (_req, res) => {
     .from("orders").upsert(orderRows, { onConflict: "id" }).select("id");
   results.orders = orderErr ? { error: orderErr.message } : { upserted: orderData?.length };
 
-  const staff = [
-    { id: "staff-admin-001", email: "admin@example.com", password: "Admin@12345", role: "admin", name: "Sami Al-Rashid", salesperson_id: null },
-    { id: "staff-sales-001", email: "sales@example.com", password: "Sales@12345", role: "sales", name: "Omar Al-Shehri", salesperson_id: "sp-001" },
-  ];
-  const { error: staffErr, data: staffData } = await sb
-    .from("staff").upsert(staff, { onConflict: "id" }).select("id");
-  results.staff = staffErr ? { error: staffErr.message } : { upserted: staffData?.length };
+  // Staff seeding requires explicit, operator-supplied passwords. There is
+  // no longer any in-code default — running /admin/seed without
+  // SEED_ADMIN_PASSWORD and SEED_SALES_PASSWORD will skip the staff rows
+  // entirely. Passwords are bcrypt-hashed before being written. To onboard
+  // the very first admin without seeding, use /api/auth/bootstrap-admin.
+  const envAdminPwd = process.env["SEED_ADMIN_PASSWORD"];
+  const envSalesPwd = process.env["SEED_SALES_PASSWORD"];
+
+  if (!envAdminPwd || !envSalesPwd) {
+    results.staff = {
+      error:
+        "Skipping staff seed: set SEED_ADMIN_PASSWORD and SEED_SALES_PASSWORD " +
+        "(strong, owner-controlled) before running /admin/seed, or onboard the " +
+        "first admin via /api/auth/bootstrap-admin and add the rest from the admin UI.",
+      skipped: true,
+    };
+  } else {
+    const adminEmail = (process.env["SEED_ADMIN_EMAIL"] ?? "admin@example.com").toLowerCase();
+    const salesEmail = (process.env["SEED_SALES_EMAIL"] ?? "sales@example.com").toLowerCase();
+
+    const [adminHash, salesHash] = await Promise.all([
+      bcrypt.hash(envAdminPwd, 10),
+      bcrypt.hash(envSalesPwd, 10),
+    ]);
+    const staff = [
+      { id: "staff-admin-001", email: adminEmail, password: adminHash, role: "admin", name: "Sami Al-Rashid", salesperson_id: null },
+      { id: "staff-sales-001", email: salesEmail, password: salesHash, role: "sales", name: "Omar Al-Shehri", salesperson_id: "sp-001" },
+    ];
+    const { error: staffErr, data: staffData } = await sb
+      .from("staff").upsert(staff, { onConflict: "id" }).select("id");
+    results.staff = staffErr ? { error: staffErr.message } : { upserted: staffData?.length };
+  }
 
   logger.info({ results }, "Seed completed");
   return res.json({ ok: true, results });

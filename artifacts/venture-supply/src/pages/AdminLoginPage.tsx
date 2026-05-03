@@ -9,7 +9,7 @@ import { Logo } from "@/components/Logo";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useRole, type UserRole } from "@/contexts/RoleContext";
 import { useToast } from "@/hooks/use-toast";
-import { apiFetch } from "@/lib/api";
+import { apiFetch, setSessionToken } from "@/lib/api";
 
 export function AdminLoginPage() {
   const { t } = useLanguage();
@@ -26,7 +26,7 @@ export function AdminLoginPage() {
     setIsLoading(true);
     try {
       const result = await apiFetch<{
-        ok: boolean; role: string; name: string; salespersonId?: string;
+        ok: boolean; role: string; name: string; salespersonId?: string; token?: string;
       }>("/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -41,6 +41,7 @@ export function AdminLoginPage() {
           });
           return;
         }
+        if (result.token) setSessionToken(result.token);
         setRole(result.role as UserRole);
         if (result.role === "admin") setLocation("/admin");
         else setLocation("/sales");

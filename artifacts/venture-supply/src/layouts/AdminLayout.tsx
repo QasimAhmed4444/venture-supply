@@ -4,7 +4,7 @@ import { Logo } from "@/components/Logo";
 import { ScrollToTop } from "@/components/ScrollToTop";
 import { Button } from "@/components/ui/button";
 import { NotificationBell } from "@/components/NotificationBell";
-import { LayoutDashboard, FolderTree, Boxes, Package, ShoppingBag, Users, Briefcase, Tag, Sparkles, BarChart3, Settings, LogOut, Building2 } from "lucide-react";
+import { LayoutDashboard, FolderTree, Boxes, Package, ShoppingBag, Users, Briefcase, Tag, Sparkles, BarChart3, Settings, LogOut, Building2, ShieldCheck } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useRole } from "@/contexts/RoleContext";
 
@@ -25,6 +25,7 @@ export function AdminLayout({ children }: { children: ReactNode }) {
     { href: "/admin/promotions", icon: Sparkles, label: t("admin.promotions") },
     { href: "/admin/brands", icon: Tag, label: t("admin.brands") },
     { href: "/admin/reports", icon: BarChart3, label: t("admin.reports") },
+    { href: "/admin/staff", icon: ShieldCheck, label: "Staff Access" },
     { href: "/admin/settings", icon: Settings, label: t("admin.settings") },
   ];
 

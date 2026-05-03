@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { DEMO_B2C, DEMO_B2B, type Customer } from "@/data/customers";
 import { DEMO_SALES, type Salesperson } from "@/data/salespersons";
+import { setSessionToken } from "@/lib/api";
 
 export type UserRole = "guest" | "b2c" | "b2b" | "admin" | "sales";
 
@@ -84,6 +85,7 @@ export function RoleProvider({ children }: { children: ReactNode }) {
   const logout = () => {
     setRoleState("guest");
     setCustomer(null);
+    setSessionToken(null);
     try { window.localStorage.removeItem(CUSTOMER_KEY); } catch {}
   };
 

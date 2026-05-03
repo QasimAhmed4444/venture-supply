@@ -152,9 +152,11 @@ create table if not exists public.coupons (
   created_at  timestamptz not null default now()
 );
 
--- WARNING: passwords are stored as plain text by the demo /api/auth/login
--- and /api/admin/seed paths. Before going live this column MUST be replaced
--- with a hash (bcrypt/argon2) or the auth flow migrated to Supabase Auth.
+-- Passwords are bcrypt-hashed by the API server at /api/auth/register,
+-- /api/auth/bootstrap-admin, /api/staff and /api/admin/seed. The login
+-- endpoint refuses to authenticate without a matching staff row — there is
+-- no in-code fallback. Legacy plaintext rows from the original demo seed
+-- are silently re-hashed on next successful login.
 create table if not exists public.staff (
   id              text primary key default ('staff-' || replace(gen_random_uuid()::text, '-', '')),
   email           text not null unique,

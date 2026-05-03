@@ -12,6 +12,7 @@ import realtimeRouter from "./realtime.js";
 import couponsRouter from "./coupons.js";
 import salespersonsRouter from "./salespersons.js";
 import businessTypesRouter from "./business-types.js";
+import staffRouter from "./staff.js";
 
 const router: IRouter = Router();
 
@@ -28,5 +29,6 @@ router.use(realtimeRouter);
 router.use(couponsRouter);
 router.use(salespersonsRouter);
 router.use(businessTypesRouter);
+router.use(staffRouter);
 
 export default router;

@@ -11,7 +11,7 @@ import { Logo } from "@/components/Logo";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useRole, type UserRole } from "@/contexts/RoleContext";
 import { useToast } from "@/hooks/use-toast";
-import { apiFetch } from "@/lib/api";
+import { apiFetch, setSessionToken } from "@/lib/api";
 import type { Customer } from "@/data/customers";
 
 interface Props { mode?: "login" | "register"; }
@@ -48,7 +48,7 @@ export function AuthPage({ mode = "login" }: Props) {
     setIsLoading(true);
     try {
       const result = await apiFetch<{
-        ok: boolean; role: string; name: string;
+        ok: boolean; role: string; name: string; token?: string;
         salespersonId?: string; customer?: Customer | null;
       }>("/auth/login", {
         method: "POST",
@@ -56,6 +56,7 @@ export function AuthPage({ mode = "login" }: Props) {
         body: JSON.stringify({ email: loginEmail, password: loginPassword }),
       });
       if (result.ok) {
+        if (result.token) setSessionToken(result.token);
         if (result.customer) {
           setRoleWithCustomer(result.role as UserRole, result.customer);
         } else {
@@ -77,7 +78,7 @@ export function AuthPage({ mode = "login" }: Props) {
     setIsLoading(true);
     try {
       const result = await apiFetch<{
-        ok: boolean; role: string; name: string; customer: Customer;
+        ok: boolean; role: string; name: string; token?: string; customer: Customer;
       }>("/auth/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -93,6 +94,7 @@ export function AuthPage({ mode = "login" }: Props) {
         }),
       });
       if (result.ok) {
+        if (result.token) setSessionToken(result.token);
         setRoleWithCustomer(result.role as UserRole, result.customer);
         setLocation("/account");
         toast({ title: t("auth.welcome_back"), description: result.name });
