@@ -3,39 +3,39 @@ import { logger } from "./logger.js";
 
 let _client: SupabaseClient | null = null;
 
-function isJwt(value: string | undefined): value is string {
-  return typeof value === "string" && value.startsWith("eyJ");
-}
-
 export function getSupabase(): SupabaseClient | null {
   if (_client) return _client;
+
   const url = process.env["SUPABASE_URL"];
-  // SUPABASE_SERVICE_ROLE_KEY_LOCAL is set via .env and won't be overridden
-  // by a Replit secret. SUPABASE_SERVICE_ROLE_KEY is the production secret.
-  // We validate both are actual JWTs before trusting them; fall back to the
-  // anon key if neither is a valid JWT.
-  const localKey = process.env["SUPABASE_SERVICE_ROLE_KEY_LOCAL"];
-  const secretKey = process.env["SUPABASE_SERVICE_ROLE_KEY"];
-  const serviceKey = isJwt(localKey) ? localKey : isJwt(secretKey) ? secretKey : undefined;
-  const anonKey = process.env["SUPABASE_ANON_KEY"];
-  const key = serviceKey ?? anonKey;
+  const key = process.env["SUPABASE_SERVICE_ROLE_KEY"];
+
   if (!url || !key) {
-    logger.warn(
-      "SUPABASE_URL and a Supabase key (SUPABASE_SERVICE_ROLE_KEY preferred, SUPABASE_ANON_KEY fallback) are required — using mock data fallback",
+    logger.error(
+      "SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must both be set — server cannot start without them",
     );
     return null;
   }
+
+  if (!key.startsWith("eyJ")) {
+    logger.error(
+      { keyPrefix: key.slice(0, 8) },
+      "SUPABASE_SERVICE_ROLE_KEY does not look like a JWT — it may be a PAT token (sbp_...) or an anon key. " +
+        "Open Replit Secrets and paste the service_role JWT from Supabase → Project Settings → API.",
+    );
+    return null;
+  }
+
   try {
     _client = createClient(url, key, {
       auth: { persistSession: false, autoRefreshToken: false },
     });
     logger.info(
-      { url, keyType: serviceKey ? "service_role" : "anon" },
+      { url, keyType: "service_role" },
       "Supabase client initialised",
     );
     return _client;
   } catch (err) {
-    logger.error({ err }, "Failed to create Supabase client — falling back to mock data");
+    logger.error({ err }, "Failed to create Supabase client");
     return null;
   }
 }
