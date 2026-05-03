@@ -65,7 +65,6 @@ channel = "stable-25_05"
 [userenv]
 
 [userenv.shared]
-BOOTSTRAP_TOKEN = "VS-Boot-2026-xK9mP!"
 SEED_ADMIN_EMAIL = "admin@venturesupply.sa"
 SEED_ADMIN_PASSWORD = "TestAdmin@2024!"
 SEED_SALES_EMAIL = "sales@venturesupply.sa"

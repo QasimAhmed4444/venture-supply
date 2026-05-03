@@ -50,6 +50,15 @@ The server uses ONE secret: `SUPABASE_SERVICE_ROLE_KEY` (Replit Secret).
 - The anon key is in `SUPABASE_ANON_KEY` (frontend/public use only — never use it as the server key).
 - To find the service_role key: Supabase dashboard → Project Settings → Data API → "Project API keys" → **service_role row** (bottom one, hidden by default — click the eye icon to reveal).
 
+### Database Changes — HOW TO APPLY
+**The agent cannot connect directly to the Supabase DB from the Replit workspace (IPv6 blocked).**
+Rule: agent computes the SQL (including any bcrypt hashes needed) and gives it to the user to paste into the [Supabase SQL Editor](https://supabase.com/dashboard/project/vmesyvbuygukqosjmssv/sql/new). Never attempt psql or programmatic connections.
+
+### Admin Account
+- **Email:** `admin@venturesupply.sa`
+- **Password:** stored as bcrypt hash in `staff` table, role = `admin`
+- To reset: generate bcrypt hash via `node -e "require('./artifacts/api-server/node_modules/bcryptjs').hash('newpwd',10).then(console.log)"`, then run `UPDATE public.staff SET password='<hash>', email='<email>' WHERE role='admin';` in Supabase SQL Editor.
+
 ### Row-Level Security (Supabase)
 - RLS is **enabled** on: `staff`, `orders`, `customers`, `coupons`, `salespersons`
 - Anon key access is **denied** on all these tables via `deny_anon_*` policies
