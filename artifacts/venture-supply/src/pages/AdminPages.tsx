@@ -29,6 +29,7 @@ import { useCustomers } from "@/hooks/useCustomers";
 import { useOrders, useUpdateOrderStatus } from "@/hooks/useOrders";
 import { useDashboard } from "@/hooks/useDashboard";
 import { useSalespersons, useCreateSalesperson, useUpdateSalesperson, useDeleteSalesperson, type Salesperson } from "@/hooks/useSalespersons";
+import { useRegions, type Region } from "@/hooks/useRegions";
 import { useCreateStaff } from "@/hooks/useStaff";
 import { apiFetch } from "@/lib/api";
 import { useBusinessTypes, useCreateBusinessType, useUpdateBusinessType, useDeleteBusinessType, type BusinessType } from "@/hooks/useBusinessTypes";
@@ -40,6 +41,8 @@ import {
 } from "@/hooks/useMutations";
 import { useCoupons, useCreateCoupon, useUpdateCoupon, useDeleteCoupon, type Coupon } from "@/hooks/useCoupons";
 import { ORDER_STATUSES, type Order, type OrderStatus } from "@/data/orders";
+import { type Category } from "@/data/categories";
+import { type Customer } from "@/data/customers";
 import { StatusBadge } from "@/components/StatusBadge";
 import { PriceTag } from "@/components/PriceTag";
 
@@ -1410,13 +1413,76 @@ export function AdminCustomersPage() {
 
 // ─── Salespersons ──────────────────────────────────────────────────────────────
 
-const BLANK_SP = { name: "", email: "", phone: "", region: "", monthlyTarget: "80000", monthlyNewCustomerTarget: "5", monthlyOrderTarget: "20", status: "active" as "active" | "inactive", joinedDate: "", password: "", categoriesServed: [] as string[] };
+const BLANK_SP = { name: "", email: "", phone: "", region: "", monthlyTarget: "80000", monthlyNewCustomerTarget: "5", monthlyOrderTarget: "20", status: "active" as "active" | "inactive", joinedDate: "", password: "", categoriesServed: [] as string[], assignedCustomerIds: [] as string[] };
 
-function SPForm({ data, setData, businessTypes }: {
+function CustomerMultiSelect({ selected, onChange, customers }: {
+  selected: string[];
+  onChange: (ids: string[]) => void;
+  customers: Customer[];
+}) {
+  const [search, setSearch] = useState("");
+  const [open, setOpen] = useState(false);
+  const filtered = customers.filter((c) => {
+    const q = search.toLowerCase();
+    return !q || c.name.toLowerCase().includes(q) || (c.business?.name ?? "").toLowerCase().includes(q) || c.city.toLowerCase().includes(q);
+  });
+  const selectedCustomers = customers.filter((c) => selected.includes(c.id));
+  return (
+    <div>
+      {selectedCustomers.length > 0 && (
+        <div className="flex flex-wrap gap-1.5 mb-2">
+          {selectedCustomers.map((c) => (
+            <span key={c.id} className="flex items-center gap-1 px-2 py-0.5 bg-primary/10 text-primary rounded-full text-xs border border-primary/20">
+              {c.business?.name || c.name}
+              <button type="button" onClick={() => onChange(selected.filter((id) => id !== c.id))} className="hover:text-rose-600 leading-none"><X className="w-3 h-3" /></button>
+            </span>
+          ))}
+        </div>
+      )}
+      <div className="relative">
+        <Search className="absolute left-2.5 top-2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
+        <Input
+          className="pl-8 h-8 text-sm"
+          placeholder="Search B2B customers…"
+          value={search}
+          onChange={(e) => { setSearch(e.target.value); setOpen(true); }}
+          onFocus={() => setOpen(true)}
+          onBlur={() => setTimeout(() => setOpen(false), 150)}
+        />
+      </div>
+      {open && filtered.length > 0 && (
+        <div className="mt-1 border rounded-md bg-popover shadow-md max-h-40 overflow-y-auto">
+          {filtered.map((c) => {
+            const checked = selected.includes(c.id);
+            return (
+              <button key={c.id} type="button"
+                className={`w-full text-left px-3 py-1.5 text-sm hover:bg-muted flex items-center gap-2 ${checked ? "bg-primary/5" : ""}`}
+                onMouseDown={(e) => { e.preventDefault(); onChange(checked ? selected.filter((id) => id !== c.id) : [...selected, c.id]); }}
+              >
+                <div className={`w-3.5 h-3.5 rounded border flex-shrink-0 flex items-center justify-center ${checked ? "bg-primary border-primary" : "border-border"}`}>
+                  {checked && <CheckCircle2 className="w-2.5 h-2.5 text-primary-foreground" />}
+                </div>
+                <div className="min-w-0">
+                  <p className="font-medium text-xs truncate">{c.business?.name || c.name}</p>
+                  <p className="text-xs text-muted-foreground truncate">{c.name} · {c.city}</p>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function SPForm({ data, setData, categories, regions, b2bCustomers }: {
   data: typeof BLANK_SP;
   setData: (fn: (p: typeof BLANK_SP) => typeof BLANK_SP) => void;
-  businessTypes: BusinessType[];
+  categories: Category[];
+  regions: Region[];
+  b2bCustomers: Customer[];
 }) {
+  const { t } = useLanguage();
   return (
     <div className="space-y-3">
       <div className="grid grid-cols-2 gap-3">
@@ -1425,7 +1491,17 @@ function SPForm({ data, setData, businessTypes }: {
       </div>
       <div className="grid grid-cols-2 gap-3">
         <div><Label>Phone</Label><Input value={data.phone} onChange={(e) => setData((p) => ({ ...p, phone: e.target.value }))} /></div>
-        <div><Label>Region</Label><Input value={data.region} onChange={(e) => setData((p) => ({ ...p, region: e.target.value }))} /></div>
+        <div>
+          <Label>Region</Label>
+          <select
+            className="w-full h-9 px-3 border rounded-md bg-background text-sm"
+            value={data.region}
+            onChange={(e) => setData((p) => ({ ...p, region: e.target.value }))}
+          >
+            <option value="">— Select region —</option>
+            {regions.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
+          </select>
+        </div>
       </div>
       <div><Label>Password <span className="text-muted-foreground text-xs">(login account)</span></Label><Input type="password" value={data.password} onChange={(e) => setData((p) => ({ ...p, password: e.target.value }))} placeholder="Min. 8 characters" autoComplete="new-password" /></div>
       <div className="grid grid-cols-3 gap-3">
@@ -1442,17 +1518,27 @@ function SPForm({ data, setData, businessTypes }: {
         </div>
         <div><Label>Joined Date</Label><Input type="date" value={data.joinedDate} onChange={(e) => setData((p) => ({ ...p, joinedDate: e.target.value }))} /></div>
       </div>
-      {businessTypes.length > 0 && (
+      <div>
+        <Label>Assigned B2B Customers</Label>
+        <div className="mt-1.5">
+          <CustomerMultiSelect
+            selected={data.assignedCustomerIds}
+            onChange={(ids) => setData((p) => ({ ...p, assignedCustomerIds: ids }))}
+            customers={b2bCustomers}
+          />
+        </div>
+      </div>
+      {categories.length > 0 && (
         <div>
           <Label>Business Categories Served</Label>
           <div className="mt-1.5 flex flex-wrap gap-2">
-            {businessTypes.map((bt) => {
-              const checked = data.categoriesServed.includes(bt.id);
+            {categories.map((cat) => {
+              const checked = data.categoriesServed.includes(cat.id);
               return (
-                <button key={bt.id} type="button"
-                  onClick={() => setData((p) => ({ ...p, categoriesServed: checked ? p.categoriesServed.filter((id) => id !== bt.id) : [...p.categoriesServed, bt.id] }))}
+                <button key={cat.id} type="button"
+                  onClick={() => setData((p) => ({ ...p, categoriesServed: checked ? p.categoriesServed.filter((id) => id !== cat.id) : [...p.categoriesServed, cat.id] }))}
                   className={`px-3 py-1 rounded-full text-xs border transition-colors ${checked ? "bg-primary text-primary-foreground border-primary" : "bg-muted border-border text-muted-foreground hover:border-primary/40"}`}
-                >{bt.name}</button>
+                >{t(`category.${cat.id}`)}</button>
               );
             })}
           </div>
@@ -1466,7 +1552,9 @@ export function AdminSalespersonsPage() {
   const { t } = useLanguage();
   const { toast } = useToast();
   const { data: salespersons = [], isLoading } = useSalespersons();
-  const { data: businessTypes = [] } = useBusinessTypes();
+  const { data: regions = [] } = useRegions();
+  const { data: categories = [] } = useCategories();
+  const { data: b2bCustomers = [] } = useCustomers("b2b");
   const createSP = useCreateSalesperson();
   const updateSP = useUpdateSalesperson();
   const deleteSP = useDeleteSalesperson();
@@ -1479,7 +1567,7 @@ export function AdminSalespersonsPage() {
 
   const openEdit = (s: Salesperson) => {
     setEditSP(s);
-    setEditData({ name: s.name, email: s.email, phone: s.phone ?? "", region: s.region ?? "", monthlyTarget: String(s.monthlyTarget), monthlyNewCustomerTarget: String((s as any).monthlyNewCustomerTarget ?? 5), monthlyOrderTarget: String((s as any).monthlyOrderTarget ?? 20), status: s.status, joinedDate: s.joinedDate ? s.joinedDate.slice(0, 10) : "", password: "", categoriesServed: (s as any).categoriesServed ?? [] });
+    setEditData({ name: s.name, email: s.email, phone: s.phone ?? "", region: s.region ?? "", monthlyTarget: String(s.monthlyTarget), monthlyNewCustomerTarget: String((s as any).monthlyNewCustomerTarget ?? 5), monthlyOrderTarget: String((s as any).monthlyOrderTarget ?? 20), status: s.status, joinedDate: s.joinedDate ? s.joinedDate.slice(0, 10) : "", password: "", categoriesServed: (s as any).categoriesServed ?? [], assignedCustomerIds: (s as any).assignedCustomerIds ?? [] });
   };
 
   const toPayload = (d: typeof BLANK_SP) => ({
@@ -1490,6 +1578,7 @@ export function AdminSalespersonsPage() {
     status: d.status,
     joinedDate: d.joinedDate || undefined,
     categoriesServed: d.categoriesServed,
+    assignedCustomerIds: d.assignedCustomerIds,
   });
 
   return (
@@ -1502,7 +1591,7 @@ export function AdminSalespersonsPage() {
           </DialogTrigger>
           <DialogContent className="max-w-lg">
             <DialogHeader><DialogTitle>Add Salesperson</DialogTitle></DialogHeader>
-            <SPForm data={newSP} setData={setNewSP} businessTypes={businessTypes} />
+            <SPForm data={newSP} setData={setNewSP} categories={categories} regions={regions} b2bCustomers={b2bCustomers} />
             <DialogFooter>
               <Button variant="outline" onClick={() => setAddOpen(false)}>Cancel</Button>
               <Button onClick={() => {
@@ -1595,7 +1684,7 @@ export function AdminSalespersonsPage() {
       <Dialog open={!!editSP} onOpenChange={() => setEditSP(null)}>
         <DialogContent className="max-w-lg">
           <DialogHeader><DialogTitle>Edit Salesperson</DialogTitle></DialogHeader>
-          <SPForm data={editData} setData={setEditData} businessTypes={businessTypes} />
+          <SPForm data={editData} setData={setEditData} categories={categories} regions={regions} b2bCustomers={b2bCustomers} />
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditSP(null)}>Cancel</Button>
             <Button onClick={() => {

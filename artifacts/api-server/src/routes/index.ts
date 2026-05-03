@@ -13,6 +13,7 @@ import couponsRouter from "./coupons.js";
 import salespersonsRouter from "./salespersons.js";
 import businessTypesRouter from "./business-types.js";
 import staffRouter from "./staff.js";
+import regionsRouter from "./regions.js";
 
 const router: IRouter = Router();
 
@@ -30,5 +31,6 @@ router.use(couponsRouter);
 router.use(salespersonsRouter);
 router.use(businessTypesRouter);
 router.use(staffRouter);
+router.use(regionsRouter);
 
 export default router;

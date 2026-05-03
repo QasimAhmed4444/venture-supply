@@ -21,6 +21,7 @@ function toCamel(row: Record<string, unknown>) {
     joinedDate: row.joined_date,
     createdAt: row.created_at,
     categoriesServed: Array.isArray(row.categories_served) ? row.categories_served : [],
+    assignedCustomerIds: Array.isArray(row.assigned_customer_ids) ? row.assigned_customer_ids : [],
   };
 }
 
@@ -40,6 +41,7 @@ function toSnake(body: Record<string, unknown>) {
     status: body.status,
     joined_date: body.joinedDate,
     categories_served: Array.isArray(body.categoriesServed) ? body.categoriesServed : undefined,
+    assigned_customer_ids: Array.isArray(body.assignedCustomerIds) ? body.assignedCustomerIds : undefined,
   };
 }
 
