@@ -8,7 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
-import { Truck, MapPin, CreditCard, Building2, Banknote, Wallet, Loader2, Tag, X } from "lucide-react";
+import { Truck, MapPin, CreditCard, Building2, Banknote, Wallet, Loader2, Tag, X, ShieldCheck, Lock } from "lucide-react";
 import { useCart } from "@/contexts/CartContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useRole } from "@/contexts/RoleContext";
@@ -411,6 +411,21 @@ export function CheckoutPage() {
                 </>
               ) : t("checkout.place_order")}
             </Button>
+
+            <div className="grid grid-cols-3 gap-2 pt-2 text-[11px] text-muted-foreground">
+              <div className="flex flex-col items-center gap-1 text-center">
+                <Lock className="w-4 h-4 text-secondary" />
+                <span>{language === "ar" ? "دفع آمن" : "Secure payment"}</span>
+              </div>
+              <div className="flex flex-col items-center gap-1 text-center">
+                <ShieldCheck className="w-4 h-4 text-secondary" />
+                <span>{language === "ar" ? "ضمان الجودة" : "Quality guaranteed"}</span>
+              </div>
+              <div className="flex flex-col items-center gap-1 text-center">
+                <Truck className="w-4 h-4 text-secondary" />
+                <span>{language === "ar" ? "توصيل موثوق" : "Reliable delivery"}</span>
+              </div>
+            </div>
           </CardContent>
         </Card>
       </div>

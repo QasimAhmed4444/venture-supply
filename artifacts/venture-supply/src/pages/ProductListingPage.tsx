@@ -29,6 +29,8 @@ export function ProductListingPage({ scope = "all" }: Props) {
   const searchParams = new URLSearchParams(queryString);
   const q = searchParams.get("q")?.toLowerCase() ?? "";
   const initialBrand = searchParams.get("brand") ?? (scope === "brand" ? params.slug : undefined);
+  const tag = searchParams.get("tag") ?? "";
+  const initialSort = searchParams.get("sort") ?? "relevance";
 
   const urlCategoryId = scope === "category" ? params.slug : undefined;
 
@@ -36,7 +38,7 @@ export function ProductListingPage({ scope = "all" }: Props) {
   const [selectedBrands, setSelectedBrands] = useState<string[]>(initialBrand ? [initialBrand] : []);
   const [selectedAvailability, setSelectedAvailability] = useState<string[]>([]);
   const [priceRange, setPriceRange] = useState<[number, number]>([0, 600]);
-  const [sortBy, setSortBy] = useState("relevance");
+  const [sortBy, setSortBy] = useState(initialSort);
 
   const { data: products = [] } = useProducts();
   const { data: categories = [] } = useCategories();
@@ -53,13 +55,21 @@ export function ProductListingPage({ scope = "all" }: Props) {
     if (q) list = list.filter((p) => p.enName.toLowerCase().includes(q) || p.arName.includes(q));
     if (selectedBrands.length) list = list.filter((p) => selectedBrands.includes(p.brandId));
     if (selectedAvailability.length) list = list.filter((p) => selectedAvailability.includes(p.stockStatus));
+    if (tag === "value-pack") {
+      // Value packs = products that ship in multiple pack sizes (bulk options)
+      list = list.filter((p) => p.packs.length > 1);
+    } else if (tag === "flash-deal") {
+      // Flash deals = featured products (curated promotions)
+      list = list.filter((p) => p.featured);
+    }
     const priceKey = isB2B ? "b2bPrice" : "b2cPrice";
     list = list.filter((p) => p[priceKey] >= priceRange[0] && p[priceKey] <= priceRange[1]);
     if (sortBy === "rating") list = [...list].sort((a, b) => b.rating - a.rating);
     if (sortBy === "price-asc") list = [...list].sort((a, b) => a[priceKey] - b[priceKey]);
     if (sortBy === "price-desc") list = [...list].sort((a, b) => b[priceKey] - a[priceKey]);
+    if (sortBy === "new") list = [...list].reverse();
     return list;
-  }, [products, activeCategory, activeCat, q, selectedBrands, selectedAvailability, priceRange, sortBy, isB2B]);
+  }, [products, activeCategory, activeCat, q, selectedBrands, selectedAvailability, priceRange, sortBy, tag, isB2B]);
 
   const toggleBrand = (val: string) => {
     setSelectedBrands((prev) => prev.includes(val) ? prev.filter((v) => v !== val) : [...prev, val]);
@@ -69,12 +79,21 @@ export function ProductListingPage({ scope = "all" }: Props) {
   };
 
   const Chev = isRTL ? ChevronLeft : ChevronRight;
+  const tagHeadings: Record<string, { en: string; ar: string }> = {
+    "value-pack": { en: "Value Packs", ar: "عروض الكميات" },
+    "flash-deal": { en: "Flash Deals", ar: "عروض سريعة" },
+  };
+  const tagHeading = tag && tagHeadings[tag] ? (language === "ar" ? tagHeadings[tag].ar : tagHeadings[tag].en) : "";
   const heading = activeCat
     ? t(`category.${activeCat.id}`)
     : activeBrand
     ? activeBrand.name
     : q
     ? `"${q}"`
+    : tagHeading
+    ? tagHeading
+    : sortBy === "new"
+    ? (language === "ar" ? "وصل حديثاً" : "New Arrivals")
     : t("listing.all_products");
 
   return (
@@ -98,6 +117,7 @@ export function ProductListingPage({ scope = "all" }: Props) {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="relevance">{t("listing.sort.relevance")}</SelectItem>
+              <SelectItem value="new">{language === "ar" ? "الأحدث" : "Newest"}</SelectItem>
               <SelectItem value="rating">{t("listing.sort.rating")}</SelectItem>
               <SelectItem value="price-asc">{t("listing.sort.price_asc")}</SelectItem>
               <SelectItem value="price-desc">{t("listing.sort.price_desc")}</SelectItem>

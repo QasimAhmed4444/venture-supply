@@ -52,7 +52,7 @@ const dealBlocks = [
     bg: "from-[#7B2936] to-[#5a1e27]",
     accent: "#FCD34D",
     image: "https://images.unsplash.com/photo-1586201375761-83865001e31c?w=600&q=75",
-    href: "/products?sort=price-asc",
+    href: "/products?tag=value-pack",
   },
   {
     enLabel: "NEW ARRIVALS",
@@ -62,7 +62,7 @@ const dealBlocks = [
     bg: "from-[#085890] to-[#053d68]",
     accent: "#18B8E0",
     image: "https://images.unsplash.com/photo-1604908176997-125f25cc6f3d?w=600&q=75",
-    href: "/products",
+    href: "/products?sort=new",
   },
   {
     enLabel: "FLASH DEALS",
@@ -72,7 +72,7 @@ const dealBlocks = [
     bg: "from-[#C85000] to-[#963c00]",
     accent: "#FCD34D",
     image: "https://images.unsplash.com/photo-1567306226416-28f0efdc88ce?w=600&q=75",
-    href: "/offers",
+    href: "/products?tag=flash-deal",
   },
   {
     enLabel: "B2B EXCLUSIVE",
@@ -208,49 +208,6 @@ export function HomePage() {
         </div>
       </section>
 
-      {/* ── DEAL BLOCKS (large promo banners) ────────────────────── */}
-      <section className="max-w-7xl mx-auto px-4 mt-8">
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-5">
-          {dealBlocks.map((block) => (
-            <Link key={block.enLabel} href={block.href}>
-              <div
-                className="relative rounded-2xl overflow-hidden cursor-pointer group shadow-md hover:shadow-xl transition-shadow"
-                style={{ height: 240 }}
-              >
-                {/* BG image */}
-                <img
-                  src={block.image}
-                  alt=""
-                  className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                />
-                {/* Color overlay gradient */}
-                <div className={`absolute inset-0 bg-gradient-to-br ${block.bg} opacity-80`} />
-
-                {/* Text content */}
-                <div className="relative h-full flex flex-col justify-between p-6 md:p-7">
-                  <p
-                    className="text-sm font-bold uppercase tracking-widest"
-                    style={{ color: block.accent }}
-                  >
-                    {isRTL ? block.arSub : block.enSub}
-                  </p>
-                  <div className="space-y-3">
-                    <h3 className="text-white font-extrabold text-3xl md:text-4xl leading-tight">
-                      {isRTL ? block.arLabel : block.enLabel}
-                    </h3>
-                    <span
-                      className="inline-flex items-center gap-2 text-sm font-bold px-4 py-2 rounded-full bg-white/15 backdrop-blur-sm border border-white/20 text-white group-hover:bg-white/25 transition-colors"
-                    >
-                      {isRTL ? "تسوق الآن" : "SHOP NOW"} {Chevron}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </Link>
-          ))}
-        </div>
-      </section>
-
       {/* ── CATEGORIES ───────────────────────────────────────────── */}
       <section className="max-w-7xl mx-auto px-4 mt-12">
         <div className="flex items-end justify-between mb-5">
@@ -336,6 +293,55 @@ export function HomePage() {
             <div key={p.id} className="flex-shrink-0 snap-start" style={{ width: 230 }}>
               <ProductCard product={p} />
             </div>
+          ))}
+        </div>
+      </section>
+
+      {/* ── DEAL BLOCKS (Offers) ─────────────────────────────────── */}
+      <section className="max-w-7xl mx-auto px-4 mt-14">
+        <div className="flex items-end justify-between mb-5">
+          <div>
+            <h2 className="text-2xl md:text-3xl font-bold tracking-tight text-primary">
+              {isRTL ? "العروض" : "Offers"}
+            </h2>
+            <p className="text-sm text-muted-foreground mt-1">
+              {isRTL ? "أفضل الصفقات والعروض الحصرية" : "The best deals and exclusive offers"}
+            </p>
+          </div>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-5">
+          {dealBlocks.map((block) => (
+            <Link key={block.enLabel} href={block.href}>
+              <div
+                className="relative rounded-2xl overflow-hidden cursor-pointer group shadow-md hover:shadow-xl transition-shadow"
+                style={{ height: 240 }}
+              >
+                <img
+                  src={block.image}
+                  alt=""
+                  className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                />
+                <div className={`absolute inset-0 bg-gradient-to-br ${block.bg} opacity-80`} />
+                <div className="relative h-full flex flex-col justify-between p-6 md:p-7">
+                  <p
+                    className="text-sm font-bold uppercase tracking-widest"
+                    style={{ color: block.accent }}
+                  >
+                    {isRTL ? block.arSub : block.enSub}
+                  </p>
+                  <div className="space-y-3">
+                    <h3 className="text-white font-extrabold text-3xl md:text-4xl leading-tight">
+                      {isRTL ? block.arLabel : block.enLabel}
+                    </h3>
+                    <span
+                      className="inline-flex items-center gap-2 text-sm font-bold px-4 py-2 rounded-full bg-white/15 backdrop-blur-sm border border-white/20 text-white group-hover:bg-white/25 transition-colors"
+                    >
+                      {isRTL ? "تسوق الآن" : "SHOP NOW"} {Chevron}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </Link>
           ))}
         </div>
       </section>

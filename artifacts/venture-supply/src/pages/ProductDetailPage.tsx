@@ -55,6 +55,13 @@ export function ProductDetailPage() {
   const category = categories.find((c) => c.id === product.categoryId);
 
   const related = allProducts.filter((p) => p.categoryId === product.categoryId && p.id !== product.id).slice(0, 4);
+  const relatedIds = new Set([product.id, ...related.map((p) => p.id)]);
+  const youMayAlsoLike = [
+    ...allProducts.filter((p) => p.brandId === product.brandId && !relatedIds.has(p.id)),
+    ...allProducts.filter((p) => p.featured && !relatedIds.has(p.id)),
+  ]
+    .filter((p, i, arr) => arr.findIndex((x) => x.id === p.id) === i)
+    .slice(0, 4);
   const recentlyViewed = recentIds
     .filter((id) => id !== product.id)
     .map((id) => allProducts.find((p) => p.id === id))
@@ -209,6 +216,17 @@ export function ProductDetailPage() {
           <h2 className="text-2xl font-bold mb-4">{t("product.related")}</h2>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {related.map((p) => <ProductCard key={p.id} product={p} />)}
+          </div>
+        </section>
+      )}
+
+      {youMayAlsoLike.length > 0 && (
+        <section className="mt-12">
+          <h2 className="text-2xl font-bold mb-4">
+            {language === "ar" ? "قد يعجبك أيضاً" : "You may also like"}
+          </h2>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {youMayAlsoLike.map((p) => <ProductCard key={p.id} product={p} />)}
           </div>
         </section>
       )}

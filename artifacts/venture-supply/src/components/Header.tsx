@@ -46,6 +46,13 @@ export function Header() {
     if (search.trim()) setLocation(`/products?q=${encodeURIComponent(search.trim())}`);
   };
 
+  const rememberReturnTo = () => {
+    if (typeof window === "undefined") return;
+    const here = window.location.pathname + window.location.search;
+    if (here.startsWith("/login") || here.startsWith("/register")) return;
+    try { sessionStorage.setItem("vs.returnTo", here); } catch {}
+  };
+
   const navItems = [
     { href: "/", label: t("nav.home") },
     { href: "/products", label: t("nav.products") },
@@ -178,20 +185,20 @@ export function Header() {
               <DropdownMenuContent align={isRTL ? "start" : "end"} className="w-56">
                 <DropdownMenuLabel>{isRTL ? "تسجيل الدخول" : "Sign in as"}</DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                <Link href="/login?as=b2c">
+                <Link href="/login?as=b2c" onClick={rememberReturnTo}>
                   <DropdownMenuItem data-testid="login-as-b2c">
                     <User className="w-4 h-4 me-2" />
                     {isRTL ? "عميل أفراد (B2C)" : "Personal Customer (B2C)"}
                   </DropdownMenuItem>
                 </Link>
-                <Link href="/login?as=b2b">
+                <Link href="/login?as=b2b" onClick={rememberReturnTo}>
                   <DropdownMenuItem data-testid="login-as-b2b">
                     <Building2 className="w-4 h-4 me-2" />
                     {isRTL ? "حساب أعمال (B2B)" : "Business Account (B2B)"}
                   </DropdownMenuItem>
                 </Link>
                 <DropdownMenuSeparator />
-                <Link href="/register">
+                <Link href="/register" onClick={rememberReturnTo}>
                   <DropdownMenuItem data-testid="link-register">
                     {isRTL ? "إنشاء حساب جديد" : "Create new account"}
                   </DropdownMenuItem>

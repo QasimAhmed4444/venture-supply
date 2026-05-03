@@ -1,0 +1,200 @@
+You are working on my production-grade B2B/B2C marketplace with Supabase already integrated.
+
+🚨 THIS IS PHASE 1 — B2C UX + CRITICAL FLOW FIXES
+
+---
+
+⚠️ STRICT EXECUTION RULES
+
+* Execute ONLY Phase 1 (B2C)
+* DO NOT start B2B, Salesperson, or Admin logic
+* DO NOT redesign everything — improve existing UI/UX
+* DO NOT break Supabase integration
+* Follow screenshot sequence already provided
+
+---
+
+📌 CURRENT UX FINDINGS (YOU MUST FIX THESE)
+
+1. ❌ LOGIN FLOW IS WRONG
+
+* After login → user lands on dashboard
+* This breaks ecommerce expectation
+
+✅ FIX:
+
+* Redirect to:
+
+  * Previous page OR
+  * Homepage (fallback)
+* Use route memory (localStorage/router state)
+
+---
+
+2. ❌ NAVIGATION CONFUSION (BANNERS / VALUE PACKS)
+   (Screenshot 10 → 11)
+
+* Clicking banners leads to unclear or wrong pages
+* No clear category/product mapping
+
+✅ FIX:
+
+* Map banners correctly:
+  Value Packs → /products?tag=value-pack
+  Flash Deals → /products?tag=flash-deal
+  New Arrivals → /products?sort=new
+* Ensure filtered results load properly
+
+---
+
+3. ❌ NAVBAR NOTIFICATION IS FAKE (CRITICAL)
+
+* Dashboard notifications work
+* Navbar bell shows nothing
+
+✅ FIX USING SUPABASE REALTIME:
+
+* Listen to order updates
+* Trigger notification when:
+
+  * Order created
+  * Order status updated
+
+Add:
+
+* Unread badge count
+* Dropdown list (latest notifications)
+
+---
+
+4. ❌ RANDOM SCROLL / ROUTING BUG
+
+* Clicking links sometimes scrolls to footer
+
+✅ FIX:
+
+* Use proper router navigation
+* Reset scroll:
+  window.scrollTo(0,0) on route change
+
+---
+
+5. ❌ HOMEPAGE UX HIERARCHY IS WEAK
+
+Current problem:
+
+* Sections feel visually good but not structured
+* No guided buying journey
+
+✅ FIX ORDER (NO REDESIGN, JUST RESTRUCTURE):
+
+1. Hero
+2. Categories (important)
+3. Best Sellers
+4. Offers (Value packs / Flash deals)
+5. Brands
+6. B2B section
+
+Also:
+
+* Improve CTA visibility (“Shop now” clarity)
+
+---
+
+6. ❌ B2C EXPERIENCE NOT OPTIMIZED
+
+Issues:
+
+* No strong product discovery flow
+* Too many visual blocks, less guidance
+
+✅ FIX:
+
+* Improve:
+
+  * Category visibility
+  * Product card clarity
+  * Consistent spacing & alignment
+* Add hover feedback on all interactive elements
+
+---
+
+7. ❌ PRODUCT PAGE IS TOO BASIC
+
+Missing:
+
+* Cross-sell logic
+* Engagement elements
+
+✅ FIX:
+
+* Improve:
+
+  * Related products (better logic)
+  * Add “You may also like”
+* Keep UI same, improve data usage
+
+---
+
+8. ❌ CHECKOUT UX FEELS INCOMPLETE
+
+(Logic is working — UI is weak)
+
+✅ FIX:
+
+* Improve:
+
+  * Selected state (delivery/pickup/payment)
+  * Visual clarity
+* Add trust signals:
+
+  * Delivery info
+  * Secure checkout indicator
+
+---
+
+9. ❌ MICRO UX ISSUES
+
+Fix globally:
+
+* Add loading skeletons where needed
+* Fix hover states
+* Fix button feedback
+* Ensure consistent spacing
+* Ensure icons align properly
+
+---
+
+🎯 FINAL OBJECTIVE
+
+Make the B2C experience:
+
+* Smooth
+* Predictable
+* Conversion-friendly
+* Industry-standard (Amazon / Noon level)
+
+WITHOUT rebuilding everything
+
+---
+
+⛔ STOP CONDITION
+
+After completing Phase 1:
+
+Respond ONLY with:
+
+"PHASE 1 COMPLETED ✅
+Please provide B2B flow instructions."
+
+---
+
+🚫 DO NOT:
+
+* Start B2B features
+* Add new modules
+* Refactor backend unnecessarily
+
+---
+
+This is a LIVE system — prioritize UX clarity, navigation correctness, and real-time behavior.

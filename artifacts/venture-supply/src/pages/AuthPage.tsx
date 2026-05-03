@@ -49,9 +49,18 @@ export function AuthPage({ mode = "login" }: Props) {
   const [regVAT, setRegVAT] = useState("");
 
   function redirectAfterAuth(role: string) {
-    if (role === "admin") setLocation("/admin");
-    else if (role === "sales") setLocation("/sales");
-    else setLocation("/account");
+    if (role === "admin") { setLocation("/admin"); return; }
+    if (role === "sales") { setLocation("/sales"); return; }
+    // Customers (b2c/b2b): return to the page they came from, fall back to home.
+    let returnTo = "/";
+    try {
+      const stored = sessionStorage.getItem("vs.returnTo");
+      if (stored && !stored.startsWith("/login") && !stored.startsWith("/register")) {
+        returnTo = stored;
+      }
+      sessionStorage.removeItem("vs.returnTo");
+    } catch {}
+    setLocation(returnTo);
   }
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -107,7 +116,7 @@ export function AuthPage({ mode = "login" }: Props) {
       if (result.ok) {
         if (result.token) setSessionToken(result.token);
         setRoleWithCustomer(result.role as UserRole, result.customer);
-        setLocation("/account");
+        redirectAfterAuth(result.role);
         toast({ title: t("auth.welcome_back"), description: result.name });
       }
     } catch (err: any) {
