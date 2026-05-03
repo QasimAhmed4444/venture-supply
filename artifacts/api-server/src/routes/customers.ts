@@ -1,6 +1,5 @@
 import { Router } from "express";
 import { getSupabase } from "../lib/supabase.js";
-import { seedCustomers } from "../lib/seedData.js";
 import { requireAuth, requireRole, requireAdmin } from "../middlewares/requireAuth.js";
 import type { VerifiedSession } from "../lib/sessionToken.js";
 
@@ -26,15 +25,15 @@ function toCamel(row: Record<string, unknown>) {
 // GET /customers — admin and sales only
 router.get("/customers", requireRole("admin", "sales"), async (req, res) => {
   const sb = getSupabase();
-  if (!sb) return res.json(seedCustomers);
+  if (!sb) return res.json([]);
   try {
     let q = sb.from("customers").select("*").order("created_at", { ascending: false });
     if (req.query.type && req.query.type !== "all") q = q.eq("type", req.query.type as string);
     const { data, error } = await q;
-    if (error || !data) return res.json(seedCustomers);
-    return res.json(data.length ? data.map(toCamel) : seedCustomers);
+    if (error || !data) return res.json([]);
+    return res.json(data.map(toCamel));
   } catch {
-    return res.json(seedCustomers);
+    return res.json([]);
   }
 });
 
@@ -109,11 +108,7 @@ router.delete("/customers/:id", requireAdmin, async (req, res) => {
 router.get("/customers/:id", requireAuth, async (req, res) => {
   const session = (req as any).session as VerifiedSession;
   const sb = getSupabase();
-  if (!sb) {
-    const c = seedCustomers.find((x: any) => x.id === req.params.id);
-    if (!c) return res.status(404).json({ error: "not found" });
-    return res.json(c);
-  }
+  if (!sb) return res.status(404).json({ error: "not found" });
   try {
     const { data } = await sb.from("customers").select("*").eq("id", req.params.id).single();
     if (!data) return res.status(404).json({ error: "not found" });

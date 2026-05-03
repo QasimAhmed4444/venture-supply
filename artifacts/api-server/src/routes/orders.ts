@@ -1,6 +1,5 @@
 import { Router } from "express";
 import { getSupabase } from "../lib/supabase.js";
-import { seedOrders } from "../lib/seedData.js";
 import { requireAuth, requireRole, requireAdmin } from "../middlewares/requireAuth.js";
 import type { VerifiedSession } from "../lib/sessionToken.js";
 
@@ -59,14 +58,7 @@ router.get("/orders", requireAuth, async (req, res) => {
     salespersonIdFilter = req.query.salespersonId as string | undefined;
   }
 
-  if (!sb) {
-    if (session.role !== "admin") return res.json([]);
-    let rows = seedOrders as any[];
-    if (customerIdFilter) rows = rows.filter((o) => o.customerId === customerIdFilter);
-    if (salespersonIdFilter) rows = rows.filter((o) => o.salespersonId === salespersonIdFilter);
-    if (req.query.status && req.query.status !== "all") rows = rows.filter((o) => o.status === req.query.status);
-    return res.json(rows);
-  }
+  if (!sb) return res.json([]);
 
   try {
     let q = sb.from("orders").select("*").order("placed_at", { ascending: false });
@@ -74,15 +66,10 @@ router.get("/orders", requireAuth, async (req, res) => {
     if (customerIdFilter) q = q.eq("customer_id", customerIdFilter);
     if (salespersonIdFilter) q = q.eq("salesperson_id", salespersonIdFilter);
     const { data, error } = await q;
-    if (error || !data) {
-      return session.role === "admin" ? res.json(seedOrders) : res.json([]);
-    }
-    if (data.length === 0 && session.role === "admin" && !customerIdFilter && !salespersonIdFilter) {
-      return res.json(seedOrders);
-    }
+    if (error || !data) return res.json([]);
     return res.json(data.map(toCamel));
   } catch {
-    return session.role === "admin" ? res.json(seedOrders) : res.json([]);
+    return res.json([]);
   }
 });
 
@@ -91,11 +78,7 @@ router.get("/orders/:id", requireAuth, async (req, res) => {
   const session = (req as any).session as VerifiedSession;
   const sb = getSupabase();
 
-  if (!sb) {
-    const o = seedOrders.find((x: any) => x.id === req.params.id || x.trackingId === req.params.id);
-    if (!o) return res.status(404).json({ error: "not found" });
-    return res.json(o);
-  }
+  if (!sb) return res.status(404).json({ error: "not found" });
   try {
     const { data } = await sb.from("orders").select("*").or(`id.eq.${req.params.id},tracking_id.eq.${req.params.id}`).single();
     if (!data) return res.status(404).json({ error: "not found" });

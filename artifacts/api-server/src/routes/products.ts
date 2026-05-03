@@ -1,6 +1,5 @@
 import { Router } from "express";
 import { getSupabase } from "../lib/supabase.js";
-import { seedProducts } from "../lib/seedData.js";
 
 const router = Router();
 
@@ -53,34 +52,26 @@ function toSnake(b: Record<string, unknown>) {
 
 router.get("/products", async (req, res) => {
   const sb = getSupabase();
-  if (!sb) return res.json(seedProducts.map(toCamel));
+  if (!sb) return res.json([]);
   try {
     let query = sb.from("products").select("*").order("featured", { ascending: false }).order("created_at");
     if (req.query.category) query = query.eq("category_id", req.query.category as string);
     if (req.query.brand)    query = query.eq("brand_id", req.query.brand as string);
     if (req.query.search)   query = query.ilike("en_name", `%${req.query.search}%`);
     const { data, error } = await query;
-    if (error || !data?.length) return res.json(seedProducts.map(toCamel));
+    if (error || !data) return res.json([]);
     return res.json(data.map(toCamel));
   } catch {
-    return res.json(seedProducts.map(toCamel));
+    return res.json([]);
   }
 });
 
 router.get("/products/:slug", async (req, res) => {
   const sb = getSupabase();
-  if (!sb) {
-    const p = seedProducts.find((x) => x.slug === req.params.slug);
-    if (!p) return res.status(404).json({ error: "not found" });
-    return res.json(toCamel(p as unknown as Record<string, unknown>));
-  }
+  if (!sb) return res.status(404).json({ error: "not found" });
   try {
     const { data } = await sb.from("products").select("*").eq("slug", req.params.slug).single();
-    if (!data) {
-      const p = seedProducts.find((x) => x.slug === req.params.slug);
-      if (!p) return res.status(404).json({ error: "not found" });
-      return res.json(toCamel(p as unknown as Record<string, unknown>));
-    }
+    if (!data) return res.status(404).json({ error: "not found" });
     return res.json(toCamel(data as Record<string, unknown>));
   } catch {
     return res.status(500).json({ error: "internal" });
