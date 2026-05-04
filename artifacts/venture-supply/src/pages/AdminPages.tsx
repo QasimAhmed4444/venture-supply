@@ -20,7 +20,7 @@ import {
 } from "lucide-react";
 import {
   LineChart, Line, AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell,
-  XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend,
+  XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend, LabelList,
 } from "recharts";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useToast } from "@/hooks/use-toast";
@@ -77,10 +77,11 @@ export function AdminDashboardPage() {
     return { day: `${d.getMonth() + 1}/${d.getDate()}`, revenue: dayRevenue };
   });
 
-  const statusData = ORDER_STATUSES.map((s) => ({
-    name: t(`status.${s}`),
-    value: orders.filter((o) => o.status === s).length,
-  })).filter((d) => d.value > 0);
+  const statusData = [
+    { name: "New", value: orders.filter((o) => o.status === "new").length },
+    { name: "Pending", value: orders.filter((o) => ["confirmed", "preparing", "packed", "out-for-delivery", "ready-for-pickup"].includes(o.status)).length },
+    { name: "Delivered", value: orders.filter((o) => o.status === "delivered").length },
+  ].filter((d) => d.value > 0);
   const statusTotal = statusData.reduce((a, b) => a + b.value, 0);
   const STATUS_COLORS = [
     "hsl(220 80% 55%)",
@@ -203,8 +204,8 @@ export function AdminDashboardPage() {
               <AreaChart data={paymentTimeSeries}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
                 <XAxis dataKey="month" tick={{ fontSize: 11 }} />
-                <YAxis tick={{ fontSize: 11 }} />
-                <Tooltip />
+                <YAxis tick={{ fontSize: 11 }} tickFormatter={(v: number) => Math.round(v).toLocaleString()} />
+                <Tooltip formatter={(v: number) => [`SAR ${Math.round(v).toLocaleString()}`, undefined]} />
                 <Legend />
                 <Area type="monotone" dataKey="b2c" stackId="1" stroke={SECONDARY} fill={SECONDARY} fillOpacity={0.4} name="B2C" />
                 <Area type="monotone" dataKey="b2b" stackId="1" stroke={PRIMARY} fill={PRIMARY} fillOpacity={0.4} name="B2B" />
@@ -227,7 +228,9 @@ export function AdminDashboardPage() {
                   <XAxis type="number" tick={{ fontSize: 11 }} />
                   <YAxis dataKey="name" type="category" tick={{ fontSize: 10 }} width={100} />
                   <Tooltip />
-                  <Bar dataKey="value" fill={PRIMARY} name="Sales (SAR)" />
+                  <Bar dataKey="value" fill={PRIMARY} name="Sales (SAR)">
+                    <LabelList dataKey="value" position="right" formatter={(v: number) => `SAR ${Math.round(v).toLocaleString()}`} style={{ fontSize: 9, fill: "#6b7280" }} />
+                  </Bar>
                 </BarChart>
               </ResponsiveContainer>
             </div>
@@ -241,11 +244,15 @@ export function AdminDashboardPage() {
                 <BarChart data={spPerf}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
                   <XAxis dataKey="name" tick={{ fontSize: 11 }} />
-                  <YAxis tick={{ fontSize: 11 }} />
-                  <Tooltip />
+                  <YAxis tick={{ fontSize: 11 }} tickFormatter={(v: number) => Math.round(v).toLocaleString()} />
+                  <Tooltip formatter={(v: number) => [`SAR ${Math.round(v).toLocaleString()}`, undefined]} />
                   <Legend />
-                  <Bar dataKey="sales" fill={PRIMARY} name="Sales" />
-                  <Bar dataKey="target" fill={SECONDARY} name="Target" />
+                  <Bar dataKey="sales" fill={PRIMARY} name="Sales">
+                    <LabelList dataKey="sales" position="top" formatter={(v: number) => Math.round(v).toLocaleString()} style={{ fontSize: 9, fill: "#6b7280" }} />
+                  </Bar>
+                  <Bar dataKey="target" fill={SECONDARY} name="Target">
+                    <LabelList dataKey="target" position="top" formatter={(v: number) => Math.round(v).toLocaleString()} style={{ fontSize: 9, fill: "#6b7280" }} />
+                  </Bar>
                 </BarChart>
               </ResponsiveContainer>
             </div>
@@ -351,9 +358,10 @@ export function AdminCategoriesPage() {
   const deleteCategory = useDeleteCategory();
   const updateCategory = useUpdateCategory();
   const [addOpen, setAddOpen] = useState(false);
-  const [newCat, setNewCat] = useState({ enName: "", image: "" });
-  const [editCat, setEditCat] = useState<{ id: string; image: string; productCount?: number } | null>(null);
+  const [newCat, setNewCat] = useState({ enName: "", arName: "", image: "" });
+  const [editCat, setEditCat] = useState<{ id: string; image: string; productCount?: number; enName?: string; arName?: string } | null>(null);
   const [editCatImage, setEditCatImage] = useState("");
+  const [editCatArName, setEditCatArName] = useState("");
 
   const handleCreate = () => {
     if (!newCat.enName) return;
@@ -361,7 +369,7 @@ export function AdminCategoriesPage() {
       onSuccess: () => {
         toast({ title: t("common.create"), description: `"${newCat.enName}" added` });
         setAddOpen(false);
-        setNewCat({ enName: "", image: "" });
+        setNewCat({ enName: "", arName: "", image: "" });
       },
       onError: (e) => toast({ title: "Error", description: (e as Error).message, variant: "destructive" }),
     });
@@ -378,7 +386,8 @@ export function AdminCategoriesPage() {
           <DialogContent>
             <DialogHeader><DialogTitle>{language === "ar" ? "إضافة فئة" : "Add Category"}</DialogTitle></DialogHeader>
             <div className="space-y-3">
-              <div><Label>{t("common.name")} (EN)</Label><Input value={newCat.enName} onChange={(e) => setNewCat((p) => ({ ...p, enName: e.target.value }))} /></div>
+              <div><Label>{t("common.name")} (EN) <span className="text-rose-500">*</span></Label><Input value={newCat.enName} onChange={(e) => setNewCat((p) => ({ ...p, enName: e.target.value }))} placeholder="e.g. Rice" /></div>
+              <div><Label>Name (AR)</Label><Input value={newCat.arName} onChange={(e) => setNewCat((p) => ({ ...p, arName: e.target.value }))} placeholder="e.g. أرز" dir="rtl" /></div>
               <ImageUploadField value={newCat.image} onChange={(v) => setNewCat((p) => ({ ...p, image: v }))} label={`${t("common.image")}`} />
             </div>
             <DialogFooter>
@@ -398,7 +407,7 @@ export function AdminCategoriesPage() {
               <h3 className="font-semibold">{t(`category.${c.id}`)}</h3>
               <p className="text-xs text-muted-foreground">{c.productCount ?? 0} products</p>
               <div className="flex gap-1 mt-3">
-                <Button variant="ghost" size="sm" className="flex-1" onClick={() => { setEditCat(c); setEditCatImage(c.image ?? ""); }}><Pencil className="w-3.5 h-3.5 me-1" /> Edit</Button>
+                <Button variant="ghost" size="sm" className="flex-1" onClick={() => { setEditCat(c); setEditCatImage(c.image ?? ""); setEditCatArName(c.arName ?? ""); }}><Pencil className="w-3.5 h-3.5 me-1" /> Edit</Button>
                 <Button variant="ghost" size="sm" className="text-rose-600" onClick={() => deleteCategory.mutate(c.id, { onError: (e) => toast({ title: "Error", description: (e as Error).message, variant: "destructive" }) })}><Trash2 className="w-3.5 h-3.5" /></Button>
               </div>
             </CardContent>
@@ -409,13 +418,14 @@ export function AdminCategoriesPage() {
         <DialogContent>
           <DialogHeader><DialogTitle>{language === "ar" ? "تعديل الفئة" : "Edit Category"}</DialogTitle></DialogHeader>
           <div className="space-y-3">
+            <div><Label>{t("common.name")} (AR)</Label><Input value={editCatArName} onChange={(e) => setEditCatArName(e.target.value)} placeholder="e.g. أرز" dir="rtl" /></div>
             <ImageUploadField value={editCatImage} onChange={setEditCatImage} label={`${t("common.image")}`} />
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditCat(null)}>{language === "ar" ? "إلغاء" : "Cancel"}</Button>
             <Button onClick={() => {
               if (!editCat) return;
-              updateCategory.mutate({ id: editCat.id, image: editCatImage }, {
+              updateCategory.mutate({ id: editCat.id, image: editCatImage, ...(editCatArName ? { arName: editCatArName } : {}) }, {
                 onSuccess: () => { toast({ title: language === "ar" ? "تم التحديث" : "Category updated" }); setEditCat(null); },
                 onError: (e) => toast({ title: "Error", description: (e as Error).message, variant: "destructive" }),
               });
@@ -1553,19 +1563,23 @@ function CustomerMultiSelect({ selected, onChange, customers, businessTypes }: {
     return !q || c.name.toLowerCase().includes(q) || (c.business?.name ?? "").toLowerCase().includes(q) || c.city.toLowerCase().includes(q);
   });
   const selectedCustomers = customers.filter((c) => selected.includes(c.id));
-  const getBtName = (c: Customer) => {
-    const btId = (c.business as any)?.businessTypeId;
-    return btId ? (businessTypes.find((bt) => bt.id === btId)?.name ?? null) : null;
+  const getBtNames = (c: Customer): string => {
+    const biz = c.business as any;
+    const btIds: string[] = Array.isArray(biz?.businessTypeIds) && biz.businessTypeIds.length > 0
+      ? biz.businessTypeIds
+      : (biz?.businessTypeId ? [biz.businessTypeId] : []);
+    const names = btIds.map((id) => businessTypes.find((bt) => bt.id === id)?.name ?? id).filter(Boolean);
+    return names.join(", ");
   };
   return (
     <div>
       {selectedCustomers.length > 0 && (
         <div className="flex flex-wrap gap-1.5 mb-2">
           {selectedCustomers.map((c) => {
-            const btName = getBtName(c);
+            const btLabel = getBtNames(c);
             return (
               <span key={c.id} className="flex items-center gap-1 px-2 py-0.5 bg-primary/10 text-primary rounded-full text-xs border border-primary/20">
-                {c.business?.name || c.name}{btName ? ` · ${btName}` : ""}
+                {c.business?.name || c.name}{btLabel ? ` · ${btLabel}` : ""}
                 <button type="button" onClick={() => onChange(selected.filter((id) => id !== c.id))} className="hover:text-rose-600 leading-none"><X className="w-3 h-3" /></button>
               </span>
             );
@@ -1587,7 +1601,7 @@ function CustomerMultiSelect({ selected, onChange, customers, businessTypes }: {
         <div className="mt-1 border rounded-md bg-popover shadow-md max-h-40 overflow-y-auto">
           {filtered.map((c) => {
             const checked = selected.includes(c.id);
-            const btName = getBtName(c);
+            const btLabel = getBtNames(c);
             return (
               <button key={c.id} type="button"
                 className={`w-full text-left px-3 py-1.5 text-sm hover:bg-muted flex items-center gap-2 ${checked ? "bg-primary/5" : ""}`}
@@ -1599,12 +1613,81 @@ function CustomerMultiSelect({ selected, onChange, customers, businessTypes }: {
                 <div className="min-w-0">
                   <p className="font-medium text-xs truncate">{c.business?.name || c.name}</p>
                   <p className="text-xs text-muted-foreground truncate">
-                    {c.name} · {c.city}{btName ? ` · ${btName}` : ""}
+                    {c.name} · {c.city}{btLabel ? ` · ${btLabel}` : ""}
                   </p>
                 </div>
               </button>
             );
           })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function CatMultiSelect({ options, selected, onChange }: {
+  options: { value: string; label: string }[];
+  selected: string[];
+  onChange: (vals: string[]) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const allSelected = selected.length === options.length && options.length > 0;
+  return (
+    <div
+      className="relative"
+      onBlur={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setOpen(false); }}
+    >
+      <button
+        type="button"
+        className="w-full h-9 px-3 border rounded-md bg-background text-sm text-left flex items-center justify-between hover:bg-muted/30 transition-colors"
+        onClick={() => setOpen((o) => !o)}
+      >
+        <span className={selected.length ? "text-foreground" : "text-muted-foreground"}>
+          {selected.length ? `${selected.length} categor${selected.length === 1 ? "y" : "ies"} selected` : "Select categories…"}
+        </span>
+        <ChevronDown className={`w-4 h-4 text-muted-foreground shrink-0 transition-transform ${open ? "rotate-180" : ""}`} />
+      </button>
+      {selected.length > 0 && (
+        <div className="flex flex-wrap gap-1 mt-1.5">
+          {selected.map((v) => {
+            const opt = options.find((o) => o.value === v);
+            return (
+              <span key={v} className="flex items-center gap-1 px-2 py-0.5 bg-primary/10 text-primary rounded-full text-xs border border-primary/20">
+                {opt?.label ?? v}
+                <button type="button" onClick={() => onChange(selected.filter((s) => s !== v))} className="hover:text-rose-600 leading-none"><X className="w-3 h-3" /></button>
+              </span>
+            );
+          })}
+        </div>
+      )}
+      {open && (
+        <div className="absolute z-50 top-full left-0 right-0 mt-1 border rounded-md bg-popover shadow-lg">
+          <div className="p-1.5 border-b">
+            <button
+              type="button"
+              tabIndex={0}
+              className="w-full text-left text-xs px-2 py-1.5 hover:bg-muted rounded flex items-center gap-2 font-medium"
+              onClick={() => onChange(allSelected ? [] : options.map((o) => o.value))}
+            >
+              {allSelected ? "Deselect All" : "Select All"}
+            </button>
+          </div>
+          <div className="max-h-48 overflow-y-auto p-1">
+            {options.map((opt) => {
+              const checked = selected.includes(opt.value);
+              return (
+                <label key={opt.value} className="flex items-center gap-2 px-2 py-1.5 hover:bg-muted rounded cursor-pointer text-sm" tabIndex={0}>
+                  <div className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 ${checked ? "bg-primary border-primary" : "border-border"}`}>
+                    {checked && <CheckCircle2 className="w-2.5 h-2.5 text-primary-foreground" />}
+                  </div>
+                  <input type="checkbox" className="sr-only" checked={checked}
+                    onChange={(e) => onChange(e.target.checked ? [...selected, opt.value] : selected.filter((v) => v !== opt.value))}
+                  />
+                  {opt.label}
+                </label>
+              );
+            })}
+          </div>
         </div>
       )}
     </div>
@@ -1657,16 +1740,12 @@ function SPForm({ data, setData, categories, b2bCustomers, businessTypes }: {
       {categories.length > 0 && (
         <div>
           <Label>Business Categories Served</Label>
-          <div className="mt-1.5 flex flex-wrap gap-2">
-            {categories.map((cat) => {
-              const checked = data.categoriesServed.includes(cat.id);
-              return (
-                <button key={cat.id} type="button"
-                  onClick={() => setData((p) => ({ ...p, categoriesServed: checked ? p.categoriesServed.filter((id) => id !== cat.id) : [...p.categoriesServed, cat.id] }))}
-                  className={`px-3 py-1 rounded-full text-xs border transition-colors ${checked ? "bg-primary text-primary-foreground border-primary" : "bg-muted border-border text-muted-foreground hover:border-primary/40"}`}
-                >{t(`category.${cat.id}`)}</button>
-              );
-            })}
+          <div className="mt-1.5">
+            <CatMultiSelect
+              options={categories.map((cat) => ({ value: cat.id, label: t(`category.${cat.id}`) }))}
+              selected={data.categoriesServed}
+              onChange={(vals) => setData((p) => ({ ...p, categoriesServed: vals }))}
+            />
           </div>
         </div>
       )}
@@ -1837,8 +1916,49 @@ export function AdminSalespersonsPage() {
   const [newSP, setNewSP] = useState(BLANK_SP);
   const [editSP, setEditSP] = useState<Salesperson | null>(null);
   const [editData, setEditData] = useState(BLANK_SP);
-
   const [viewSP, setViewSP] = useState<Salesperson | null>(null);
+
+  const [spSearch, setSpSearch] = useState("");
+  const [spStatusFilter, setSpStatusFilter] = useState("all");
+  const [spBtFilter, setSpBtFilter] = useState("all");
+  const [spCustFilter, setSpCustFilter] = useState("all");
+  const [spAchievement, setSpAchievement] = useState("all");
+  const [spDateFrom, setSpDateFrom] = useState("");
+  const [spDateTo, setSpDateTo] = useState("");
+
+  const getSpCustomerNames = (s: Salesperson) => {
+    const ids: string[] = s.assignedCustomerIds ?? [];
+    return b2bCustomers.filter((c) => ids.includes(c.id)).map((c) => c.business?.name || c.name);
+  };
+  const getSpBusinessTypeIds = (s: Salesperson): Set<string> => {
+    const ids: string[] = s.assignedCustomerIds ?? [];
+    const assigned = b2bCustomers.filter((c) => ids.includes(c.id));
+    const btSet = new Set<string>();
+    for (const c of assigned) {
+      const biz = c.business as any;
+      const btIds: string[] = Array.isArray(biz?.businessTypeIds) && biz.businessTypeIds.length > 0
+        ? biz.businessTypeIds : (biz?.businessTypeId ? [biz.businessTypeId] : []);
+      btIds.forEach((id) => btSet.add(id));
+    }
+    return btSet;
+  };
+  const getSpBusinessTypeNames = (s: Salesperson) =>
+    [...getSpBusinessTypeIds(s)].map((id) => businessTypes.find((bt) => bt.id === id)?.name ?? id);
+
+  const filteredSPs = useMemo(() => {
+    return salespersons.filter((s) => {
+      const q = spSearch.toLowerCase();
+      if (q && !s.name.toLowerCase().includes(q) && !s.email.toLowerCase().includes(q)) return false;
+      if (spStatusFilter !== "all" && s.status !== spStatusFilter) return false;
+      if (spAchievement === "achieved" && s.monthlySales < s.monthlyTarget) return false;
+      if (spAchievement === "below" && s.monthlySales >= s.monthlyTarget) return false;
+      if (spDateFrom && s.joinedDate && s.joinedDate.slice(0, 10) < spDateFrom) return false;
+      if (spDateTo && s.joinedDate && s.joinedDate.slice(0, 10) > spDateTo) return false;
+      if (spBtFilter !== "all" && !getSpBusinessTypeIds(s).has(spBtFilter)) return false;
+      if (spCustFilter !== "all" && !(s.assignedCustomerIds ?? []).includes(spCustFilter)) return false;
+      return true;
+    });
+  }, [salespersons, spSearch, spStatusFilter, spBtFilter, spCustFilter, spAchievement, spDateFrom, spDateTo, b2bCustomers]);
 
   const openEdit = (s: Salesperson) => {
     setEditSP(s);
@@ -1897,8 +2017,58 @@ export function AdminSalespersonsPage() {
         </Dialog>
       </div>
 
+      {/* Filters */}
       <Card>
-        <CardContent className="p-5">
+        <CardContent className="p-4">
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            <div className="relative">
+              <Search className="absolute left-2.5 top-2.5 w-4 h-4 text-muted-foreground pointer-events-none" />
+              <Input className="pl-8 h-9 text-sm" placeholder="Search name or email…" value={spSearch} onChange={(e) => setSpSearch(e.target.value)} />
+            </div>
+            <select className="h-9 px-3 border rounded-md bg-background text-sm" value={spStatusFilter} onChange={(e) => setSpStatusFilter(e.target.value)}>
+              <option value="all">All Statuses</option>
+              <option value="active">Active</option>
+              <option value="inactive">Inactive</option>
+            </select>
+            <select className="h-9 px-3 border rounded-md bg-background text-sm" value={spBtFilter} onChange={(e) => setSpBtFilter(e.target.value)}>
+              <option value="all">All Business Types</option>
+              {businessTypes.filter((bt) => bt.status === "active").map((bt) => (
+                <option key={bt.id} value={bt.id}>{bt.name}</option>
+              ))}
+            </select>
+            <select className="h-9 px-3 border rounded-md bg-background text-sm" value={spCustFilter} onChange={(e) => setSpCustFilter(e.target.value)}>
+              <option value="all">All Customers</option>
+              {b2bCustomers.map((c) => (
+                <option key={c.id} value={c.id}>{c.business?.name || c.name}</option>
+              ))}
+            </select>
+            <select className="h-9 px-3 border rounded-md bg-background text-sm" value={spAchievement} onChange={(e) => setSpAchievement(e.target.value)}>
+              <option value="all">All Achievement</option>
+              <option value="achieved">Target Achieved</option>
+              <option value="below">Below Target</option>
+            </select>
+            <div className="flex items-center gap-2">
+              <Label className="text-xs whitespace-nowrap text-muted-foreground">Joined From</Label>
+              <Input type="date" className="h-9 text-sm" value={spDateFrom} onChange={(e) => setSpDateFrom(e.target.value)} />
+            </div>
+            <div className="flex items-center gap-2">
+              <Label className="text-xs whitespace-nowrap text-muted-foreground">To</Label>
+              <Input type="date" className="h-9 text-sm" value={spDateTo} onChange={(e) => setSpDateTo(e.target.value)} />
+            </div>
+            {(spSearch || spStatusFilter !== "all" || spBtFilter !== "all" || spCustFilter !== "all" || spAchievement !== "all" || spDateFrom || spDateTo) && (
+              <Button variant="ghost" size="sm" className="h-9 text-muted-foreground" onClick={() => { setSpSearch(""); setSpStatusFilter("all"); setSpBtFilter("all"); setSpCustFilter("all"); setSpAchievement("all"); setSpDateFrom(""); setSpDateTo(""); }}>
+                <X className="w-4 h-4 me-1" /> Clear filters
+              </Button>
+            )}
+          </div>
+          {filteredSPs.length !== salespersons.length && (
+            <p className="text-xs text-muted-foreground mt-2">Showing {filteredSPs.length} of {salespersons.length} salespersons</p>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardContent className="p-5 overflow-x-auto">
           {isLoading ? (
             <p className="text-sm text-muted-foreground text-center py-8">Loading…</p>
           ) : (
@@ -1907,6 +2077,8 @@ export function AdminSalespersonsPage() {
                 <TableHead>Name</TableHead>
                 <TableHead>Email</TableHead>
                 <TableHead className="text-center">Customers</TableHead>
+                <TableHead>Business Types Served</TableHead>
+                <TableHead>B2B Customers Served</TableHead>
                 <TableHead className="text-right">Monthly Target</TableHead>
                 <TableHead className="text-right">Monthly Achieved</TableHead>
                 <TableHead>Status</TableHead>
@@ -1914,34 +2086,53 @@ export function AdminSalespersonsPage() {
                 <TableHead>Actions</TableHead>
               </TableRow></TableHeader>
               <TableBody>
-                {salespersons.map((s) => (
-                  <TableRow key={s.id}>
-                    <TableCell className="font-medium text-sm">{s.name}</TableCell>
-                    <TableCell className="text-sm text-muted-foreground">{s.email}</TableCell>
-                    <TableCell className="text-center">{s.customersCount}</TableCell>
-                    <TableCell className="text-right text-sm">SAR {s.monthlyTarget.toLocaleString()}</TableCell>
-                    <TableCell className="text-right">
-                      <span className={s.monthlySales >= s.monthlyTarget ? "text-emerald-600 font-semibold" : s.monthlySales >= s.monthlyTarget * 0.75 ? "text-amber-600 font-semibold" : "text-rose-600 font-semibold"}>
-                        SAR {s.monthlySales.toLocaleString()}
-                      </span>
-                    </TableCell>
-                    <TableCell><Badge variant={s.status === "active" ? "default" : "outline"} className={s.status === "active" ? "bg-emerald-100 text-emerald-700 border-emerald-200" : ""}>{s.status}</Badge></TableCell>
-                    <TableCell className="text-xs text-muted-foreground">{s.joinedDate ? s.joinedDate.slice(0, 10) : "—"}</TableCell>
-                    <TableCell>
-                      <div className="flex gap-1">
-                        <Button size="sm" variant="ghost" onClick={() => setViewSP(s)}><Eye className="w-3.5 h-3.5" /></Button>
-                        <Button size="sm" variant="ghost" onClick={() => openEdit(s)}><Pencil className="w-3.5 h-3.5" /></Button>
-                        <Button size="sm" variant="ghost" className="text-rose-600" onClick={() => {
-                          if (!confirm(`Remove ${s.name}?`)) return;
-                          deleteSP.mutate(s.id, {
-                            onSuccess: () => toast({ title: "Removed" }),
-                            onError: (e) => toast({ title: "Error", description: (e as Error).message, variant: "destructive" }),
-                          });
-                        }}><Trash2 className="w-3.5 h-3.5" /></Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
+                {filteredSPs.map((s) => {
+                  const btNames = getSpBusinessTypeNames(s);
+                  const custNames = getSpCustomerNames(s);
+                  return (
+                    <TableRow key={s.id}>
+                      <TableCell className="font-medium text-sm">{s.name}</TableCell>
+                      <TableCell className="text-sm text-muted-foreground">{s.email}</TableCell>
+                      <TableCell className="text-center">{s.customersCount}</TableCell>
+                      <TableCell>
+                        <div className="flex flex-wrap gap-1">
+                          {btNames.length ? btNames.slice(0, 2).map((name) => (
+                            <Badge key={name} variant="secondary" className="text-xs px-1.5 py-0">{name}</Badge>
+                          )) : <span className="text-xs text-muted-foreground">—</span>}
+                          {btNames.length > 2 && <Badge variant="outline" className="text-xs px-1.5 py-0">+{btNames.length - 2}</Badge>}
+                        </div>
+                      </TableCell>
+                      <TableCell className="max-w-[160px]">
+                        {custNames.length ? (
+                          <div className="text-xs text-muted-foreground">
+                            {custNames.slice(0, 2).join(", ")}{custNames.length > 2 ? ` +${custNames.length - 2} more` : ""}
+                          </div>
+                        ) : <span className="text-xs text-muted-foreground">—</span>}
+                      </TableCell>
+                      <TableCell className="text-right text-sm">SAR {s.monthlyTarget.toLocaleString()}</TableCell>
+                      <TableCell className="text-right">
+                        <span className={s.monthlySales >= s.monthlyTarget ? "text-emerald-600 font-semibold" : s.monthlySales >= s.monthlyTarget * 0.75 ? "text-amber-600 font-semibold" : "text-rose-600 font-semibold"}>
+                          SAR {s.monthlySales.toLocaleString()}
+                        </span>
+                      </TableCell>
+                      <TableCell><Badge variant={s.status === "active" ? "default" : "outline"} className={s.status === "active" ? "bg-emerald-100 text-emerald-700 border-emerald-200" : ""}>{s.status}</Badge></TableCell>
+                      <TableCell className="text-xs text-muted-foreground">{s.joinedDate ? s.joinedDate.slice(0, 10) : "—"}</TableCell>
+                      <TableCell>
+                        <div className="flex gap-1">
+                          <Button size="sm" variant="ghost" onClick={() => setViewSP(s)}><Eye className="w-3.5 h-3.5" /></Button>
+                          <Button size="sm" variant="ghost" onClick={() => openEdit(s)}><Pencil className="w-3.5 h-3.5" /></Button>
+                          <Button size="sm" variant="ghost" className="text-rose-600" onClick={() => {
+                            if (!confirm(`Remove ${s.name}?`)) return;
+                            deleteSP.mutate(s.id, {
+                              onSuccess: () => toast({ title: "Removed" }),
+                              onError: (e) => toast({ title: "Error", description: (e as Error).message, variant: "destructive" }),
+                            });
+                          }}><Trash2 className="w-3.5 h-3.5" /></Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           )}

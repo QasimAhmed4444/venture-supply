@@ -15,6 +15,8 @@ export interface Salesperson {
   status: "active" | "inactive";
   joinedDate: string;
   createdAt: string;
+  categoriesServed?: string[];
+  assignedCustomerIds?: string[];
 }
 
 export function useSalespersons() {

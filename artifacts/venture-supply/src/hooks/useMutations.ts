@@ -44,7 +44,7 @@ export function useDeleteProduct() {
 export function useCreateCategory() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (data: { id?: string; enName?: string; image?: string; productCount?: number }) =>
+    mutationFn: (data: { id?: string; enName?: string; arName?: string; image?: string; productCount?: number }) =>
       apiFetch("/categories", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -66,7 +66,7 @@ export function useDeleteCategory() {
 export function useUpdateCategory() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, ...data }: { id: string; image?: string; productCount?: number }) =>
+    mutationFn: ({ id, ...data }: { id: string; image?: string; productCount?: number; enName?: string; arName?: string }) =>
       apiFetch(`/categories/${id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },

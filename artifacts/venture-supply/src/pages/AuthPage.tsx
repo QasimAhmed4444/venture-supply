@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Loader2, ArrowLeft } from "lucide-react";
+import { Loader2, ArrowLeft, ChevronDown, Check } from "lucide-react";
 import { Logo } from "@/components/Logo";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useRole, type UserRole } from "@/contexts/RoleContext";
@@ -49,6 +49,7 @@ export function AuthPage({ mode = "login" }: Props) {
   const [regCR, setRegCR] = useState("");
   const [regVAT, setRegVAT] = useState("");
   const [regBusinessTypeIds, setRegBusinessTypeIds] = useState<string[]>([]);
+  const [btDropdownOpen, setBtDropdownOpen] = useState(false);
 
   const { data: businessTypes = [] } = useBusinessTypes();
 
@@ -255,23 +256,62 @@ export function AuthPage({ mode = "login" }: Props) {
                       <div><Label>{t("checkout.business_name")}</Label><Input value={regBizName} onChange={(e) => setRegBizName(e.target.value)} placeholder="Restaurant LLC" required /></div>
                       <div>
                         <Label>Business Type <span className="text-rose-500">*</span> <span className="text-xs text-muted-foreground font-normal">(select all that apply)</span></Label>
-                        <div className="mt-1.5 border rounded-md p-3 space-y-2 max-h-40 overflow-y-auto bg-background">
-                          {businessTypes.filter((bt) => bt.status === "active").map((bt) => (
-                            <label key={bt.id} className="flex items-center gap-2 cursor-pointer text-sm">
-                              <input
-                                type="checkbox"
-                                className="accent-primary w-4 h-4"
-                                checked={regBusinessTypeIds.includes(bt.id)}
-                                onChange={(e) => setRegBusinessTypeIds(
-                                  e.target.checked
-                                    ? [...regBusinessTypeIds, bt.id]
-                                    : regBusinessTypeIds.filter((id) => id !== bt.id)
-                                )}
-                              />
-                              {bt.name}
-                            </label>
-                          ))}
-                        </div>
+                        {(() => {
+                          const activeTypes = businessTypes.filter((bt) => bt.status === "active");
+                          const allSelected = activeTypes.length > 0 && regBusinessTypeIds.length === activeTypes.length;
+                          return (
+                            <div
+                              className="relative mt-1.5"
+                              onBlur={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setBtDropdownOpen(false); }}
+                            >
+                              <button
+                                type="button"
+                                className="w-full h-9 px-3 border rounded-md bg-background text-sm text-left flex items-center justify-between hover:bg-muted/30 transition-colors"
+                                onClick={() => setBtDropdownOpen((o) => !o)}
+                              >
+                                <span className={regBusinessTypeIds.length ? "text-foreground" : "text-muted-foreground"}>
+                                  {regBusinessTypeIds.length
+                                    ? activeTypes.filter((bt) => regBusinessTypeIds.includes(bt.id)).map((bt) => bt.name).join(", ")
+                                    : "Select business types…"}
+                                </span>
+                                <ChevronDown className={`w-4 h-4 text-muted-foreground shrink-0 transition-transform ${btDropdownOpen ? "rotate-180" : ""}`} />
+                              </button>
+                              {btDropdownOpen && (
+                                <div className="absolute z-50 top-full left-0 right-0 mt-1 border rounded-md bg-popover shadow-lg">
+                                  <div className="p-1.5 border-b">
+                                    <button
+                                      type="button"
+                                      tabIndex={0}
+                                      className="w-full text-left text-xs px-2 py-1.5 hover:bg-muted rounded flex items-center gap-2 font-medium"
+                                      onClick={() => setRegBusinessTypeIds(allSelected ? [] : activeTypes.map((bt) => bt.id))}
+                                    >
+                                      <div className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 ${allSelected ? "bg-primary border-primary" : "border-border"}`}>
+                                        {allSelected && <Check className="w-3 h-3 text-primary-foreground" />}
+                                      </div>
+                                      {allSelected ? "Deselect All" : "Select All"}
+                                    </button>
+                                  </div>
+                                  <div className="max-h-40 overflow-y-auto p-1">
+                                    {activeTypes.map((bt) => {
+                                      const checked = regBusinessTypeIds.includes(bt.id);
+                                      return (
+                                        <label key={bt.id} className="flex items-center gap-2 px-2 py-1.5 hover:bg-muted rounded cursor-pointer text-sm" tabIndex={0}>
+                                          <div className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 ${checked ? "bg-primary border-primary" : "border-border"}`}>
+                                            {checked && <Check className="w-3 h-3 text-primary-foreground" />}
+                                          </div>
+                                          <input type="checkbox" className="sr-only" checked={checked}
+                                            onChange={(e) => setRegBusinessTypeIds(e.target.checked ? [...regBusinessTypeIds, bt.id] : regBusinessTypeIds.filter((id) => id !== bt.id))}
+                                          />
+                                          {bt.name}
+                                        </label>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })()}
                       </div>
                       <div><Label>{t("checkout.cr_number")}</Label><Input value={regCR} onChange={(e) => setRegCR(e.target.value)} placeholder="1010 234 567" /></div>
                       <div><Label>{t("checkout.vat_number")}</Label><Input value={regVAT} onChange={(e) => setRegVAT(e.target.value)} placeholder="300 123 456 7800003" /></div>

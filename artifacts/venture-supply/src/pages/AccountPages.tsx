@@ -129,9 +129,10 @@ export function AccountDashboardPage() {
   const displayCustomer = freshCustomer ?? customer;
   const active = orders.filter((o) => !["delivered", "cancelled"].includes(o.status));
   const isB2B = role === "b2b";
-  const sp = displayCustomer.assignedSalespersonId
-    ? salespersons.find((s) => s.id === displayCustomer.assignedSalespersonId) ?? null
-    : null;
+  const assignedSps = salespersons.filter((s) =>
+    (Array.isArray(s.assignedCustomerIds) && s.assignedCustomerIds.includes(displayCustomer.id)) ||
+    s.id === displayCustomer.assignedSalespersonId
+  );
 
   return (
     <div className="space-y-6">
@@ -217,16 +218,32 @@ export function AccountDashboardPage() {
         </Card>
       )}
 
-      {isB2B && sp && (
+      {isB2B && assignedSps.length > 0 && (
         <Card className="bg-gradient-to-r from-secondary/10 to-secondary/5 border-secondary/30">
-          <CardContent className="p-5 flex items-center gap-4">
-            <div className="w-12 h-12 rounded-full bg-secondary/20 text-secondary flex items-center justify-center">
-              <Building2 className="w-6 h-6" />
-            </div>
-            <div className="flex-1">
-              <p className="text-xs uppercase tracking-wider text-muted-foreground">{t("account.account_manager")}</p>
-              <p className="font-semibold">{sp.name}</p>
-              <p className="text-sm text-muted-foreground">{sp.email} · {sp.phone}</p>
+          <CardContent className="p-5">
+            <p className="text-xs uppercase tracking-wider text-muted-foreground mb-3 flex items-center gap-1.5">
+              <Phone className="w-3.5 h-3.5" />
+              {assignedSps.length === 1 ? "Sales Person" : "Sales Team"}
+            </p>
+            <div className={`grid gap-3 ${assignedSps.length > 1 ? "sm:grid-cols-2" : ""}`}>
+              {assignedSps.map((sp) => (
+                <div key={sp.id} className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-secondary/20 text-secondary flex items-center justify-center shrink-0 font-bold text-sm">
+                    {sp.name.charAt(0).toUpperCase()}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-sm">{sp.name}</p>
+                    <p className="text-xs text-muted-foreground flex items-center gap-1">
+                      <Mail className="w-3 h-3 shrink-0" /><span className="truncate">{sp.email}</span>
+                    </p>
+                    {sp.phone && (
+                      <p className="text-xs text-muted-foreground flex items-center gap-1">
+                        <Phone className="w-3 h-3 shrink-0" />{sp.phone}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              ))}
             </div>
           </CardContent>
         </Card>

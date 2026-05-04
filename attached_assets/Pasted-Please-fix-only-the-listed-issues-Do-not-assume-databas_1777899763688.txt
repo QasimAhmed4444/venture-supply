@@ -1,0 +1,90 @@
+Please fix only the listed issues. Do not assume database field names. First inspect the existing code, schema, API routes, Supabase tables, and current data flow, then apply changes safely.
+
+Context:
+A B2B customer can belong to multiple business types, and multiple salespersons can be assigned to the same B2B customer. Currently, only one salesperson/business type appears in some places. This needs to work correctly everywhere.
+
+1. B2B customer dashboard
+- Change the label “Account Manager” to “Sales Person”.
+- If more than one salesperson is assigned to the logged-in B2B customer, show all assigned salespersons, not only one.
+- Display salesperson name, email, and phone clearly.
+- UI should stay clean and responsive when multiple salespersons exist.
+
+2. B2B registration business type field
+- Replace the current checkbox list with a clean dropdown multi-select.
+- Add “Select All” option.
+- Use radio-style/checkbox-style selectable rows inside the dropdown.
+- Allow the customer to select multiple business types.
+- Store and fetch all selected business types correctly.
+- Do not save or display only one business type.
+
+3. Admin Add/Edit Salesperson form
+- Fix broken/inconsistent UI buttons, chips, spacing, and alignment.
+- For “Assigned B2B Customers”, when a customer has multiple business types, show all business types, not just one.
+- Example: Haroon should show Retailer, Wholesaler, HoReCa if those were selected during registration.
+- For “Business Categories Served”, replace chips with a dropdown multi-select.
+- Add “Select All” option.
+- Use radio-style/checkbox-style selectable rows in the dropdown.
+- CRUD must correctly create, update, read, and delete salesperson records without breaking assigned customers or business type/category relations.
+
+4. Salespersons admin table
+Update the main table columns to:
+- Name
+- Email
+- Customers Count
+- Monthly Target
+- Monthly Achieved
+- Status
+- Business Types Served
+- B2B Customers Served
+- Actions
+
+Requirements:
+- Customers Count must update in real time based on assigned B2B customers.
+- Monthly Achieved must show actual achieved sales amount.
+- Business Types Served must show all business types linked through assigned B2B customers and/or selected categories.
+- B2B Customers Served must show assigned customer names.
+- Keep eye/view action, edit, and delete actions.
+- In eye/view modal, do not repeat all table fields. Show only relevant extra details like phone, joining date, assigned customer details, categories/business types, target breakdown, and recent performance.
+
+5. Add useful filters on Salespersons page
+Add filters for:
+- Search by name/email
+- Status: All / Active / Inactive
+- Business Type
+- Assigned B2B Customer
+- Target achievement: All / Achieved / Below Target
+- Date joined range
+
+6. Admin dashboard changes
+- In “Orders by Status”, show only:
+  - New
+  - Pending
+  - Delivered
+- Remove unnecessary extra statuses from this dashboard chart only unless they are required elsewhere.
+- In B2B vs B2C chart, remove long decimal values. Round values and show clean numbers only.
+- In Top 5 Categories chart, show numbers directly on the bars, not only on hover.
+- In Salesperson Performance chart, show sales and target numbers directly on the bars, not only on hover.
+
+7. Category create/edit modal
+- When adding or editing a category, ask for:
+  - Name (EN)
+  - Name (AR)
+  - Image
+- Save and display both English and Arabic category names properly.
+- Do not break existing category images or product counts.
+
+Important:
+- Do not rename tables or fields blindly.
+- Inspect existing Supabase schema and current code first.
+- Keep existing working features stable.
+- Fix login issue if it is caused by these salesperson/B2B/business-type changes.
+- Ensure all changes work for multiple salespersons assigned to one B2B customer and multiple business types assigned to one B2B customer.
+- After changes, test:
+  1. Register B2B customer with multiple business types.
+  2. Create two salespersons.
+  3. Assign both salespersons to the same B2B customer.
+  4. Login as that B2B customer.
+  5. Confirm both salespersons appear on dashboard.
+  6. Confirm admin salesperson table shows correct customer count, business types, and assigned customers.
+  7. Confirm charts show rounded/visible numbers.
+  8. Confirm category modal has EN and AR fields.
