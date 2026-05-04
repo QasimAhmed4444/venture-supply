@@ -23,6 +23,8 @@ export function Footer() {
       style={{ background: "linear-gradient(180deg, #06243f 0%, #052238 100%)" }}
       dir={isRTL ? "rtl" : "ltr"}
     >
+      {/* Accent stripe */}
+      <div className="h-1 w-full" style={{ background: "linear-gradient(90deg, #18B8E0 0%, #0c3d6e 50%, #18B8E0 100%)" }} />
       <div className="max-w-7xl mx-auto px-4 py-14 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-10">
         {/* Brand block */}
         <div className="lg:col-span-4 space-y-5">
@@ -52,16 +54,16 @@ export function Footer() {
               <a href="https://www.venturesupply.sa" target="_blank" rel="noreferrer" className="hover:text-white">www.venturesupply.sa</a>
             </div>
           </div>
-          <div className="flex items-center gap-2 pt-1">
+          <div className="flex items-center gap-3 pt-1">
             {[Facebook, Instagram, Linkedin].map((Ic, i) => (
               <button
                 key={i}
                 type="button"
                 onClick={() => toast({ title: t("common.feature_coming_soon") })}
-                className="w-9 h-9 rounded-full flex items-center justify-center border border-white/20 hover:bg-white/10 transition-colors"
+                className="w-10 h-10 rounded-full flex items-center justify-center border border-white/30 text-white/70 hover:text-white hover:border-white/60 hover:bg-white/15 transition-all duration-200"
                 aria-label="social"
               >
-                <Ic className="w-4 h-4" />
+                <Ic className="w-5 h-5" />
               </button>
             ))}
           </div>
@@ -146,8 +148,8 @@ export function Footer() {
         </div>
       </div>
 
-      <div className="border-t border-white/10">
-        <div className="max-w-7xl mx-auto px-4 py-5 flex flex-wrap justify-between items-center gap-2 text-xs text-white/70">
+      <div className="border-t border-white/20">
+        <div className="max-w-7xl mx-auto px-4 py-5 flex flex-wrap justify-between items-center gap-2 text-xs text-white/80">
           <span>© 2026 Venture Supply · التوريد الريادي · All rights reserved.</span>
           <div className="flex items-center gap-4">
             <span className="hover:text-white cursor-pointer">{t("footer.terms")}</span>

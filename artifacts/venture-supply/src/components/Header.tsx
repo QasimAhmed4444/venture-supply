@@ -63,7 +63,7 @@ export function Header() {
 
   return (
     <header className="bg-card border-b sticky top-0 z-40 shadow-sm" dir={isRTL ? "rtl" : "ltr"}>
-      <div className="max-w-7xl mx-auto px-4 py-3 flex items-center gap-4">
+      <div className="max-w-7xl mx-auto px-4 py-4 flex items-center gap-4">
         <Sheet>
           <SheetTrigger asChild>
             <Button variant="ghost" size="icon" className="lg:hidden">
@@ -105,7 +105,7 @@ export function Header() {
           </div>
         </form>
 
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-2.5">
           <DropdownMenu open={langOpen} onOpenChange={setLangOpen}>
             <DropdownMenuTrigger asChild>
               <Button
@@ -118,7 +118,7 @@ export function Header() {
                 onMouseLeave={scheduleCloseLang}
                 onClick={() => setLangOpen((v) => !v)}
               >
-                <Globe className="w-[18px] h-[18px]" />
+                <Globe className="w-5 h-5" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent
@@ -178,7 +178,7 @@ export function Header() {
           ) : (
             <Button
               variant="default"
-              className="bg-secondary text-white hover:bg-secondary/90 hidden md:inline-flex font-semibold shadow-sm"
+              className="bg-secondary text-white hover:bg-secondary/90 hidden md:inline-flex font-semibold shadow-sm px-5 h-10 text-sm rounded-lg"
               data-testid="button-login"
               onClick={() => { rememberReturnTo(); setLocation("/login"); }}
             >
@@ -192,17 +192,17 @@ export function Header() {
         <div className="max-w-7xl mx-auto px-4 flex items-center gap-1 overflow-x-auto">
           {navItems.map((item) => (
             <Link key={item.href} href={item.href}>
-              <span className="px-3 py-2.5 text-sm font-semibold text-primary hover:text-secondary transition-colors block">{item.label}</span>
+              <span className="px-4 py-3 text-sm font-semibold text-primary hover:text-secondary transition-colors block">{item.label}</span>
             </Link>
           ))}
           <div className="w-px h-5 bg-border mx-1" />
           {categories.slice(0, 6).map((c) => (
             <Link key={c.id} href={`/categories/${c.slug}`}>
-              <span className="px-3 py-2.5 text-sm text-muted-foreground hover:text-secondary transition-colors block whitespace-nowrap">{t(`category.${c.id}`)}</span>
+              <span className="px-4 py-3 text-sm text-muted-foreground hover:text-secondary transition-colors block whitespace-nowrap">{t(`category.${c.id}`)}</span>
             </Link>
           ))}
           <Link href="/products">
-            <span className="px-3 py-2.5 text-sm text-muted-foreground hover:text-secondary transition-colors block">{t("common.view_all")}</span>
+            <span className="px-4 py-3 text-sm text-muted-foreground hover:text-secondary transition-colors block">{t("common.view_all")}</span>
           </Link>
         </div>
       </nav>

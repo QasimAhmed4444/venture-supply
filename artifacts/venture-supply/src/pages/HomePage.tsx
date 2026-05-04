@@ -115,13 +115,14 @@ export function HomePage() {
   });
 
   const [slideIdx, setSlideIdx] = useState(0);
+  const [dealSlideIdx, setDealSlideIdx] = useState(0);
   const brandScrollRef = useRef<HTMLDivElement>(null);
   const bestScrollRef = useRef<HTMLDivElement>(null);
-  const categoryScrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const id = setInterval(() => setSlideIdx((i) => (i + 1) % heroSlides.length), 5000);
-    return () => clearInterval(id);
+    const heroId = setInterval(() => setSlideIdx((i) => (i + 1) % heroSlides.length), 5000);
+    const dealId = setInterval(() => setDealSlideIdx((i) => (i + 1) % dealBlocks.length), 3500);
+    return () => { clearInterval(heroId); clearInterval(dealId); };
   }, []);
 
   const slide = heroSlides[slideIdx];
@@ -135,11 +136,6 @@ export function HomePage() {
   const scrollBest = (dir: "left" | "right") => {
     if (!bestScrollRef.current) return;
     bestScrollRef.current.scrollBy({ left: dir === "left" ? -260 : 260, behavior: "smooth" });
-  };
-
-  const scrollCategories = (dir: "left" | "right") => {
-    if (!categoryScrollRef.current) return;
-    categoryScrollRef.current.scrollBy({ left: dir === "left" ? -260 : 260, behavior: "smooth" });
   };
 
   return (
@@ -235,44 +231,21 @@ export function HomePage() {
             <h2 className="text-2xl md:text-3xl font-bold tracking-tight text-primary">{t("home.categories.title")}</h2>
             <p className="text-sm font-bold text-muted-foreground mt-1">{t("home.categories.subtitle")}</p>
           </div>
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => scrollCategories(isRTL ? "right" : "left")}
-              className="w-9 h-9 rounded-full border border-border flex items-center justify-center hover:bg-muted transition-colors text-primary"
-              aria-label="Previous categories"
-            >
-              ←
-            </button>
-            <button
-              type="button"
-              onClick={() => scrollCategories(isRTL ? "left" : "right")}
-              className="w-9 h-9 rounded-full border border-border flex items-center justify-center hover:bg-muted transition-colors text-primary"
-              aria-label="Next categories"
-            >
-              →
-            </button>
-            <Link href="/products">
-              <Button variant="ghost" size="sm" className="gap-1 text-secondary hover:text-secondary shrink-0">
-                {t("common.view_all")} <ArrowRight className="w-3.5 h-3.5" />
-              </Button>
-            </Link>
-          </div>
+          <Link href="/products">
+            <Button variant="ghost" size="sm" className="gap-1 text-secondary hover:text-secondary shrink-0">
+              {t("common.view_all")} <ArrowRight className="w-3.5 h-3.5" />
+            </Button>
+          </Link>
         </div>
 
-        <div
-          ref={categoryScrollRef}
-          className="flex gap-5 overflow-x-auto pb-4 snap-x snap-mandatory"
-          style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
-        >
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-5">
           {categories.map((c) => (
-            <Link key={c.id} href={`/categories/${c.id}`} className="flex-shrink-0 snap-start">
+            <Link key={c.id} href={`/categories/${c.id}`}>
               <div
                 className="group cursor-pointer rounded-2xl overflow-hidden bg-card border border-border/60 hover:border-secondary/60 hover:shadow-xl transition-all duration-300 flex flex-col"
-                style={{ width: 196 }}
                 data-testid={`card-category-${c.id}`}
               >
-                <div className="relative overflow-hidden bg-muted" style={{ height: 196 }}>
+                <div className="relative overflow-hidden bg-muted aspect-[4/3]">
                   <img
                     src={c.image}
                     alt={t(`category.${c.id}`)}
@@ -280,7 +253,7 @@ export function HomePage() {
                     className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
                     onError={(e) => { (e.target as HTMLImageElement).src = "https://images.unsplash.com/photo-1604908176997-125f25cc6f3d?w=400&q=80"; }}
                   />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                 </div>
                 <div className="px-4 py-4 text-center flex-1 flex flex-col justify-center">
                   <h3 className="font-bold text-base text-primary leading-tight">{t(`category.${c.id}`)}</h3>
@@ -343,7 +316,7 @@ export function HomePage() {
         </div>
       </section>
 
-      {/* ── DEAL BLOCKS (banner-size) ─────────────────────────────── */}
+      {/* ── DEAL BLOCKS (auto-rotating carousel) ────────────────────── */}
       <section className="max-w-7xl mx-auto px-4 mt-14">
         <div className="flex items-end justify-between mb-5">
           <div>
@@ -355,33 +328,47 @@ export function HomePage() {
             </p>
           </div>
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 md:gap-6">
-          {dealBlocks.map((block) => (
-            <Link key={block.enLabel} href={block.href}>
+        <div className="relative overflow-hidden rounded-2xl shadow-2xl" style={{ height: 460 }}>
+          {dealBlocks.map((block, i) => (
+            <Link
+              key={block.enLabel}
+              href={block.href}
+              style={{ pointerEvents: i === dealSlideIdx ? "auto" : "none" }}
+            >
               <div
-                className="relative rounded-2xl overflow-hidden cursor-pointer group shadow-lg hover:shadow-2xl transition-shadow duration-300"
-                style={{ height: 380 }}
+                className="absolute inset-0 transition-opacity duration-700"
+                style={{ opacity: i === dealSlideIdx ? 1 : 0 }}
               >
                 <img
                   src={block.image}
                   alt=""
-                  className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+                  className="absolute inset-0 w-full h-full object-cover"
+                  style={{ transform: "scale(1.04)" }}
                 />
                 <div className={`absolute inset-0 bg-gradient-to-br ${block.bg} opacity-85`} />
-                <div className="relative h-full flex flex-col justify-between p-7 md:p-9">
-                  <p
-                    className="text-base font-bold uppercase tracking-widest"
-                    style={{ color: block.accent }}
-                  >
-                    {isRTL ? block.arSub : block.enSub}
-                  </p>
-                  <div className="space-y-4">
-                    <h3 className="text-white font-extrabold text-4xl md:text-5xl leading-tight">
+                <div className="relative h-full flex flex-col justify-between p-8 md:p-14">
+                  <div className="flex items-start justify-between">
+                    <p className="text-base font-bold uppercase tracking-widest" style={{ color: block.accent }}>
+                      {isRTL ? block.arSub : block.enSub}
+                    </p>
+                    <div className="flex gap-2">
+                      {dealBlocks.map((_, j) => (
+                        <button
+                          key={j}
+                          type="button"
+                          onClick={(e) => { e.preventDefault(); setDealSlideIdx(j); }}
+                          className="h-1.5 rounded-full transition-all duration-300"
+                          style={{ width: j === dealSlideIdx ? 28 : 8, background: j === dealSlideIdx ? "#ffffff" : "rgba(255,255,255,0.4)" }}
+                          aria-label={`Deal ${j + 1}`}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                  <div className="space-y-5">
+                    <h3 className="text-white font-extrabold text-5xl md:text-6xl leading-tight drop-shadow-lg">
                       {isRTL ? block.arLabel : block.enLabel}
                     </h3>
-                    <span
-                      className="inline-flex items-center gap-2 text-sm font-bold px-5 py-2.5 rounded-full bg-white/15 backdrop-blur-sm border border-white/20 text-white group-hover:bg-white/25 transition-colors"
-                    >
+                    <span className="inline-flex items-center gap-2 text-sm font-bold px-6 py-3 rounded-full bg-white/15 backdrop-blur-sm border border-white/25 text-white hover:bg-white/25 transition-colors">
                       {isRTL ? "تسوق الآن" : "SHOP NOW"} {Chevron}
                     </span>
                   </div>
@@ -501,16 +488,16 @@ export function HomePage() {
                 ))}
               </ul>
               <div className="flex flex-wrap gap-3 pt-1">
-                <Link href="/login">
-                  <Button size="default" className="font-semibold gap-2 text-sm h-10 text-white" style={{ background: "#18B8E0" }} data-testid="button-b2b-corporate">
-                    <Building2 className="w-4 h-4" />
-                    {isRTL ? "فتح حساب مؤسسي" : "Open Corporate Account"}
+                <Link href="/register">
+                  <Button size="default" className="font-semibold gap-2 text-sm h-11 px-6 text-white" style={{ background: "#18B8E0" }} data-testid="button-b2b-individual">
+                    <Store className="w-4 h-4" />
+                    {isRTL ? "فتح حساب فردي" : "Open Individual Account"}
                   </Button>
                 </Link>
                 <Link href="/register?as=b2b">
-                  <Button size="default" variant="outline" className="border-white/30 bg-white/10 text-white hover:bg-white/15 font-semibold text-sm h-10 gap-2" data-testid="button-b2b-retailer">
-                    <Store className="w-4 h-4" />
-                    {isRTL ? "تسجيل كبائع تجزئة" : "Retailer Registration"}
+                  <Button size="default" variant="outline" className="border-white/30 bg-white/10 text-white hover:bg-white/15 font-semibold text-sm h-11 px-6 gap-2" data-testid="button-b2b-business">
+                    <Building2 className="w-4 h-4" />
+                    {isRTL ? "فتح حساب تجاري" : "Open Business Account"}
                   </Button>
                 </Link>
               </div>
