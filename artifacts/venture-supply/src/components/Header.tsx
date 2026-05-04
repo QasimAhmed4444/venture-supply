@@ -176,35 +176,14 @@ export function Header() {
               </DropdownMenuContent>
             </DropdownMenu>
           ) : (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="default" className="bg-secondary text-white hover:bg-secondary/90 hidden md:inline-flex font-semibold shadow-sm gap-1.5" data-testid="button-login">
-                  {t("common.login")} <ChevronDown className="w-3.5 h-3.5" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align={isRTL ? "start" : "end"} className="w-56">
-                <DropdownMenuLabel>{isRTL ? "تسجيل الدخول" : "Sign in as"}</DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <Link href="/login?as=b2c" onClick={rememberReturnTo}>
-                  <DropdownMenuItem data-testid="login-as-b2c">
-                    <User className="w-4 h-4 me-2" />
-                    {isRTL ? "عميل أفراد (B2C)" : "Personal Customer (B2C)"}
-                  </DropdownMenuItem>
-                </Link>
-                <Link href="/login?as=b2b" onClick={rememberReturnTo}>
-                  <DropdownMenuItem data-testid="login-as-b2b">
-                    <Building2 className="w-4 h-4 me-2" />
-                    {isRTL ? "حساب أعمال (B2B)" : "Business Account (B2B)"}
-                  </DropdownMenuItem>
-                </Link>
-                <DropdownMenuSeparator />
-                <Link href="/register" onClick={rememberReturnTo}>
-                  <DropdownMenuItem data-testid="link-register">
-                    {isRTL ? "إنشاء حساب جديد" : "Create new account"}
-                  </DropdownMenuItem>
-                </Link>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            <Button
+              variant="default"
+              className="bg-secondary text-white hover:bg-secondary/90 hidden md:inline-flex font-semibold shadow-sm"
+              data-testid="button-login"
+              onClick={() => { rememberReturnTo(); setLocation("/login"); }}
+            >
+              {t("common.login")}
+            </Button>
           )}
         </div>
       </div>

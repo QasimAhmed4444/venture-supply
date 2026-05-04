@@ -14,14 +14,12 @@ import { apiFetch, setSessionToken } from "@/lib/api";
 const PORTAL_LABELS = {
   admin: {
     emailLabel: "Admin Email",
-    emailPlaceholder: "admin@venturesupply.sa",
-    passwordLabel: "Admin Password",
+    passwordLabel: "Password",
     buttonText: "Sign in as Admin",
   },
   sales: {
     emailLabel: "Salesperson Email",
-    emailPlaceholder: "salesperson@venturesupply.sa",
-    passwordLabel: "Salesperson Password",
+    passwordLabel: "Password",
     buttonText: "Sign in as Salesperson",
   },
 } as const;
@@ -53,16 +51,14 @@ export function AdminLoginPage() {
       if (result.ok) {
         if (result.role !== "admin" && result.role !== "sales") {
           toast({
-            title: "Access Denied",
-            description: "This portal is for staff only. Please use the main login.",
+            title: "Login failed. Please check your credentials and login type.",
             variant: "destructive",
           });
           return;
         }
         if (result.role !== portal) {
           toast({
-            title: "Wrong portal",
-            description: `Your account is a ${result.role} account. Please pick the matching portal.`,
+            title: "Login failed. Please check your credentials and login type.",
             variant: "destructive",
           });
           return;
@@ -138,7 +134,6 @@ export function AdminLoginPage() {
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder={labels.emailPlaceholder}
                   required
                   autoComplete="email"
                   data-testid="input-admin-email"
@@ -151,7 +146,6 @@ export function AdminLoginPage() {
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••"
                   required
                   autoComplete="current-password"
                   data-testid="input-admin-password"

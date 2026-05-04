@@ -795,7 +795,12 @@ export function AccountProfilePage() {
 
   const [name, setName] = useState(customer?.name ?? "");
   const [email, setEmail] = useState(customer?.email ?? "");
-  const [phone, setPhone] = useState(customer?.phone ?? "");
+  const [phoneLocal, setPhoneLocal] = useState(() => {
+    const p = customer?.phone ?? "";
+    if (p.startsWith("+966")) return p.slice(4);
+    if (p.startsWith("966")) return p.slice(3);
+    return p;
+  });
   const [city, setCity] = useState(customer?.city ?? "");
   const [bizName, setBizName] = useState(customer?.business?.name ?? "");
   const [crNumber, setCrNumber] = useState(customer?.business?.crNumber ?? "");
@@ -810,11 +815,12 @@ export function AccountProfilePage() {
       const business = isB2B && customer.business
         ? { ...customer.business, name: bizName, crNumber, vatNumber }
         : customer.business;
+      const fullPhone = phoneLocal ? `+966${phoneLocal.replace(/\D/g, "")}` : "";
       const updated = await update.mutateAsync({
         id: customer.id,
         name,
         email,
-        phone,
+        phone: fullPhone,
         city,
         ...(isB2B ? { business } : {}),
       } as any);
@@ -833,7 +839,20 @@ export function AccountProfilePage() {
           <div className="grid sm:grid-cols-2 gap-3">
             <div><Label>{t("common.name")}</Label><Input value={name} onChange={(e) => setName(e.target.value)} required /></div>
             <div><Label>{t("common.email")}</Label><Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} /></div>
-            <div><Label>{t("common.phone")}</Label><Input value={phone} onChange={(e) => setPhone(e.target.value)} /></div>
+            <div>
+              <Label>{t("common.phone")}</Label>
+              <div className="flex mt-1">
+                <div className="flex items-center px-3 bg-muted border border-border border-r-0 rounded-l-md text-sm font-medium text-muted-foreground select-none shrink-0 h-9">
+                  +966
+                </div>
+                <Input
+                  value={phoneLocal}
+                  onChange={(e) => setPhoneLocal(e.target.value.replace(/\D/g, ""))}
+                  className="rounded-l-none"
+                  maxLength={9}
+                />
+              </div>
+            </div>
             <div><Label>{t("common.city")}</Label><Input value={city} onChange={(e) => setCity(e.target.value)} /></div>
           </div>
           {isB2B && customer.business && (
@@ -861,7 +880,6 @@ export function AccountProfilePage() {
 export function AccountBusinessPage() {
   const { t, language } = useLanguage();
   const { customer, role } = useRole();
-  const { data: salespersons = [] } = useSalespersons();
   const ar = language === "ar";
 
   if (!customer) return null;
@@ -874,9 +892,6 @@ export function AccountBusinessPage() {
   }
 
   const biz = customer.business;
-  const sp = customer.assignedSalespersonId
-    ? salespersons.find((s) => s.id === customer.assignedSalespersonId) ?? null
-    : null;
   const limit = biz.creditLimit ?? 0;
   const used = biz.creditUsed ?? 0;
   const avail = Math.max(0, limit - used);
@@ -948,23 +963,6 @@ export function AccountBusinessPage() {
           )}
         </CardContent>
       </Card>
-
-      {sp && (
-        <Card className="bg-gradient-to-r from-secondary/10 to-secondary/5 border-secondary/30">
-          <CardContent className="p-5 flex items-center gap-4 flex-wrap">
-            <div className="w-12 h-12 rounded-full bg-secondary/20 text-secondary flex items-center justify-center">
-              <UserCheck className="w-6 h-6" />
-            </div>
-            <div className="flex-1 min-w-[180px]">
-              <p className="text-xs uppercase tracking-wider text-muted-foreground">{t("account.account_manager")}</p>
-              <p className="font-semibold">{sp.name}</p>
-              <p className="text-sm text-muted-foreground">{sp.email} · {sp.phone}</p>
-            </div>
-            <a href={`mailto:${sp.email}`}><Button size="sm" variant="outline"><Mail className="w-3.5 h-3.5 me-1.5" />{ar ? "بريد" : "Email"}</Button></a>
-            <a href={`tel:${sp.phone}`}><Button size="sm" variant="outline"><Phone className="w-3.5 h-3.5 me-1.5" />{ar ? "اتصال" : "Call"}</Button></a>
-          </CardContent>
-        </Card>
-      )}
 
       {customer.addresses.length > 0 && (
         <Card>

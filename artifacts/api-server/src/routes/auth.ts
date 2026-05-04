@@ -2,7 +2,7 @@ import { Router } from "express";
 import bcrypt from "bcryptjs";
 import { randomBytes, createHash } from "node:crypto";
 import { getSupabase } from "../lib/supabase.js";
-import { signSessionToken } from "../lib/sessionToken.js";
+import { signSessionToken, verifySessionToken } from "../lib/sessionToken.js";
 
 const router = Router();
 
@@ -330,6 +330,29 @@ router.post("/auth/reset-password", async (req, res) => {
   if (updErr) return res.status(500).json({ error: updErr.message });
 
   return res.json({ ok: true, message: "Password updated successfully." });
+});
+
+// ---------------------------------------------------------------------------
+// Set password (authenticated — salesperson/admin already logged in)
+// ---------------------------------------------------------------------------
+router.post("/auth/set-password", async (req, res) => {
+  const header = req.headers["authorization"];
+  const token = typeof header === "string" && header.startsWith("Bearer ") ? header.slice(7) : "";
+  const session = verifySessionToken(token);
+  if (!session) return res.status(401).json({ error: "Invalid or expired session" });
+
+  const { newPassword } = req.body as { newPassword?: string };
+  if (!newPassword) return res.status(400).json({ error: "newPassword is required" });
+  if (newPassword.length < 8) return res.status(400).json({ error: "Password must be at least 8 characters" });
+
+  const sb = getSupabase();
+  if (!sb) return res.status(503).json({ error: "Service unavailable" });
+
+  const newHash = await bcrypt.hash(newPassword, BCRYPT_ROUNDS);
+  const { error: updErr } = await sb.from("staff").update({ password: newHash }).eq("id", session.sub);
+  if (updErr) return res.status(500).json({ error: updErr.message });
+
+  return res.json({ ok: true });
 });
 
 // ---------------------------------------------------------------------------

@@ -1,0 +1,133 @@
+Please fix only the login, registration, role restriction, and related UI issues listed below. Do not add any extra fields. Do not assume database field names. First inspect the existing code, routes, Supabase schema, and auth logic, then apply the changes safely.
+
+Problems to fix:
+
+1. Storefront header login button
+- Rename “Login” to “Sign in”.
+- Remove the dropdown from this button.
+- Clicking “Sign in” should directly open the customer sign-in page.
+
+2. Customer sign-in page account type names
+Rename everywhere on sign-in and registration:
+- “Personal (B2C)” to “Individual Account”
+- “Business (B2B)” to “Business Account”
+
+3. Customer sign-in fields
+For both Individual Account and Business Account login:
+- Keep only Email and Password.
+- Remove all placeholders from input fields.
+- Do not allow Individual Account users to login from Business Account selection.
+- Do not allow Business Account users to login from Individual Account selection.
+- If the wrong account type is selected, show toast:
+  “Please choose the correct login type.”
+
+4. Registration fields and validations
+Remove all placeholders from every registration field.
+
+Individual Account registration fields:
+- Name
+- Email
+- Phone
+- Password
+
+All fields are mandatory.
+
+Validation:
+- Name must be at least 2 characters.
+- Name must be alphabetic only, no numbers.
+- Email must have proper email validation.
+- Phone must be Saudi-based.
+- Phone field must use two boxes:
+  - Small fixed box: +966
+  - Main box: user enters phone number
+- Password must remain mandatory.
+
+Business Account registration fields:
+- Name
+- Email
+- Phone
+- Business Name
+- Business Type
+- CR Number optional
+- VAT Number
+- Password
+
+Validation:
+- Name must be at least 2 characters.
+- Name must be alphabetic only, no numbers.
+- Email must have proper email validation.
+- Phone must use the same two-box format:
+  - Small fixed box: +966
+  - Main box: user enters phone number
+- Business Name can contain letters and numbers.
+- CR Number should be optional and show “optional” next to the label.
+- VAT Number should remain as existing required/optional behavior if already defined, do not invent new rule.
+- Fix the Business Type radio/multi-select UI because it currently looks broken.
+- Ensure Business Account and Individual Account are treated as different account categories and cannot login from each other’s login selection.
+
+5. Critical role-based login restriction
+Currently login is open from anywhere. Fix this completely.
+
+There are four login categories:
+- Individual Account
+- Business Account
+- Sales Person
+- Admin
+
+Rules:
+- Individual Account and Business Account must login only from the customer sign-in page.
+- Admin and Sales Person must login only from:
+  https://venture-supply-srs--venturesupplu.replit.app/admin/login
+- Admin must not be able to login from Individual Account or Business Account login.
+- Sales Person must not be able to login from Individual Account or Business Account login.
+- Individual Account and Business Account must not be able to login from admin/salesperson login.
+- On the admin login page, role selection between Admin and Sales Person must also be strictly validated.
+- If admin credentials are entered under Sales Person login, do not expose a message like “this is admin credential”.
+- Use a generic safe toast like:
+  “Login failed. Please check your credentials and login type.”
+
+6. Login page UI redesign
+Redesign the customer login/register page:
+- Login/register card should be on the right side.
+- Left side should have a visual/image section with a divider, similar to the reference screenshot.
+- Keep all existing required fields and buttons.
+- Do not add new fields.
+- Make the UI clean, professional, and responsive.
+
+7. Admin login page UI redesign
+Redesign the admin/salesperson login screen as well.
+- Keep the current admin/salesperson role selection.
+- Keep existing fields and buttons.
+- Improve the layout, spacing, background, card design, and professional look.
+- Do not add new fields.
+- Make the error messages generic and safe.
+
+8. Phone number field global update
+Wherever there is a phone number field in this website, use the same format:
+- Small fixed box: +966
+- Main box: user enters phone number
+- No placeholder text.
+
+9. Sales Person settings page
+When logged in as Sales Person, the Settings page should only show:
+- New Password
+- Confirm Password
+
+Remove all other fields from Sales Person settings.
+
+10. B2B Business Profile settings
+In the B2B account Business Profile settings page, remove the “Account Manager” section completely.
+The B2B dashboard already has the correct Sales Person section, so do not show Account Manager inside Business Profile settings.
+
+Important:
+- Do not add extra fields.
+- Do not rename database fields blindly.
+- Inspect Supabase schema and existing auth/session role logic before changes.
+- If any manual Supabase query is required, tell me the exact query and I will run it.
+- Keep scope limited to the above issues only.
+- After fixing, test all four login types:
+  1. Individual Account login
+  2. Business Account login
+  3. Sales Person login
+  4. Admin login
+- Confirm that each role can login only from its correct login page and correct account type.
