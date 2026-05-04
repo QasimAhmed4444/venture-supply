@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { randomBytes, randomUUID } from "node:crypto";
 import { getSupabase } from "../lib/supabase.js";
 import { requireAuth, requireRole, requireAdmin } from "../middlewares/requireAuth.js";
 import type { VerifiedSession } from "../lib/sessionToken.js";
@@ -74,22 +75,27 @@ router.get("/orders", requireAuth, async (req, res) => {
 });
 
 // GET /orders/:id — public for tracking links; scoped by role for authenticated users
+// R2-NB-9: sanitize ID to prevent PostgREST filter injection
 router.get("/orders/:id", async (req, res) => {
   const session = (req as any).session as VerifiedSession | undefined;
   const sb = getSupabase();
 
   if (!sb) return res.status(404).json({ error: "not found" });
+
+  const raw = String(req.params.id ?? "");
+  if (!/^[A-Za-z0-9_-]{1,80}$/.test(raw)) {
+    return res.status(400).json({ error: "Invalid order ID" });
+  }
+
   try {
-    const { data } = await sb
-      .from("orders")
-      .select("*")
-      .or(`id.eq.${req.params.id},tracking_id.eq.${req.params.id}`)
-      .maybeSingle();
+    let { data } = await sb.from("orders").select("*").eq("id", raw).maybeSingle();
+    if (!data) {
+      ({ data } = await sb.from("orders").select("*").eq("tracking_id", raw).maybeSingle());
+    }
     if (!data) return res.status(404).json({ error: "not found" });
 
     const order = toCamel(data as Record<string, unknown>);
 
-    // Authenticated customers can only see their own orders
     if (session?.role === "b2c" || session?.role === "b2b") {
       const { data: cust } = await sb.from("customers").select("id").eq("email", session.email).maybeSingle();
       if (!cust || cust.id !== order.customerId) {
@@ -97,7 +103,6 @@ router.get("/orders/:id", async (req, res) => {
       }
     }
 
-    // Sales can only see orders for their assigned customers
     if (session?.role === "sales") {
       const { data: staff } = await sb.from("staff").select("salesperson_id").eq("id", session.sub).maybeSingle();
       const spId = staff?.salesperson_id as string | null;
@@ -113,6 +118,8 @@ router.get("/orders/:id", async (req, res) => {
 });
 
 // POST /orders — any authenticated user can place an order
+// R2-NB-1+2+3+4+5: role-gate body fields
+// R2-NB-7+8+14: stock check, audience check, items cap
 router.post("/orders", requireAuth, async (req, res) => {
   const session = (req as any).session as VerifiedSession;
   const sb = getSupabase();
@@ -127,41 +134,98 @@ router.post("/orders", requireAuth, async (req, res) => {
       const { data: cust } = await sb.from("customers").select("id, assigned_salesperson_id").eq("email", session.email).maybeSingle();
       if (cust) {
         customerId = cust.id as string;
-        if (!body.salespersonId && cust.assigned_salesperson_id) {
+        if (cust.assigned_salesperson_id) {
           autoSalespersonId = cust.assigned_salesperson_id as string;
         }
       }
     }
 
-    // ── Server-side pricing ───────────────────────────────────────────────────
-    const rawItems = Array.isArray(body.items) ? (body.items as Record<string, unknown>[]) : [];
-    const customerType = (body.customerType as string | undefined) ?? (session.role === "b2b" || session.role === "sales" ? "b2b" : "b2c");
+    // ── R2-NB-1+2+3+4+5: Role-gated field derivation ──────────────────────────
+    const isStaff = session.role === "admin" || session.role === "sales";
+
+    const customerType = isStaff
+      ? ((body.customerType as string | undefined) ?? "b2c")
+      : (session.role === "b2b" ? "b2b" : "b2c");
     const isB2B = customerType === "b2b";
+
+    let salespersonId: string | null = null;
+    if (isStaff) {
+      salespersonId = (body.salespersonId as string | undefined) ?? null;
+    } else {
+      if (autoSalespersonId) salespersonId = autoSalespersonId;
+    }
+
+    const status = isStaff ? ((body.status as string | undefined) ?? "new") : "new";
+
+    const history = isStaff && Array.isArray(body.history)
+      ? body.history
+      : [{ status, at: new Date().toISOString(), by: isStaff ? session.sub : "system" }];
+
+    // Server always generates IDs — body values ignored
+    const orderId = `o-${randomUUID()}`;
+    const trackingId = `VS-O-${randomBytes(4).toString("hex").toUpperCase()}`;
+
+    const placedAt = isStaff && body.placedAt
+      ? (body.placedAt as string)
+      : new Date().toISOString();
+
+    // ── R2-NB-14: items cap ───────────────────────────────────────────────────
+    const rawItems = Array.isArray(body.items) ? (body.items as Record<string, unknown>[]) : [];
+    if (rawItems.length > 50) {
+      return res.status(400).json({ error: "Too many items (max 50 per order)" });
+    }
 
     let pricedItems: Record<string, unknown>[] = rawItems;
     if (rawItems.length > 0) {
       const productIds = [...new Set(rawItems.map((it) => it.productId as string).filter(Boolean))];
-      const { data: products } = await sb.from("products").select("id, b2c_price, b2b_price, packs").in("id", productIds);
+      // R2-NB-7+8: fetch stock + audience alongside pricing fields
+      const { data: products } = await sb.from("products")
+        .select("id, en_name, b2c_price, b2b_price, packs, stock_qty, stock_status, audience")
+        .in("id", productIds);
       const prodMap: Record<string, Record<string, unknown>> = {};
       for (const p of (products ?? [])) prodMap[p.id as string] = p as Record<string, unknown>;
 
-      pricedItems = rawItems.map((it) => {
-        const prod = prodMap[it.productId as string];
-        let unitPrice: number;
-        if (prod) {
-          const packSize = it.packSize as string | undefined;
-          const packs = Array.isArray(prod.packs) ? (prod.packs as Record<string, unknown>[]) : [];
-          const pack = packSize ? packs.find((pk) => pk.size === packSize) : packs[0];
-          if (pack) {
-            unitPrice = Number((isB2B ? (pack.b2bPrice ?? pack.b2b_price) : (pack.b2cPrice ?? pack.b2c_price)) ?? (isB2B ? prod.b2b_price : prod.b2c_price) ?? 0);
+      try {
+        pricedItems = rawItems.map((it) => {
+          const prod = prodMap[it.productId as string];
+          let unitPrice: number;
+          if (prod) {
+            const qty = Number(it.qty ?? 0);
+            // R2-NB-7: qty validation
+            if (qty <= 0) {
+              throw new Error(`Invalid quantity for ${prod.en_name ?? it.productId}`);
+            }
+            if (prod.stock_status === "out-of-stock") {
+              throw new Error(`${prod.en_name} is out of stock`);
+            }
+            if (qty > Number(prod.stock_qty ?? 0)) {
+              throw new Error(`Only ${prod.stock_qty} of ${prod.en_name} available`);
+            }
+            // R2-NB-8: audience check — customers can't buy off-audience products; staff can place mixed orders
+            if (!isStaff) {
+              if (customerType === "b2c" && prod.audience === "b2b") {
+                throw new Error(`${prod.en_name} is B2B-only`);
+              }
+              if (customerType === "b2b" && prod.audience === "b2c") {
+                throw new Error(`${prod.en_name} is B2C-only`);
+              }
+            }
+            const packSize = it.packSize as string | undefined;
+            const packs = Array.isArray(prod.packs) ? (prod.packs as Record<string, unknown>[]) : [];
+            const pack = packSize ? packs.find((pk) => pk.size === packSize) : packs[0];
+            if (pack) {
+              unitPrice = Number((isB2B ? (pack.b2bPrice ?? pack.b2b_price) : (pack.b2cPrice ?? pack.b2c_price)) ?? (isB2B ? prod.b2b_price : prod.b2c_price) ?? 0);
+            } else {
+              unitPrice = Number((isB2B ? prod.b2b_price : prod.b2c_price) ?? 0);
+            }
           } else {
-            unitPrice = Number((isB2B ? prod.b2b_price : prod.b2c_price) ?? 0);
+            unitPrice = 0;
           }
-        } else {
-          unitPrice = 0;
-        }
-        return { ...it, unitPrice };
-      });
+          return { ...it, unitPrice };
+        });
+      } catch (err: any) {
+        return res.status(400).json({ error: err?.message ?? "Validation failed" });
+      }
     }
 
     const subtotal = +pricedItems.reduce((s, it) => s + Number(it.unitPrice ?? 0) * Number(it.qty ?? 0), 0).toFixed(2);
@@ -197,23 +261,21 @@ router.post("/orders", requireAuth, async (req, res) => {
     const deliveryCharge = freeDelivery ? 0 : baseDelivery;
     const total = Math.max(0, +(subtotal + vat + deliveryCharge - discount).toFixed(2));
 
-    const b: Record<string, unknown> = { ...body, ...(autoSalespersonId ? { salespersonId: autoSalespersonId } : {}) };
-
     const row = {
-      id: b.id,
-      tracking_id: b.trackingId,
-      customer_id: customerId ?? b.customerId,
-      customer_name: b.customerName,
+      id: orderId,
+      tracking_id: trackingId,
+      customer_id: customerId ?? null,
+      customer_name: body.customerName,
       customer_type: customerType,
-      salesperson_id: b.salespersonId ?? null,
-      status: b.status ?? "new",
+      salesperson_id: salespersonId,
+      status,
       order_type: orderType,
-      payment_method: b.paymentMethod ?? "cod",
-      placed_at: b.placedAt ?? new Date().toISOString(),
-      estimated_at: b.estimatedAt ?? null,
-      delivery_address: b.deliveryAddress,
-      city: b.city,
-      notes: b.notes ?? null,
+      payment_method: body.paymentMethod ?? "cod",
+      placed_at: placedAt,
+      estimated_at: body.estimatedAt ?? null,
+      delivery_address: body.deliveryAddress,
+      city: body.city,
+      notes: body.notes ?? null,
       ...(couponCode != null ? { coupon_code: couponCode } : {}),
       ...(discount ? { discount } : {}),
       items: pricedItems,
@@ -221,16 +283,16 @@ router.post("/orders", requireAuth, async (req, res) => {
       vat,
       delivery_charge: deliveryCharge,
       total,
-      history: b.history ?? [{ status: "new", at: new Date().toISOString() }],
+      history,
     };
 
     const { data, error } = await sb.from("orders").insert(row).select().single();
     if (error || !data) return res.status(400).json({ error: error?.message ?? "insert failed" });
 
-    // Increment coupon uses_count atomically via RPC
+    // R2-NB-6: increment coupon uses_count atomically via RPC (correct param name p_code)
     if (row.coupon_code) {
       try {
-        await sb.rpc("increment_coupon_uses", { coupon_code: row.coupon_code as string });
+        await sb.rpc("increment_coupon_uses", { p_code: row.coupon_code as string });
       } catch {
         // best-effort — don't fail the order
       }

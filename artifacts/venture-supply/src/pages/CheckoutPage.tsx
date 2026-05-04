@@ -23,8 +23,9 @@ interface ValidatedCoupon {
   arTitle: string;
   type: string;
   value: number;
-  discount: number;
+  minOrder: number;
   freeDelivery: boolean;
+  valid: boolean;
 }
 
 export function CheckoutPage() {
@@ -62,7 +63,7 @@ export function CheckoutPage() {
 
   const baseDelivery = orderType === "pickup" ? 0 : isB2B ? 0 : subtotal >= 200 ? 0 : 25;
   const deliveryCharge = appliedCoupon?.freeDelivery ? 0 : baseDelivery;
-  const couponDiscount = appliedCoupon?.discount ?? 0;
+  const couponDiscount = 0; // Exact discount computed server-side at order placement
   const grandTotal = +(total + deliveryCharge - couponDiscount).toFixed(2);
 
   // ── Saudi-specific validation ──────────────────────────────────────────────
@@ -101,9 +102,9 @@ export function CheckoutPage() {
       setAppliedCoupon(result);
       toast({
         title: language === "ar" ? "تم تطبيق الكوبون" : "Coupon applied",
-        description: result.type === "free_delivery"
+        description: result.freeDelivery
           ? (language === "ar" ? "شحن مجاني!" : "Free delivery!")
-          : (language === "ar" ? `وفّرت ${result.discount.toFixed(2)} ر.س` : `You save SAR ${result.discount.toFixed(2)}`),
+          : (language === "ar" ? "سيُحسب الخصم عند تأكيد الطلب" : "Discount applied — final amount calculated at checkout"),
       });
     } catch (err: any) {
       toast({
@@ -459,7 +460,11 @@ export function CheckoutPage() {
                   <Badge className="bg-emerald-100 text-emerald-800 border-emerald-300 text-xs ms-auto">
                     {appliedCoupon.freeDelivery
                       ? (language === "ar" ? "شحن مجاني" : "Free delivery")
-                      : `- SAR ${appliedCoupon.discount.toFixed(2)}`}
+                      : appliedCoupon.type === "percent"
+                        ? `${appliedCoupon.value}% off`
+                        : appliedCoupon.type === "fixed"
+                          ? `SAR ${appliedCoupon.value} off`
+                          : (language === "ar" ? "مُطبَّق" : "Applied")}
                   </Badge>
                 </div>
               )}

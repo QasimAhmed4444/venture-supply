@@ -122,8 +122,8 @@ router.post("/auth/register", async (req, res) => {
   if (!name || !email || !phone || !password) {
     return res.status(400).json({ error: "name, email, phone and password are required" });
   }
-  if (password.length < 6) {
-    return res.status(400).json({ error: "Password must be at least 6 characters" });
+  if (password.length < 8) {
+    return res.status(400).json({ error: "Password must be at least 8 characters" });
   }
 
   const lower = email.toLowerCase().trim();
@@ -225,8 +225,8 @@ router.post("/auth/change-password", async (req, res) => {
   if (!email || !currentPassword || !newPassword) {
     return res.status(400).json({ error: "email, currentPassword and newPassword are required" });
   }
-  if (newPassword.length < 6) {
-    return res.status(400).json({ error: "Password must be at least 6 characters" });
+  if (newPassword.length < 8) {
+    return res.status(400).json({ error: "Password must be at least 8 characters" });
   }
   if (newPassword === currentPassword) {
     return res.status(400).json({ error: "New password must differ from current password" });
@@ -265,7 +265,7 @@ router.post("/auth/forgot-password", async (req, res) => {
 
   // Always respond the same way to prevent email enumeration
   if (!staff) {
-    return res.json({ ok: true, message: "If that address is registered, a reset token has been issued." });
+    return res.json({ ok: true, message: "If that address is registered, a reset link has been sent." });
   }
 
   const token = randomBytes(32).toString("hex");
@@ -277,12 +277,11 @@ router.post("/auth/forgot-password", async (req, res) => {
     reset_token_expires_at: expiresAt,
   }).eq("id", staff.id as string);
 
-  // In production this token would be emailed; for now return it directly
-  return res.json({
-    ok: true,
-    token,
-    message: "Reset token issued. Use it within 1 hour.",
-  });
+  // R2-NB-18: never return the token in the HTTP response — log to server console only
+  const resetUrl = `${process.env["APP_URL"] ?? ""}/reset-password?token=${token}`;
+  console.log(`[RESET] Password reset link for ${lower}: ${resetUrl}`);
+  // TODO: wire to email provider (Resend/SendGrid). Token is logged to server console for now.
+  return res.json({ ok: true, message: "If that address is registered, a reset link has been sent." });
 });
 
 // ---------------------------------------------------------------------------
@@ -293,8 +292,8 @@ router.post("/auth/reset-password", async (req, res) => {
   if (!token || !newPassword) {
     return res.status(400).json({ error: "token and newPassword are required" });
   }
-  if (newPassword.length < 6) {
-    return res.status(400).json({ error: "Password must be at least 6 characters" });
+  if (newPassword.length < 8) {
+    return res.status(400).json({ error: "Password must be at least 8 characters" });
   }
 
   const sb = getSupabase();
@@ -336,14 +335,16 @@ router.post("/auth/bootstrap-admin", async (req, res) => {
       error: "Bootstrap is disabled. Set BOOTSTRAP_TOKEN (>=16 chars) in the server environment to enable it.",
     });
   }
+  // R2-NB-25: constant-time comparison padded to fixed length to prevent timing leak
   const provided = req.headers["x-bootstrap-token"];
-  if (typeof provided !== "string" || provided.length !== expectedToken.length) {
+  if (typeof provided !== "string") {
     return res.status(401).json({ error: "Invalid bootstrap token" });
   }
-  const a = Buffer.from(provided);
-  const b = Buffer.from(expectedToken);
-  let diff = 0;
-  for (let i = 0; i < a.length; i++) diff |= a[i]! ^ b[i]!;
+  const PAD = 64;
+  const aBuf = Buffer.from(provided.padEnd(PAD, "\0").slice(0, PAD));
+  const bBuf = Buffer.from(expectedToken.padEnd(PAD, "\0").slice(0, PAD));
+  let diff = provided.length !== expectedToken.length ? 1 : 0;
+  for (let i = 0; i < PAD; i++) diff |= aBuf[i]! ^ bBuf[i]!;
   if (diff !== 0) {
     return res.status(401).json({ error: "Invalid bootstrap token" });
   }

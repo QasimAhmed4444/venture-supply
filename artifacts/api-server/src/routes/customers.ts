@@ -51,6 +51,11 @@ router.post("/customers", requireRole("admin", "sales"), async (req, res) => {
   const sb = getSupabase();
   if (!sb) return res.status(503).json({ error: "db unavailable" });
   const b = req.body;
+  // R2-NB-29: credit settings are admin-only
+  const session = (req as any).session;
+  if ((b.allowCredit || b.creditLimit) && session.role !== "admin") {
+    return res.status(403).json({ error: "Credit settings can only be set by admin" });
+  }
   const id = `c-${Date.now().toString(36)}`;
   const business = b.type === "b2b" && b.businessName
     ? { name: b.businessName, type: b.businessTypeCode ?? "retailer", crNumber: "", vatNumber: "", businessTypeId: b.businessTypeId ?? null, allowCredit: b.allowCredit ?? false, creditLimit: b.allowCredit ? Number(b.creditLimit ?? 0) : null }
@@ -112,7 +117,7 @@ router.put("/customers/:id", requireAuth, async (req, res) => {
   } else {
     // Admin / sales — full update
     if (b.name !== undefined) payload.name = b.name;
-    if (b.email !== undefined) payload.email = b.email;
+    if (b.email !== undefined) payload.email = String(b.email).toLowerCase().trim();
     if (b.phone !== undefined) payload.phone = b.phone;
     if (b.city !== undefined) payload.city = b.city;
     if (b.type !== undefined) payload.type = b.type;

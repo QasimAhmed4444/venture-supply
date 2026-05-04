@@ -64,7 +64,21 @@ app.use(globalLimiter);
 app.use("/api/auth", authLimiter);
 app.use("/api/coupons/validate", couponLimiter);
 
-app.use(cors());
+// R2-NB-10: CORS allowlist — set CORS_ORIGINS env var (comma-separated) for production
+const allowedOrigins = (process.env["CORS_ORIGINS"] ?? "")
+  .split(",")
+  .map((s) => s.trim())
+  .filter(Boolean);
+
+app.use(cors({
+  origin: (origin, callback) => {
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.length === 0) return callback(null, true); // dev fallback: allow all
+    if (allowedOrigins.includes(origin)) return callback(null, true);
+    return callback(new Error("CORS: origin not allowed"));
+  },
+  credentials: false,
+}));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 

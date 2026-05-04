@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { getSupabase } from "../lib/supabase.js";
 import { requireAdmin } from "../middlewares/requireAuth.js";
+import { verifySessionToken } from "../lib/sessionToken.js";
 
 const router = Router();
 
@@ -51,11 +52,32 @@ function toSnake(b: Record<string, unknown>) {
   return row;
 }
 
+// R2-NB-11: GET /products with optional auth for audience filtering
 router.get("/products", async (req, res) => {
   const sb = getSupabase();
   if (!sb) return res.json([]);
+
+  // Optional auth — read role if token present, default to public (b2c) view
+  const auth = req.headers["authorization"];
+  let role: string | null = null;
+  if (typeof auth === "string" && auth.startsWith("Bearer ")) {
+    const session = verifySessionToken(auth.slice(7).trim());
+    if (session) role = session.role;
+  }
+
   try {
     let query = sb.from("products").select("*").order("featured", { ascending: false }).order("created_at");
+
+    // Audience filter: guests + b2c see b2c|both; b2b sees b2b|both; staff sees all
+    if (role === "b2b") {
+      query = query.in("audience", ["b2b", "both"]);
+    } else if (role === "admin" || role === "sales") {
+      // staff sees everything — no filter
+    } else {
+      // guest or b2c
+      query = query.in("audience", ["b2c", "both"]);
+    }
+
     if (req.query.category) query = query.eq("category_id", req.query.category as string);
     if (req.query.brand)    query = query.eq("brand_id", req.query.brand as string);
     if (req.query.search)   query = query.ilike("en_name", `%${req.query.search}%`);

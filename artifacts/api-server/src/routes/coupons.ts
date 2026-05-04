@@ -5,13 +5,7 @@ import type { VerifiedSession } from "../lib/sessionToken.js";
 
 const router = Router();
 
-const FALLBACK_COUPONS = [
-  { id: "cp-b2b500",    code: "B2B500",    en_title: "B2B Discount 500 SAR",  ar_title: "خصم الشركات 500 ر.س",   type: "fixed",        value: 500,  min_order: 1000, audience: "b2b",  max_uses: null, uses_count: 0, starts_at: null, ends_at: null, is_active: true },
-  { id: "cp-b2b1k",     code: "B2B1000",   en_title: "B2B Discount 1000 SAR", ar_title: "خصم الشركات 1000 ر.س",  type: "fixed",        value: 1000, min_order: 3000, audience: "b2b",  max_uses: null, uses_count: 0, starts_at: null, ends_at: null, is_active: true },
-  { id: "cp-welcome10", code: "WELCOME10",  en_title: "Welcome 10% Off",       ar_title: "خصم الترحيب 10%",       type: "percent",      value: 10,   min_order: 0,    audience: "both", max_uses: null, uses_count: 0, starts_at: null, ends_at: null, is_active: true },
-  { id: "cp-freeship",  code: "FREESHIP",   en_title: "Free Shipping",         ar_title: "شحن مجاني",             type: "free_delivery", value: 0,   min_order: 0,    audience: "b2c",  max_uses: null, uses_count: 0, starts_at: null, ends_at: null, is_active: true },
-  { id: "cp-ramadan20", code: "RAMADAN20",  en_title: "Ramadan 20% Off",       ar_title: "رمضان خصم 20%",         type: "percent",      value: 20,   min_order: 200,  audience: "both", max_uses: null, uses_count: 0, starts_at: null, ends_at: null, is_active: true },
-];
+// R2-NB-21: FALLBACK_COUPONS removed — DB is the single source of truth
 
 function toCamel(row: Record<string, unknown>) {
   return {
@@ -60,9 +54,9 @@ router.get("/coupons/validate", requireAuth, async (req, res) => {
     .ilike("code", code)
     .single();
 
-  const raw = data ?? FALLBACK_COUPONS.find((c) => c.code === code.toUpperCase()) ?? null;
-  if (error && !raw) return res.status(404).json({ error: "Coupon not found" });
-  if (!raw) return res.status(404).json({ error: "Coupon not found" });
+  // R2-NB-21: no fallback — DB only
+  if (error || !data) return res.status(404).json({ error: "Coupon not found" });
+  const raw = data;
 
   const coupon = toCamel(raw as Record<string, unknown>);
   const now = new Date();
@@ -72,8 +66,9 @@ router.get("/coupons/validate", requireAuth, async (req, res) => {
   if (coupon.endsAt && new Date(coupon.endsAt as string) < now) return res.status(400).json({ error: "Coupon has expired" });
   if (coupon.maxUses != null && coupon.usesCount >= (coupon.maxUses as number)) return res.status(400).json({ error: "Coupon usage limit reached" });
 
+  // R2-NB-22: minOrder check still useful as a UX hint, but only when total is provided
   const orderTotal = Number(total ?? 0);
-  if (coupon.minOrder && orderTotal < coupon.minOrder) {
+  if (coupon.minOrder && orderTotal > 0 && orderTotal < coupon.minOrder) {
     return res.status(400).json({ error: `Minimum order SAR ${coupon.minOrder} required` });
   }
 
@@ -81,12 +76,17 @@ router.get("/coupons/validate", requireAuth, async (req, res) => {
     return res.status(400).json({ error: "Coupon not valid for your account type" });
   }
 
-  let discount = 0;
-  if (coupon.type === "percent") discount = +(orderTotal * coupon.value / 100).toFixed(2);
-  else if (coupon.type === "fixed") discount = Math.min(coupon.value, orderTotal);
-  else if (coupon.type === "free_delivery") discount = 0;
-
-  return res.json({ ...coupon, discount, freeDelivery: coupon.type === "free_delivery" });
+  // R2-NB-22: do NOT compute or return discount — real discount is computed server-side at order placement
+  return res.json({
+    valid: true,
+    code: coupon.code,
+    type: coupon.type,
+    value: coupon.value,
+    minOrder: coupon.minOrder,
+    enTitle: coupon.enTitle,
+    arTitle: coupon.arTitle,
+    freeDelivery: coupon.type === "free_delivery",
+  });
 });
 
 // POST /coupons — admin only

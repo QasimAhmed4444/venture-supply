@@ -109,16 +109,25 @@ router.put("/staff/:id", async (req, res) => {
 });
 
 // Use the delete_staff_safely RPC which enforces last-admin protection atomically
+// R2-NB-19: correct param name p_id, self-delete guard, last-admin 409
 router.delete("/staff/:id", async (req, res) => {
   const sb = getSupabase();
   if (!sb) return res.status(503).json({ error: "db unavailable" });
 
-  const { error } = await sb.rpc("delete_staff_safely", { staff_id: req.params.id });
+  const session = (req as any).session;
+  if (req.params.id === session?.sub) {
+    return res.status(400).json({ error: "Cannot delete your own account" });
+  }
+
+  const { data, error } = await sb.rpc("delete_staff_safely", { p_id: req.params.id });
   if (error) {
     if (error.message?.toLowerCase().includes("last admin")) {
-      return res.status(400).json({ error: "Cannot remove the last admin" });
+      return res.status(409).json({ error: "Cannot delete the last admin" });
     }
     return res.status(400).json({ error: error.message });
+  }
+  if (data === false) {
+    return res.status(409).json({ error: "Cannot delete the last admin" });
   }
   return res.status(204).send();
 });
