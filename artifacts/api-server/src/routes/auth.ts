@@ -116,8 +116,12 @@ router.post("/auth/login", async (req, res) => {
 router.post("/auth/register", async (req, res) => {
   const { name, email, phone, password, type, businessName, crNumber, vatNumber, businessTypeId } = req.body as {
     name: string; email: string; phone: string; password: string;
-    type?: string; businessName?: string; crNumber?: string; vatNumber?: string; businessTypeId?: string;
+    type?: string; businessName?: string; crNumber?: string; vatNumber?: string; businessTypeId?: string; businessTypeIds?: string[];
   };
+  // Support both single businessTypeId and multi-select businessTypeIds array
+  const rawBtIds: string[] = Array.isArray(req.body.businessTypeIds) && req.body.businessTypeIds.length > 0
+    ? req.body.businessTypeIds as string[]
+    : (businessTypeId ? [businessTypeId] : []);
 
   if (!name || !email || !phone || !password) {
     return res.status(400).json({ error: "name, email, phone and password are required" });
@@ -149,15 +153,18 @@ router.post("/auth/register", async (req, res) => {
   const accountType = type === "b2b" ? "b2b" : "b2c";
 
   let resolvedBtName = "retailer";
-  let resolvedBtId: string | null = null;
-  if (accountType === "b2b" && businessTypeId) {
-    const { data: bt } = await sb.from("business_types").select("id, code").eq("id", businessTypeId).maybeSingle();
-    if (bt) { resolvedBtName = bt.code?.toLowerCase() ?? "retailer"; resolvedBtId = bt.id; }
+  let resolvedBtIds: string[] = [];
+  if (accountType === "b2b" && rawBtIds.length > 0) {
+    const { data: bts } = await sb.from("business_types").select("id, code").in("id", rawBtIds);
+    if (bts && bts.length > 0) {
+      resolvedBtIds = bts.map((bt) => bt.id as string);
+      resolvedBtName = (bts[0]?.code as string | undefined)?.toLowerCase() ?? "retailer";
+    }
   }
 
   const business =
     accountType === "b2b" && businessName
-      ? { name: businessName, type: resolvedBtName, crNumber: crNumber ?? "", vatNumber: vatNumber ?? "", businessTypeId: resolvedBtId }
+      ? { name: businessName, type: resolvedBtName, crNumber: crNumber ?? "", vatNumber: vatNumber ?? "", businessTypeIds: resolvedBtIds, businessTypeId: resolvedBtIds[0] ?? null }
       : null;
 
   const { data: newCustomer, error: custErr } = await sb

@@ -15,7 +15,8 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Plus, Trash2, ShoppingBag, Users as UsersIcon, AlertTriangle, TrendingUp, Wallet, Eye,
   Pencil, Search, Download, FileText, Package, DollarSign, Building2, CheckCircle2,
-  Clock, XCircle, Truck, PackageCheck, ShoppingCart, X, ChevronUp, ChevronDown, Upload, Banknote,
+  Clock, XCircle, Truck, PackageCheck, ShoppingCart, X, ChevronUp, ChevronDown, Upload,
+  Star, TrendingDown, BarChart2,
 } from "lucide-react";
 import {
   LineChart, Line, AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell,
@@ -30,7 +31,6 @@ import { useCustomers } from "@/hooks/useCustomers";
 import { useOrders, useUpdateOrderStatus } from "@/hooks/useOrders";
 import { useDashboard } from "@/hooks/useDashboard";
 import { useSalespersons, useCreateSalesperson, useUpdateSalesperson, useDeleteSalesperson, type Salesperson } from "@/hooks/useSalespersons";
-import { useRegions, type Region } from "@/hooks/useRegions";
 import { useCreateStaff } from "@/hooks/useStaff";
 import { apiFetch } from "@/lib/api";
 import { useBusinessTypes, useCreateBusinessType, useUpdateBusinessType, useDeleteBusinessType, type BusinessType } from "@/hooks/useBusinessTypes";
@@ -1538,7 +1538,7 @@ export function AdminCustomersPage() {
 
 // ─── Salespersons ──────────────────────────────────────────────────────────────
 
-const BLANK_SP = { name: "", email: "", phone: "", region: "", monthlyTarget: "80000", monthlyNewCustomerTarget: "5", monthlyOrderTarget: "20", status: "active" as "active" | "inactive", joinedDate: "", password: "", categoriesServed: [] as string[], assignedCustomerIds: [] as string[] };
+const BLANK_SP = { name: "", email: "", phone: "", monthlyTarget: "80000", monthlyNewCustomerTarget: "5", monthlyOrderTarget: "20", status: "active" as "active" | "inactive", joinedDate: "", password: "", categoriesServed: [] as string[], assignedCustomerIds: [] as string[] };
 
 function CustomerMultiSelect({ selected, onChange, customers, businessTypes }: {
   selected: string[];
@@ -1611,11 +1611,10 @@ function CustomerMultiSelect({ selected, onChange, customers, businessTypes }: {
   );
 }
 
-function SPForm({ data, setData, categories, regions, b2bCustomers, businessTypes }: {
+function SPForm({ data, setData, categories, b2bCustomers, businessTypes }: {
   data: typeof BLANK_SP;
   setData: (fn: (p: typeof BLANK_SP) => typeof BLANK_SP) => void;
   categories: Category[];
-  regions: Region[];
   b2bCustomers: Customer[];
   businessTypes: BusinessType[];
 }) {
@@ -1628,19 +1627,8 @@ function SPForm({ data, setData, categories, regions, b2bCustomers, businessType
       </div>
       <div className="grid grid-cols-2 gap-3">
         <div><Label>Phone</Label><Input value={data.phone} onChange={(e) => setData((p) => ({ ...p, phone: e.target.value }))} /></div>
-        <div>
-          <Label>Region</Label>
-          <select
-            className="w-full h-9 px-3 border rounded-md bg-background text-sm"
-            value={data.region}
-            onChange={(e) => setData((p) => ({ ...p, region: e.target.value }))}
-          >
-            <option value="">— Select region —</option>
-            {regions.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
-          </select>
-        </div>
+        <div><Label>Password <span className="text-muted-foreground text-xs">(login account)</span></Label><Input type="password" value={data.password} onChange={(e) => setData((p) => ({ ...p, password: e.target.value }))} placeholder="Min. 8 characters" autoComplete="new-password" /></div>
       </div>
-      <div><Label>Password <span className="text-muted-foreground text-xs">(login account)</span></Label><Input type="password" value={data.password} onChange={(e) => setData((p) => ({ ...p, password: e.target.value }))} placeholder="Min. 8 characters" autoComplete="new-password" /></div>
       <div className="grid grid-cols-3 gap-3">
         <div><Label>Monthly Target (SAR)</Label><Input type="number" value={data.monthlyTarget} onChange={(e) => setData((p) => ({ ...p, monthlyTarget: e.target.value }))} /></div>
         <div><Label>New Customers / Month</Label><Input type="number" value={data.monthlyNewCustomerTarget} onChange={(e) => setData((p) => ({ ...p, monthlyNewCustomerTarget: e.target.value }))} /></div>
@@ -1686,11 +1674,157 @@ function SPForm({ data, setData, categories, regions, b2bCustomers, businessType
   );
 }
 
+function SalespersonDetailView({ sp, onClose }: { sp: Salesperson; onClose: () => void }) {
+  const [detail, setDetail] = useState<{
+    salesperson: Record<string, unknown>;
+    performance: Record<string, unknown> | null;
+    assignedCustomers: Record<string, unknown>[];
+    categoriesServed: { categoryId: string; categoryName: string; orderCount: number; totalRevenue: number }[];
+    topProducts: { productId: string; productName: string; unitsSold: number; totalRevenue: number }[];
+    businessTypesServed: { businessTypeId: string; customerCount: number }[];
+  } | null>(null);
+  const [loading, setLoading] = useState(true);
+  const { data: businessTypes = [] } = useBusinessTypes();
+
+  useEffect(() => {
+    setLoading(true);
+    apiFetch<typeof detail>(`/salespersons/${sp.id}/detail`)
+      .then((d) => { setDetail(d); setLoading(false); })
+      .catch(() => setLoading(false));
+  }, [sp.id]);
+
+  const perf = detail?.performance as Record<string, unknown> | null;
+
+  return (
+    <Dialog open onOpenChange={onClose}>
+      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-lg">
+              {sp.name.charAt(0)}
+            </div>
+            <div>
+              <div>{sp.name}</div>
+              <div className="text-sm font-normal text-muted-foreground">{sp.email}</div>
+            </div>
+          </DialogTitle>
+        </DialogHeader>
+
+        {loading ? (
+          <div className="py-12 text-center text-sm text-muted-foreground">Loading detail…</div>
+        ) : (
+          <div className="space-y-5 pt-2">
+            {/* Performance KPIs */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              {[
+                { label: "Monthly Target", value: `SAR ${sp.monthlyTarget.toLocaleString()}`, icon: TrendingUp },
+                { label: "Monthly Achieved", value: `SAR ${sp.monthlySales.toLocaleString()}`, icon: BarChart2, highlight: sp.monthlySales >= sp.monthlyTarget ? "emerald" : sp.monthlySales >= sp.monthlyTarget * 0.75 ? "amber" : "rose" },
+                { label: "Customers Assigned", value: String(sp.customersCount), icon: UsersIcon },
+                { label: "Status", value: sp.status === "active" ? "Active" : "Inactive", icon: Star, highlight: sp.status === "active" ? "emerald" : "rose" },
+              ].map(({ label, value, icon: Icon, highlight }) => (
+                <div key={label} className="border rounded-lg p-3 bg-card">
+                  <div className="text-xs text-muted-foreground mb-1 flex items-center gap-1">
+                    <Icon className="w-3 h-3" />{label}
+                  </div>
+                  <div className={`font-bold ${highlight === "emerald" ? "text-emerald-600" : highlight === "amber" ? "text-amber-600" : highlight === "rose" ? "text-rose-500" : ""}`}>
+                    {value}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {perf && (
+              <div className="grid grid-cols-3 gap-3">
+                {[
+                  { label: "Total Orders", value: String(perf.total_orders ?? "—") },
+                  { label: "Total Revenue", value: `SAR ${Number(perf.total_revenue ?? 0).toLocaleString()}` },
+                  { label: "Avg Order Value", value: `SAR ${Number(perf.avg_order_value ?? 0).toFixed(0)}` },
+                ].map(({ label, value }) => (
+                  <div key={label} className="border rounded-lg p-3 bg-muted/30 text-center">
+                    <div className="text-xs text-muted-foreground">{label}</div>
+                    <div className="font-semibold text-sm mt-0.5">{value}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Categories Served */}
+            {(detail?.categoriesServed ?? []).length > 0 && (
+              <div>
+                <h3 className="text-sm font-semibold mb-2 flex items-center gap-1.5"><TrendingDown className="w-4 h-4" /> Categories Served</h3>
+                <div className="space-y-1.5">
+                  {detail!.categoriesServed.map((cat) => (
+                    <div key={cat.categoryId} className="flex items-center justify-between text-sm border rounded-md px-3 py-2">
+                      <span className="font-medium">{cat.categoryName}</span>
+                      <span className="text-muted-foreground text-xs">SAR {cat.totalRevenue.toLocaleString()} · {cat.orderCount} orders</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Top Products */}
+            {(detail?.topProducts ?? []).length > 0 && (
+              <div>
+                <h3 className="text-sm font-semibold mb-2 flex items-center gap-1.5"><Package className="w-4 h-4" /> Top Products</h3>
+                <div className="space-y-1.5">
+                  {detail!.topProducts.slice(0, 5).map((prod) => (
+                    <div key={prod.productId} className="flex items-center justify-between text-sm border rounded-md px-3 py-2">
+                      <span className="font-medium truncate max-w-[60%]">{prod.productName}</span>
+                      <span className="text-muted-foreground text-xs">SAR {prod.totalRevenue.toLocaleString()} · {prod.unitsSold} units</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Assigned Customers */}
+            {(detail?.assignedCustomers ?? []).length > 0 && (
+              <div>
+                <h3 className="text-sm font-semibold mb-2 flex items-center gap-1.5"><UsersIcon className="w-4 h-4" /> Assigned Customers ({detail!.assignedCustomers.length})</h3>
+                <div className="grid grid-cols-2 gap-1.5 max-h-36 overflow-y-auto">
+                  {detail!.assignedCustomers.map((ac: Record<string, unknown>) => (
+                    <div key={String(ac.customer_id ?? ac.id)} className="text-xs border rounded px-2 py-1.5 bg-muted/30">
+                      {String(ac.customer_name ?? ac.name ?? ac.customer_id ?? "—")}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Business Types */}
+            {(detail?.businessTypesServed ?? []).length > 0 && (
+              <div>
+                <h3 className="text-sm font-semibold mb-2 flex items-center gap-1.5"><Building2 className="w-4 h-4" /> Business Types Served</h3>
+                <div className="flex flex-wrap gap-2">
+                  {detail!.businessTypesServed.map((bt) => {
+                    const btName = businessTypes.find((b) => b.id === bt.businessTypeId)?.name ?? bt.businessTypeId;
+                    return (
+                      <Badge key={bt.businessTypeId} variant="outline" className="text-xs">
+                        {btName} · {bt.customerCount} {bt.customerCount === 1 ? "customer" : "customers"}
+                      </Badge>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Meta */}
+            <div className="text-xs text-muted-foreground border-t pt-3 flex gap-6">
+              {sp.joinedDate && <span>Joined: {sp.joinedDate.slice(0, 10)}</span>}
+              {sp.phone && <span>Phone: {sp.phone}</span>}
+            </div>
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export function AdminSalespersonsPage() {
   const { t } = useLanguage();
   const { toast } = useToast();
   const { data: salespersons = [], isLoading } = useSalespersons();
-  const { data: regions = [] } = useRegions();
   const { data: categories = [] } = useCategories();
   const { data: businessTypes = [] } = useBusinessTypes();
   const { data: b2bCustomers = [] } = useCustomers("b2b");
@@ -1704,13 +1838,15 @@ export function AdminSalespersonsPage() {
   const [editSP, setEditSP] = useState<Salesperson | null>(null);
   const [editData, setEditData] = useState(BLANK_SP);
 
+  const [viewSP, setViewSP] = useState<Salesperson | null>(null);
+
   const openEdit = (s: Salesperson) => {
     setEditSP(s);
-    setEditData({ name: s.name, email: s.email, phone: s.phone ?? "", region: s.region ?? "", monthlyTarget: String(s.monthlyTarget), monthlyNewCustomerTarget: String((s as any).monthlyNewCustomerTarget ?? 5), monthlyOrderTarget: String((s as any).monthlyOrderTarget ?? 20), status: s.status, joinedDate: s.joinedDate ? s.joinedDate.slice(0, 10) : "", password: "", categoriesServed: (s as any).categoriesServed ?? [], assignedCustomerIds: (s as any).assignedCustomerIds ?? [] });
+    setEditData({ name: s.name, email: s.email, phone: s.phone ?? "", monthlyTarget: String(s.monthlyTarget), monthlyNewCustomerTarget: String((s as any).monthlyNewCustomerTarget ?? 5), monthlyOrderTarget: String((s as any).monthlyOrderTarget ?? 20), status: s.status, joinedDate: s.joinedDate ? s.joinedDate.slice(0, 10) : "", password: "", categoriesServed: (s as any).categoriesServed ?? [], assignedCustomerIds: (s as any).assignedCustomerIds ?? [] });
   };
 
   const toPayload = (d: typeof BLANK_SP) => ({
-    name: d.name, email: d.email, phone: d.phone, region: d.region,
+    name: d.name, email: d.email, phone: d.phone,
     monthlyTarget: Number(d.monthlyTarget),
     monthlyNewCustomerTarget: Number(d.monthlyNewCustomerTarget),
     monthlyOrderTarget: Number(d.monthlyOrderTarget),
@@ -1730,7 +1866,7 @@ export function AdminSalespersonsPage() {
           </DialogTrigger>
           <DialogContent className="max-w-lg">
             <DialogHeader><DialogTitle>Add Salesperson</DialogTitle></DialogHeader>
-            <SPForm data={newSP} setData={setNewSP} categories={categories} regions={regions} b2bCustomers={b2bCustomers} businessTypes={businessTypes} />
+            <SPForm data={newSP} setData={setNewSP} categories={categories} b2bCustomers={b2bCustomers} businessTypes={businessTypes} />
             <DialogFooter>
               <Button variant="outline" onClick={() => setAddOpen(false)}>Cancel</Button>
               <Button onClick={() => {
@@ -1770,50 +1906,42 @@ export function AdminSalespersonsPage() {
               <TableHeader><TableRow>
                 <TableHead>Name</TableHead>
                 <TableHead>Email</TableHead>
-                <TableHead>Region</TableHead>
-                <TableHead>Customers</TableHead>
-                <TableHead>Sales This Month</TableHead>
-                <TableHead>Monthly Target</TableHead>
+                <TableHead className="text-center">Customers</TableHead>
+                <TableHead className="text-right">Monthly Target</TableHead>
+                <TableHead className="text-right">Monthly Achieved</TableHead>
                 <TableHead>Status</TableHead>
+                <TableHead>Date of Joining</TableHead>
                 <TableHead>Actions</TableHead>
               </TableRow></TableHeader>
               <TableBody>
-                {salespersons.map((s) => {
-                  const pct = s.monthlyTarget > 0 ? Math.round((s.monthlySales / s.monthlyTarget) * 100) : 0;
-                  return (
-                    <TableRow key={s.id}>
-                      <TableCell>
-                        <div><p className="font-medium text-sm">{s.name}</p><p className="text-xs text-muted-foreground">{s.phone}</p></div>
-                      </TableCell>
-                      <TableCell className="text-sm">{s.email}</TableCell>
-                      <TableCell className="text-xs">{s.region}</TableCell>
-                      <TableCell>{s.customersCount}</TableCell>
-                      <TableCell><PriceTag amount={s.monthlySales} size="sm" /></TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <div className="w-20 h-1.5 bg-muted rounded-full overflow-hidden">
-                            <div className={`h-full ${pct >= 100 ? "bg-emerald-500" : pct >= 75 ? "bg-amber-400" : "bg-rose-400"}`} style={{ width: `${Math.min(pct, 100)}%` }} />
-                          </div>
-                          <span className="text-xs font-semibold">{pct}%</span>
-                        </div>
-                        <p className="text-xs text-muted-foreground">of SAR {s.monthlyTarget.toLocaleString()}</p>
-                      </TableCell>
-                      <TableCell><Badge variant={s.status === "active" ? "default" : "outline"} className={s.status === "active" ? "bg-emerald-100 text-emerald-700 border-emerald-200" : ""}>{s.status}</Badge></TableCell>
-                      <TableCell>
-                        <div className="flex gap-1">
-                          <Button size="sm" variant="ghost" onClick={() => openEdit(s)}><Pencil className="w-3.5 h-3.5" /></Button>
-                          <Button size="sm" variant="ghost" className="text-rose-600" onClick={() => {
-                            if (!confirm(`Remove ${s.name}?`)) return;
-                            deleteSP.mutate(s.id, {
-                              onSuccess: () => toast({ title: "Removed" }),
-                              onError: (e) => toast({ title: "Error", description: (e as Error).message, variant: "destructive" }),
-                            });
-                          }}><Trash2 className="w-3.5 h-3.5" /></Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
+                {salespersons.map((s) => (
+                  <TableRow key={s.id}>
+                    <TableCell className="font-medium text-sm">{s.name}</TableCell>
+                    <TableCell className="text-sm text-muted-foreground">{s.email}</TableCell>
+                    <TableCell className="text-center">{s.customersCount}</TableCell>
+                    <TableCell className="text-right text-sm">SAR {s.monthlyTarget.toLocaleString()}</TableCell>
+                    <TableCell className="text-right">
+                      <span className={s.monthlySales >= s.monthlyTarget ? "text-emerald-600 font-semibold" : s.monthlySales >= s.monthlyTarget * 0.75 ? "text-amber-600 font-semibold" : "text-rose-600 font-semibold"}>
+                        SAR {s.monthlySales.toLocaleString()}
+                      </span>
+                    </TableCell>
+                    <TableCell><Badge variant={s.status === "active" ? "default" : "outline"} className={s.status === "active" ? "bg-emerald-100 text-emerald-700 border-emerald-200" : ""}>{s.status}</Badge></TableCell>
+                    <TableCell className="text-xs text-muted-foreground">{s.joinedDate ? s.joinedDate.slice(0, 10) : "—"}</TableCell>
+                    <TableCell>
+                      <div className="flex gap-1">
+                        <Button size="sm" variant="ghost" onClick={() => setViewSP(s)}><Eye className="w-3.5 h-3.5" /></Button>
+                        <Button size="sm" variant="ghost" onClick={() => openEdit(s)}><Pencil className="w-3.5 h-3.5" /></Button>
+                        <Button size="sm" variant="ghost" className="text-rose-600" onClick={() => {
+                          if (!confirm(`Remove ${s.name}?`)) return;
+                          deleteSP.mutate(s.id, {
+                            onSuccess: () => toast({ title: "Removed" }),
+                            onError: (e) => toast({ title: "Error", description: (e as Error).message, variant: "destructive" }),
+                          });
+                        }}><Trash2 className="w-3.5 h-3.5" /></Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
               </TableBody>
             </Table>
           )}
@@ -1823,7 +1951,7 @@ export function AdminSalespersonsPage() {
       <Dialog open={!!editSP} onOpenChange={() => setEditSP(null)}>
         <DialogContent className="max-w-lg">
           <DialogHeader><DialogTitle>Edit Salesperson</DialogTitle></DialogHeader>
-          <SPForm data={editData} setData={setEditData} categories={categories} regions={regions} b2bCustomers={b2bCustomers} businessTypes={businessTypes} />
+          <SPForm data={editData} setData={setEditData} categories={categories} b2bCustomers={b2bCustomers} businessTypes={businessTypes} />
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditSP(null)}>Cancel</Button>
             <Button onClick={() => {
@@ -1836,6 +1964,8 @@ export function AdminSalespersonsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {viewSP && <SalespersonDetailView sp={viewSP} onClose={() => setViewSP(null)} />}
     </div>
   );
 }
@@ -2445,37 +2575,3 @@ export function AdminSettingsPage() {
   );
 }
 
-// ─── R4-FIX-2: Admin B2B Credit page ─────────────────────────────────────────
-export function AdminB2BCreditPage() {
-  const { data: customers, isLoading } = useCustomers("b2b");
-
-  return (
-    <div className="space-y-4">
-      <h1 className="text-2xl font-bold flex items-center gap-2">
-        <Banknote className="w-6 h-6" />
-        B2B Credit Management
-      </h1>
-      {isLoading ? (
-        <div className="text-sm text-muted-foreground">Loading…</div>
-      ) : (customers ?? []).length === 0 ? (
-        <div className="text-sm text-muted-foreground">No B2B customers found.</div>
-      ) : (
-        <div className="space-y-4">
-          {(customers ?? []).map((c) => (
-            <Card key={c.id}>
-              <CardHeader>
-                <CardTitle className="text-base">{c.name}</CardTitle>
-                {c.business?.name && (
-                  <div className="text-sm text-muted-foreground">{c.business.name}</div>
-                )}
-              </CardHeader>
-              <CardContent>
-                <B2BCreditPanel customerId={c.id} />
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}

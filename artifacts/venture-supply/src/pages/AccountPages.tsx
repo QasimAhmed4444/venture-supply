@@ -18,7 +18,7 @@ import { useSalespersons } from "@/hooks/useSalespersons";
 import { useCart } from "@/contexts/CartContext";
 import { StatusBadge } from "@/components/StatusBadge";
 import { PriceTag } from "@/components/PriceTag";
-import { useMemo, useState, useCallback, useRef } from "react";
+import { useMemo, useState, useCallback, useRef, useEffect } from "react";
 import type { Order } from "@/data/orders";
 import { useUpdateCustomer } from "@/hooks/useCustomerMutations";
 import type { Customer } from "@/data/customers";
@@ -103,16 +103,34 @@ function setLastRead(ts: number) {
 // ─── AccountDashboardPage ─────────────────────────────────────────────────────
 export function AccountDashboardPage() {
   const { t, language } = useLanguage();
-  const { customer, role } = useRole();
+  const { customer, role, setCustomer } = useRole();
   const { data: orders = [] } = useOrders({ customerId: customer?.id ?? "" });
   const { data: salespersons = [] } = useSalespersons();
   const [, setLocation] = useLocation();
+  const [freshCustomer, setFreshCustomer] = useState<Customer | null>(null);
+  const [creditData, setCreditData] = useState<{ creditLimit: number; outstanding: number; available: number; approvalStatus: string; allowCredit: boolean } | null>(null);
+
+  useEffect(() => {
+    if (!customer?.id) return;
+    apiFetch<Customer>(`/customers/${customer.id}`)
+      .then((c) => { setFreshCustomer(c); setCustomer(c); })
+      .catch(() => {});
+  }, [customer?.id]);
+
+  useEffect(() => {
+    if (!customer?.id || role !== "b2b") return;
+    apiFetch<{ creditLimit: number; outstanding: number; available: number; approvalStatus: string; allowCredit: boolean }>(`/customers/${customer.id}/credit`)
+      .then((d) => setCreditData(d))
+      .catch(() => {});
+  }, [customer?.id, role]);
+
   if (!customer) return null;
 
+  const displayCustomer = freshCustomer ?? customer;
   const active = orders.filter((o) => !["delivered", "cancelled"].includes(o.status));
   const isB2B = role === "b2b";
-  const sp = customer.assignedSalespersonId
-    ? salespersons.find((s) => s.id === customer.assignedSalespersonId) ?? null
+  const sp = displayCustomer.assignedSalespersonId
+    ? salespersons.find((s) => s.id === displayCustomer.assignedSalespersonId) ?? null
     : null;
 
   return (
@@ -133,7 +151,7 @@ export function AccountDashboardPage() {
         />
       </div>
 
-      {isB2B && customer.business?.allowCredit && (
+      {isB2B && (displayCustomer.business?.allowCredit || creditData?.allowCredit) && (
         <Card>
           <CardContent className="p-5 space-y-3">
             <div className="flex items-center justify-between">
@@ -142,14 +160,14 @@ export function AccountDashboardPage() {
                 {language === "ar" ? "حساب الائتمان" : "Credit account"}
               </h2>
               <Badge className={
-                (customer.business.approvalStatus ?? "approved") === "approved"
+                (creditData?.approvalStatus ?? displayCustomer.business?.approvalStatus ?? "pending") === "approved"
                   ? "bg-emerald-100 text-emerald-800 border border-emerald-300"
-                  : (customer.business.approvalStatus === "pending"
+                  : ((creditData?.approvalStatus ?? displayCustomer.business?.approvalStatus) === "pending"
                     ? "bg-amber-100 text-amber-800 border border-amber-300"
                     : "bg-red-100 text-red-800 border border-red-300")
               }>
                 {(() => {
-                  const s = customer.business.approvalStatus ?? "approved";
+                  const s = creditData?.approvalStatus ?? displayCustomer.business?.approvalStatus ?? "pending";
                   if (s === "approved") return language === "ar" ? "معتمد" : "Approved";
                   if (s === "pending") return language === "ar" ? "بانتظار الموافقة" : "Pending approval";
                   return language === "ar" ? "مرفوض" : "Rejected";
@@ -157,16 +175,16 @@ export function AccountDashboardPage() {
               </Badge>
             </div>
             {(() => {
-              const limit = customer.business.creditLimit ?? 0;
-              const used = customer.business.creditUsed ?? 0;
-              const avail = Math.max(0, limit - used);
-              const pct = limit > 0 ? Math.min(100, Math.round((used / limit) * 100)) : 0;
+              const limit = creditData?.creditLimit ?? displayCustomer.business?.creditLimit ?? 0;
+              const outstanding = creditData?.outstanding ?? 0;
+              const avail = creditData?.available ?? Math.max(0, limit - outstanding);
+              const pct = limit > 0 ? Math.min(100, Math.round((outstanding / limit) * 100)) : 0;
               return (
                 <>
                   <div className="grid grid-cols-3 gap-3 text-sm">
-                    <div className="rounded-md border p-3"><div className="text-xs text-muted-foreground">{language === "ar" ? "الحد" : "Limit"}</div><div className="font-bold text-lg">SAR {limit.toFixed(0)}</div></div>
-                    <div className="rounded-md border p-3 bg-amber-50/50"><div className="text-xs text-muted-foreground">{language === "ar" ? "المستخدم" : "Used"}</div><div className="font-bold text-lg text-amber-700">SAR {used.toFixed(0)}</div></div>
-                    <div className="rounded-md border p-3 bg-emerald-50/50"><div className="text-xs text-muted-foreground">{language === "ar" ? "المتاح" : "Available"}</div><div className="font-bold text-lg text-emerald-700">SAR {avail.toFixed(0)}</div></div>
+                    <div className="rounded-md border p-3"><div className="text-xs text-muted-foreground">{language === "ar" ? "الحد الائتماني" : "Limit"}</div><div className="font-bold text-lg">SAR {limit.toFixed(0)}</div></div>
+                    <div className="rounded-md border p-3 bg-amber-50/50"><div className="text-xs text-muted-foreground">{language === "ar" ? "المستخدم" : "Outstanding"}</div><div className="font-bold text-lg text-amber-700">SAR {outstanding.toFixed(0)}</div></div>
+                    <div className="rounded-md border p-3 bg-emerald-50/50"><div className="text-xs text-muted-foreground">{language === "ar" ? "المتبقي" : "Remaining"}</div><div className="font-bold text-lg text-emerald-700">SAR {avail.toFixed(0)}</div></div>
                   </div>
                   <div className="space-y-1">
                     <div className="flex items-center justify-between text-xs">
@@ -179,11 +197,22 @@ export function AccountDashboardPage() {
                   </div>
                   <p className="text-xs text-muted-foreground">
                     {language === "ar" ? "شروط الدفع: " : "Payment terms: "}
-                    <span className="font-semibold text-foreground">{customer.business.paymentTerms ?? "Net 30"}</span>
+                    <span className="font-semibold text-foreground">{displayCustomer.business?.paymentTerms ?? "Net 30"}</span>
                   </p>
                 </>
               );
             })()}
+          </CardContent>
+        </Card>
+      )}
+
+      {isB2B && !creditData && !displayCustomer.business?.allowCredit && (
+        <Card>
+          <CardContent className="p-5">
+            <p className="text-sm text-muted-foreground flex items-center gap-2">
+              <CreditCard className="w-4 h-4" />
+              {language === "ar" ? "لم يتم تفعيل الائتمان لهذا الحساب بعد." : "Credit has not been enabled for this account yet."}
+            </p>
           </CardContent>
         </Card>
       )}

@@ -47,7 +47,7 @@ export function SalesLayout({ children }: { children: ReactNode }) {
             <Link href="/sales"><Logo size="sm" /></Link>
             <p className="text-xs uppercase tracking-wider text-muted-foreground mt-2 font-semibold">{t("sales.title")}</p>
           </div>
-          <nav className="flex-1 p-2">
+          <nav className="p-2">
             {items.map((item) => {
               const active = location === item.href || (item.href !== "/sales" && location.startsWith(item.href));
               return (
@@ -59,12 +59,12 @@ export function SalesLayout({ children }: { children: ReactNode }) {
                 </Link>
               );
             })}
+            <div className="mt-1 pt-1 border-t">
+              <Button variant="ghost" className="w-full justify-start" onClick={() => { logout(); setLocation("/admin/login"); }}>
+                <LogOut className="w-4 h-4 me-2" /> {t("common.logout")}
+              </Button>
+            </div>
           </nav>
-          <div className="p-3 border-t">
-            <Button variant="ghost" className="w-full justify-start" onClick={() => { logout(); setLocation("/"); }}>
-              <LogOut className="w-4 h-4 me-2" /> {t("common.logout")}
-            </Button>
-          </div>
         </aside>
 
         <div className="flex-1 flex flex-col min-w-0">
@@ -74,10 +74,6 @@ export function SalesLayout({ children }: { children: ReactNode }) {
               {isSalespersonLoading
                 ? <div className="h-5 w-32 bg-muted animate-pulse rounded mt-0.5" />
                 : <h2 className="font-semibold">{salesperson?.name}</h2>
-              }
-              {isSalespersonLoading
-                ? <div className="h-3.5 w-24 bg-muted animate-pulse rounded mt-1" />
-                : <p className="text-xs text-muted-foreground">{salesperson?.region}</p>
               }
             </div>
             <NotificationBell variant="sales" filter={salesFilter} align="end" />

@@ -48,7 +48,7 @@ export function AuthPage({ mode = "login" }: Props) {
   const [regBizName, setRegBizName] = useState("");
   const [regCR, setRegCR] = useState("");
   const [regVAT, setRegVAT] = useState("");
-  const [regBusinessTypeId, setRegBusinessTypeId] = useState("");
+  const [regBusinessTypeIds, setRegBusinessTypeIds] = useState<string[]>([]);
 
   const { data: businessTypes = [] } = useBusinessTypes();
 
@@ -99,8 +99,8 @@ export function AuthPage({ mode = "login" }: Props) {
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!regName || !regEmail || !regPhone || !regPassword) return;
-    if (accountType === "b2b" && !regBusinessTypeId) {
-      toast({ title: "Business Type required", description: "Please select your business type to continue.", variant: "destructive" });
+    if (accountType === "b2b" && regBusinessTypeIds.length === 0) {
+      toast({ title: "Business Type required", description: "Please select at least one business type.", variant: "destructive" });
       return;
     }
     setIsLoading(true);
@@ -117,7 +117,7 @@ export function AuthPage({ mode = "login" }: Props) {
           password: regPassword,
           type: accountType,
           businessName: accountType === "b2b" ? regBizName : undefined,
-          businessTypeId: accountType === "b2b" ? regBusinessTypeId : undefined,
+          businessTypeIds: accountType === "b2b" ? regBusinessTypeIds : undefined,
           crNumber: accountType === "b2b" ? regCR : undefined,
           vatNumber: accountType === "b2b" ? regVAT : undefined,
         }),
@@ -254,18 +254,24 @@ export function AuthPage({ mode = "login" }: Props) {
                     <>
                       <div><Label>{t("checkout.business_name")}</Label><Input value={regBizName} onChange={(e) => setRegBizName(e.target.value)} placeholder="Restaurant LLC" required /></div>
                       <div>
-                        <Label>Business Type <span className="text-rose-500">*</span></Label>
-                        <select
-                          className="w-full h-9 px-3 border rounded-md bg-background text-sm mt-1.5"
-                          value={regBusinessTypeId}
-                          onChange={(e) => setRegBusinessTypeId(e.target.value)}
-                          required
-                        >
-                          <option value="">— Select business type —</option>
+                        <Label>Business Type <span className="text-rose-500">*</span> <span className="text-xs text-muted-foreground font-normal">(select all that apply)</span></Label>
+                        <div className="mt-1.5 border rounded-md p-3 space-y-2 max-h-40 overflow-y-auto bg-background">
                           {businessTypes.filter((bt) => bt.status === "active").map((bt) => (
-                            <option key={bt.id} value={bt.id}>{bt.name}</option>
+                            <label key={bt.id} className="flex items-center gap-2 cursor-pointer text-sm">
+                              <input
+                                type="checkbox"
+                                className="accent-primary w-4 h-4"
+                                checked={regBusinessTypeIds.includes(bt.id)}
+                                onChange={(e) => setRegBusinessTypeIds(
+                                  e.target.checked
+                                    ? [...regBusinessTypeIds, bt.id]
+                                    : regBusinessTypeIds.filter((id) => id !== bt.id)
+                                )}
+                              />
+                              {bt.name}
+                            </label>
                           ))}
-                        </select>
+                        </div>
                       </div>
                       <div><Label>{t("checkout.cr_number")}</Label><Input value={regCR} onChange={(e) => setRegCR(e.target.value)} placeholder="1010 234 567" /></div>
                       <div><Label>{t("checkout.vat_number")}</Label><Input value={regVAT} onChange={(e) => setRegVAT(e.target.value)} placeholder="300 123 456 7800003" /></div>

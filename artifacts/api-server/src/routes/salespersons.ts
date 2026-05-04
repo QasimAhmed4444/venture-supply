@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { getSupabase } from "../lib/supabase.js";
-import { requireAdmin } from "../middlewares/requireAuth.js";
+import { requireAdmin, requireRole } from "../middlewares/requireAuth.js";
 
 const router = Router();
 
@@ -116,6 +116,71 @@ router.put("/salespersons/:id", requireAdmin, async (req, res) => {
   }
 
   return res.json(toCamel(data as Record<string, unknown>));
+});
+
+router.get("/salespersons/:id/detail", requireRole("admin", "sales"), async (req, res) => {
+  const sb = getSupabase();
+  if (!sb) return res.status(503).json({ error: "db unavailable" });
+
+  const id = req.params.id;
+  const [repRes, perfRes, assignedRes, oisRes] = await Promise.all([
+    sb.from("salespersons").select("*").eq("id", id).single(),
+    sb.from("v_salesperson_performance").select("*").eq("salesperson_id", id).maybeSingle(),
+    sb.from("v_customer_salespersons").select("*").eq("salesperson_id", id),
+    sb.from("order_items")
+      .select("product_id, product_name, category_id, category_name, quantity, line_total, orders!inner(salesperson_id, status)")
+      .eq("orders.salesperson_id", id)
+      .neq("orders.status", "cancelled"),
+  ]);
+
+  if (!repRes.data) return res.status(404).json({ error: "not found" });
+
+  const catMap: Record<string, { categoryId: string; categoryName: string; orderCount: number; totalRevenue: number }> = {};
+  const prodMap: Record<string, { productId: string; productName: string; unitsSold: number; totalRevenue: number }> = {};
+
+  for (const oi of (oisRes.data ?? []) as Record<string, unknown>[]) {
+    const catId = (oi.category_id as string | null) ?? "unknown";
+    const catName = (oi.category_name as string | null) ?? "Unknown";
+    if (!catMap[catId]) catMap[catId] = { categoryId: catId, categoryName: catName, orderCount: 0, totalRevenue: 0 };
+    catMap[catId]!.orderCount++;
+    catMap[catId]!.totalRevenue += Number(oi.line_total ?? 0);
+
+    const prodId = oi.product_id as string;
+    const prodName = oi.product_name as string;
+    if (!prodMap[prodId]) prodMap[prodId] = { productId: prodId, productName: prodName, unitsSold: 0, totalRevenue: 0 };
+    prodMap[prodId]!.unitsSold += Number(oi.quantity ?? 0);
+    prodMap[prodId]!.totalRevenue += Number(oi.line_total ?? 0);
+  }
+
+  const categoriesServed = Object.values(catMap).sort((a, b) => b.totalRevenue - a.totalRevenue);
+  const topProducts = Object.values(prodMap).sort((a, b) => b.totalRevenue - a.totalRevenue).slice(0, 10);
+
+  const assignedCustomerIds = (assignedRes.data ?? []).map((a: Record<string, unknown>) => a.customer_id as string);
+  let businessTypesServed: Array<{ businessTypeId: string; customerCount: number }> = [];
+  if (assignedCustomerIds.length > 0) {
+    const { data: custData } = await sb.from("customers").select("id, business").in("id", assignedCustomerIds);
+    const btCount: Record<string, number> = {};
+    for (const c of (custData ?? []) as Record<string, unknown>[]) {
+      const biz = c.business as Record<string, unknown> | null;
+      if (!biz) continue;
+      const btIds: string[] = Array.isArray(biz.businessTypeIds)
+        ? (biz.businessTypeIds as string[])
+        : (biz.businessTypeId ? [biz.businessTypeId as string] : []);
+      for (const btId of btIds) {
+        btCount[btId] = (btCount[btId] ?? 0) + 1;
+      }
+    }
+    businessTypesServed = Object.entries(btCount).map(([btId, count]) => ({ businessTypeId: btId, customerCount: count }));
+  }
+
+  return res.json({
+    salesperson: repRes.data,
+    performance: perfRes.data ?? null,
+    assignedCustomers: assignedRes.data ?? [],
+    categoriesServed,
+    topProducts,
+    businessTypesServed,
+  });
 });
 
 router.delete("/salespersons/:id", requireAdmin, async (req, res) => {

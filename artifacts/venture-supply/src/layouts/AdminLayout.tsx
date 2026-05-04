@@ -4,7 +4,7 @@ import { Logo } from "@/components/Logo";
 import { ScrollToTop } from "@/components/ScrollToTop";
 import { Button } from "@/components/ui/button";
 import { NotificationBell } from "@/components/NotificationBell";
-import { LayoutDashboard, FolderTree, Boxes, Package, ShoppingBag, Users, Briefcase, Tag, Sparkles, BarChart3, Settings, LogOut, Building2, Banknote } from "lucide-react";
+import { LayoutDashboard, FolderTree, Boxes, Package, ShoppingBag, Users, Briefcase, Tag, Sparkles, BarChart3, Settings, LogOut, Building2 } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useRole } from "@/contexts/RoleContext";
 
@@ -30,7 +30,6 @@ export function AdminLayout({ children }: { children: ReactNode }) {
     { href: "/admin/customers", icon: Users, label: t("admin.customers") },
     { href: "/admin/business-types", icon: Building2, label: "Business Types" },
     { href: "/admin/salespersons", icon: Briefcase, label: t("admin.salespersons") },
-    { href: "/admin/b2b-credit", icon: Banknote, label: "B2B Credit" },
     { href: "/admin/promotions", icon: Sparkles, label: t("admin.promotions") },
     { href: "/admin/brands", icon: Tag, label: t("admin.brands") },
     { href: "/admin/reports", icon: BarChart3, label: t("admin.reports") },
@@ -46,7 +45,7 @@ export function AdminLayout({ children }: { children: ReactNode }) {
             <Link href="/admin"><Logo size="sm" /></Link>
             <p className="text-xs uppercase tracking-wider text-muted-foreground mt-2 font-semibold">{t("admin.title")}</p>
           </div>
-          <nav className="flex-1 p-2 overflow-y-auto">
+          <nav className="p-2 overflow-y-auto">
             {items.map((item) => {
               const active = location === item.href || (item.href !== "/admin" && location.startsWith(item.href));
               return (
@@ -58,12 +57,12 @@ export function AdminLayout({ children }: { children: ReactNode }) {
                 </Link>
               );
             })}
+            <div className="mt-1 pt-1 border-t">
+              <Button variant="ghost" className="w-full justify-start" onClick={() => { logout(); setLocation("/admin/login"); }}>
+                <LogOut className="w-4 h-4 me-2" /> {t("common.logout")}
+              </Button>
+            </div>
           </nav>
-          <div className="p-3 border-t">
-            <Button variant="ghost" className="w-full justify-start" onClick={() => { logout(); setLocation("/"); }}>
-              <LogOut className="w-4 h-4 me-2" /> {t("common.logout")}
-            </Button>
-          </div>
         </aside>
 
         <div className="flex-1 flex flex-col min-w-0">

@@ -287,10 +287,18 @@ router.put("/customers/:id/credit", requireAdmin, auditLog("update", "customer_c
   return res.json({ customer: data, creditStatus: status ?? null });
 });
 
-// GET /customers/:id/credit — admin/sales view of customer's credit status
-router.get("/customers/:id/credit", requireRole("admin", "sales"), async (req, res) => {
+// GET /customers/:id/credit — admin/sales, or the B2B customer themselves
+router.get("/customers/:id/credit", requireAuth, async (req, res) => {
   const sb = getSupabase();
   if (!sb) return res.status(503).json({ error: "db unavailable" });
+  const session = (req as any).session as VerifiedSession;
+  const isStaff = session.role === "admin" || session.role === "sales";
+  if (!isStaff) {
+    const { data: selfCust } = await sb.from("customers").select("id").eq("email", session.email).maybeSingle();
+    if (!selfCust || (selfCust.id as string) !== req.params.id) {
+      return res.status(403).json({ error: "Forbidden" });
+    }
+  }
 
   const { data: cust } = await sb.from("customers")
     .select("id, name, type, business")
