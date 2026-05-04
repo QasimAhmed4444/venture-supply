@@ -1,0 +1,26 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "fv98lprYBni0HDAuNjwU6"
+uri = "file://attached_assets/image_search/souk_market.jpg"
+type = "image"
+title = "Option 1 — Middle Eastern Souk Market"
+
+[[outputs]]
+id = "by6zAN7XIQ50Q79BLz1Dd"
+uri = "file://attached_assets/image_search/spice_bazaar.jpg"
+type = "image"
+title = "Option 2 — Vibrant Spice Bazaar"
+
+[[outputs]]
+id = "a7OMRH6hSLRgIwQlwfdl3"
+uri = "file://attached_assets/image_search/market_dawn.jpg"
+type = "image"
+title = "Option 3 — Colourful Market at Dawn"
+
+[[outputs]]
+id = "uX4vMiC2-grL7E9eWSymd"
+uri = "file://attached_assets/image_search/moroccan_spices.jpg"
+type = "image"
+title = "Option 4 — Moroccan Spice Stall"

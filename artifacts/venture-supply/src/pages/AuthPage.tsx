@@ -156,8 +156,17 @@ export function AuthPage({ mode = "login" }: Props) {
   return (
     <div className="min-h-screen flex flex-col lg:flex-row">
       {/* ── Left panel: brand visual ── */}
-      <div className="hidden lg:flex lg:w-[45%] xl:w-1/2 relative overflow-hidden bg-gradient-to-br from-primary via-primary/95 to-[#0c3d6e] flex-col">
-        <div className="absolute inset-0 opacity-10 bg-[radial-gradient(circle_at_20%_80%,_#ffffff_1px,transparent_1px),radial-gradient(circle_at_80%_20%,_#ffffff_1px,transparent_1px)] bg-[length:48px_48px]" />
+      <div className="hidden lg:flex lg:w-[45%] xl:w-1/2 relative overflow-hidden flex-col">
+        {/* Hero image */}
+        <img
+          src={`${(import.meta.env.BASE_URL ?? "").replace(/\/$/, "")}/auth-hero.jpg`}
+          alt=""
+          className="absolute inset-0 w-full h-full object-cover object-center"
+        />
+        {/* Dark gradient overlay for readability */}
+        <div className="absolute inset-0 bg-gradient-to-br from-black/75 via-black/55 to-primary/70" />
+        {/* Subtle dot texture on top */}
+        <div className="absolute inset-0 opacity-[0.06] bg-[radial-gradient(circle,_#ffffff_1px,transparent_1px)] bg-[length:32px_32px]" />
         <div className="relative z-10 p-10 flex flex-col h-full">
           <Link href="/">
             <div className="inline-block bg-white/10 backdrop-blur-sm rounded-xl px-5 py-3 hover:bg-white/20 transition-colors">
