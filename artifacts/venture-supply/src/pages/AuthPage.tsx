@@ -13,6 +13,34 @@ import { apiFetch, setSessionToken } from "@/lib/api";
 import { useBusinessTypes } from "@/hooks/useBusinessTypes";
 import type { Customer } from "@/data/customers";
 
+function useCountUp(target: number, duration = 1600) {
+  const [count, setCount] = useState(0);
+  useEffect(() => {
+    const startTime = performance.now();
+    const step = (now: number) => {
+      const progress = Math.min((now - startTime) / duration, 1);
+      const eased = 1 - Math.pow(1 - progress, 4);
+      setCount(Math.round(eased * target));
+      if (progress < 1) requestAnimationFrame(step);
+    };
+    const raf = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(raf);
+  }, [target, duration]);
+  return count;
+}
+
+function StatCounter({ target, suffix, label }: { target: number; suffix: string; label: string }) {
+  const count = useCountUp(target);
+  return (
+    <div className="text-center">
+      <div className="text-5xl font-extrabold text-white tabular-nums tracking-tight">
+        {count}{suffix}
+      </div>
+      <div className="text-sm font-semibold text-white/70 mt-1 uppercase tracking-widest">{label}</div>
+    </div>
+  );
+}
+
 interface Props { mode?: "login" | "register"; }
 
 export function AuthPage({ mode = "login" }: Props) {
@@ -173,27 +201,22 @@ export function AuthPage({ mode = "login" }: Props) {
               <Logo size="xl" />
             </div>
           </Link>
-          <div className="flex-1 flex flex-col justify-center mt-16">
-            <div className="w-16 h-1 bg-white/40 rounded-full mb-8" />
-            <h2 className="text-4xl font-bold text-white leading-tight mb-4">
-              {ar ? "أهلاً بك في\nفينتشر سبلاي" : "Your Trusted\nWholesale Partner"}
+          <div className="flex-1 flex flex-col justify-center mt-12">
+            <h2 className="text-5xl xl:text-6xl font-extrabold text-white leading-tight mb-5">
+              {ar ? "أهلاً بك في\nفينتشر سبلاي" : <>Your Trusted<br />Wholesale Partner</>}
             </h2>
-            <p className="text-white/70 text-base max-w-xs leading-relaxed">
+            <p className="text-white/80 text-lg font-medium max-w-sm leading-relaxed">
               {ar
                 ? "منصتك الموثوقة للمواد الغذائية بالجملة في المملكة العربية السعودية"
                 : "Premium wholesale food supply for businesses and households across Saudi Arabia"}
             </p>
-            <div className="mt-12 grid grid-cols-3 gap-4">
-              {[
-                { num: "500+", label: ar ? "منتج" : "Products" },
-                { num: "50+", label: ar ? "علامة تجارية" : "Brands" },
-                { num: "24/7", label: ar ? "دعم" : "Support" },
-              ].map((s) => (
-                <div key={s.label} className="text-center">
-                  <div className="text-2xl font-bold text-white">{s.num}</div>
-                  <div className="text-xs text-white/60 mt-0.5">{s.label}</div>
-                </div>
-              ))}
+            <div className="mt-14 grid grid-cols-3 gap-6">
+              <StatCounter target={500} suffix="+" label={ar ? "منتج" : "Products"} />
+              <StatCounter target={50} suffix="+" label={ar ? "علامة تجارية" : "Brands"} />
+              <div className="text-center">
+                <div className="text-5xl font-extrabold text-white tracking-tight">24/7</div>
+                <div className="text-sm font-semibold text-white/70 mt-1 uppercase tracking-widest">{ar ? "دعم" : "Support"}</div>
+              </div>
             </div>
           </div>
           <p className="text-white/30 text-xs mt-10">© 2026 Venture Supply. All rights reserved.</p>
