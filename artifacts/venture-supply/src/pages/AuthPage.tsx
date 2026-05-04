@@ -169,7 +169,7 @@ export function AuthPage({ mode = "login" }: Props) {
         <div className="absolute inset-0 opacity-[0.06] bg-[radial-gradient(circle,_#ffffff_1px,transparent_1px)] bg-[length:32px_32px]" />
         <div className="relative z-10 p-10 flex flex-col h-full">
           <Link href="/">
-            <div className="inline-block bg-white/10 backdrop-blur-sm rounded-xl px-5 py-3 hover:bg-white/20 transition-colors">
+            <div className="inline-block bg-white rounded-xl px-5 py-3 hover:bg-white/90 transition-colors shadow-md">
               <Logo size="lg" />
             </div>
           </Link>
