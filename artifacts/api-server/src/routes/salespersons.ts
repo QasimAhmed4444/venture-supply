@@ -73,6 +73,14 @@ router.post("/salespersons", requireAdmin, async (req, res) => {
   if (Array.isArray(req.body.assignedCustomerIds) && req.body.assignedCustomerIds.length > 0) {
     const newIds = req.body.assignedCustomerIds as string[];
     await sb.from("customers").update({ assigned_salesperson_id: id }).in("id", newIds);
+    // Also write to junction table so sales GET /customers query finds these customers
+    const rows = newIds.map((cid) => ({
+      customer_id: cid,
+      salesperson_id: id,
+      is_primary: true,
+      commission_split: 100,
+    }));
+    await sb.from("customer_assignments").upsert(rows, { onConflict: "customer_id,salesperson_id" });
   }
 
   return res.status(201).json(toCamel(data as Record<string, unknown>));
@@ -89,9 +97,21 @@ router.put("/salespersons/:id", requireAdmin, async (req, res) => {
 
   if (Array.isArray(req.body.assignedCustomerIds)) {
     const newIds = req.body.assignedCustomerIds as string[];
+    // Update the legacy column
     await sb.from("customers").update({ assigned_salesperson_id: null }).eq("assigned_salesperson_id", spId);
     if (newIds.length > 0) {
       await sb.from("customers").update({ assigned_salesperson_id: spId }).in("id", newIds);
+    }
+    // Sync junction table: remove old entries for this salesperson, then insert new ones
+    await sb.from("customer_assignments").delete().eq("salesperson_id", spId);
+    if (newIds.length > 0) {
+      const rows = newIds.map((cid) => ({
+        customer_id: cid,
+        salesperson_id: spId,
+        is_primary: true,
+        commission_split: 100,
+      }));
+      await sb.from("customer_assignments").upsert(rows, { onConflict: "customer_id,salesperson_id" });
     }
   }
 

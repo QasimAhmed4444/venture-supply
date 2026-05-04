@@ -137,6 +137,29 @@ router.put("/customers/:id", requireAuth, auditLog("update", "customer"), async 
 
   const { data, error } = await sb.from("customers").update(payload).eq("id", req.params.id).select().single();
   if (error) return res.status(400).json({ error: error.message });
+
+  // Sync customer_assignments junction table whenever assignedSalespersonId changes
+  if (session.role !== "b2c" && session.role !== "b2b" && b.assignedSalespersonId !== undefined) {
+    const spId = b.assignedSalespersonId as string | null;
+    if (spId) {
+      // Demote any existing primary, then upsert this assignment as primary
+      await sb.from("customer_assignments")
+        .update({ is_primary: false })
+        .eq("customer_id", req.params.id);
+      await sb.from("customer_assignments")
+        .upsert({
+          customer_id: req.params.id,
+          salesperson_id: spId,
+          is_primary: true,
+          commission_split: 100,
+          assigned_by: session.sub,
+        }, { onConflict: "customer_id,salesperson_id" });
+    } else {
+      // Salesperson unassigned — remove all junction entries for this customer
+      await sb.from("customer_assignments").delete().eq("customer_id", req.params.id);
+    }
+  }
+
   return res.json(toCamel(data as Record<string, unknown>));
 });
 
