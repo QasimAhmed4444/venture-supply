@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { randomBytes, randomUUID } from "node:crypto";
 import { getSupabase } from "../lib/supabase.js";
-import { requireAuth, requireRole, requireAdmin } from "../middlewares/requireAuth.js";
+import { requireAuth, requireRole, requireAdmin, optionalAuth } from "../middlewares/requireAuth.js";
 import { auditLog } from "../middlewares/auditLog.js";
 import type { VerifiedSession } from "../lib/sessionToken.js";
 
@@ -76,7 +76,7 @@ router.get("/orders", requireAuth, async (req, res) => {
 });
 
 // GET /orders/:id — R4-FIX-1: public view returns minimal fields; owner/staff gets full order
-router.get("/orders/:id", async (req, res) => {
+router.get("/orders/:id", optionalAuth, async (req, res) => {
   const session = (req as any).session as VerifiedSession | undefined;
   const sb = getSupabase();
 

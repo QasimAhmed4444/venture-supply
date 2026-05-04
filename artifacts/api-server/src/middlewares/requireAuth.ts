@@ -43,3 +43,13 @@ export function requireRole(...allowed: string[]) {
 }
 
 export const requireAdmin = requireRole("admin");
+
+/** Attaches session if a valid token is present, but never rejects the request. */
+export function optionalAuth(req: Request, _res: Response, next: NextFunction): void {
+  const token = extractToken(req);
+  if (token) {
+    const session = verifySessionToken(token);
+    if (session) req.session = session;
+  }
+  next();
+}
