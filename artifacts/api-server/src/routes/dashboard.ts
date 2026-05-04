@@ -1,51 +1,30 @@
 import { Router } from "express";
 import { getSupabase } from "../lib/supabase.js";
-import { requireAdmin } from "../middlewares/requireAuth.js";
+import { requireAuth } from "../middlewares/requireAuth.js";
+import type { VerifiedSession } from "../lib/sessionToken.js";
 
 const router = Router();
 
-router.get("/dashboard/stats", requireAdmin, async (_req, res) => {
+// R3-DB-1: Use dashboard_stats RPC — O(1) at DB, sales sees their own numbers
+router.get("/dashboard/stats", requireAuth, async (req, res) => {
   const sb = getSupabase();
+  if (!sb) return res.status(503).json({ error: "db unavailable" });
 
-  if (!sb) {
-    return res.json({ ordersToday: 0, revenueToday: 0, newCustomers: 0, pendingOrders: 0, lowStock: 0, totalOrders: 0, totalCustomers: 0, totalRevenue: 0 });
+  const session = (req as any).session as VerifiedSession;
+
+  let salespersonId: string | null = null;
+  if (session.role === "sales") {
+    const { data: staff } = await sb
+      .from("staff")
+      .select("salesperson_id")
+      .eq("id", session.sub)
+      .maybeSingle();
+    salespersonId = (staff?.salesperson_id as string | null) ?? null;
   }
 
-  try {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
-    const [ordersRes, allOrdersRes, customersRes, productsRes, todayCustomersRes] = await Promise.all([
-      sb.from("orders").select("total, status, placed_at").gte("placed_at", today.toISOString()),
-      sb.from("orders").select("total, status"),
-      sb.from("customers").select("id, created_at"),
-      sb.from("products").select("stock_status"),
-      sb.from("customers").select("id").gte("created_at", new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()),
-    ]);
-
-    const todayOrders = ordersRes.data ?? [];
-    const allOrders = allOrdersRes.data ?? [];
-    const allProducts = productsRes.data ?? [];
-    const allCustomers = customersRes.data ?? [];
-
-    const revenueToday = todayOrders.reduce((s: number, o: any) => s + Number(o.total ?? 0), 0);
-    const totalRevenue = allOrders.reduce((s: number, o: any) => s + Number(o.total ?? 0), 0);
-    const pendingOrders = allOrders.filter((o: any) => ["new", "confirmed", "preparing", "packed"].includes(o.status)).length;
-    const lowStock = allProducts.filter((p: any) => p.stock_status === "low-stock").length;
-
-    return res.json({
-      ordersToday: todayOrders.length,
-      revenueToday: +revenueToday.toFixed(2),
-      newCustomers: (todayCustomersRes.data ?? []).length,
-      pendingOrders,
-      lowStock,
-      totalOrders: allOrders.length,
-      totalCustomers: allCustomers.length,
-      totalRevenue: +totalRevenue.toFixed(2),
-    });
-  } catch {
-    return res.json({ ordersToday: 0, revenueToday: 0, newCustomers: 0, pendingOrders: 0, lowStock: 0, totalOrders: 0, totalCustomers: 0, totalRevenue: 0 });
-  }
+  const { data, error } = await sb.rpc("dashboard_stats", { p_salesperson_id: salespersonId });
+  if (error) return res.status(500).json({ error: error.message });
+  return res.json(data ?? {});
 });
 
 export default router;

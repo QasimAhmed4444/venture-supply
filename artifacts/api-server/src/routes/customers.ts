@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { getSupabase } from "../lib/supabase.js";
 import { requireAuth, requireRole, requireAdmin } from "../middlewares/requireAuth.js";
+import { auditLog } from "../middlewares/auditLog.js";
 import type { VerifiedSession } from "../lib/sessionToken.js";
 
 const router = Router();
@@ -23,6 +24,7 @@ function toCamel(row: Record<string, unknown>) {
 }
 
 // GET /customers — admin and sales only
+// R3-DB-6: sales scoped via customer_assignments junction table
 router.get("/customers", requireRole("admin", "sales"), async (req, res) => {
   const session = (req as any).session as VerifiedSession;
   const sb = getSupabase();
@@ -35,7 +37,14 @@ router.get("/customers", requireRole("admin", "sales"), async (req, res) => {
       const { data: staff } = await sb.from("staff").select("salesperson_id").eq("id", session.sub).maybeSingle();
       const spId = (staff?.salesperson_id as string | null) ?? null;
       if (!spId) return res.json([]);
-      q = q.eq("assigned_salesperson_id", spId);
+      // R3-DB-6: use junction table instead of assigned_salesperson_id
+      const { data: assignments } = await sb
+        .from("customer_assignments")
+        .select("customer_id")
+        .eq("salesperson_id", spId);
+      const customerIds = (assignments ?? []).map((a) => a.customer_id as string);
+      if (customerIds.length === 0) return res.json([]);
+      q = q.in("id", customerIds);
     }
 
     const { data, error } = await q;
@@ -47,7 +56,7 @@ router.get("/customers", requireRole("admin", "sales"), async (req, res) => {
 });
 
 // POST /customers — admin and sales only
-router.post("/customers", requireRole("admin", "sales"), async (req, res) => {
+router.post("/customers", requireRole("admin", "sales"), auditLog("create", "customer"), async (req, res) => {
   const sb = getSupabase();
   if (!sb) return res.status(503).json({ error: "db unavailable" });
   const b = req.body;
@@ -81,7 +90,7 @@ router.post("/customers", requireRole("admin", "sales"), async (req, res) => {
 });
 
 // PUT /customers/:id — authenticated (admin/sales or own record)
-router.put("/customers/:id", requireAuth, async (req, res) => {
+router.put("/customers/:id", requireAuth, auditLog("update", "customer"), async (req, res) => {
   const session = (req as any).session as VerifiedSession;
   const sb = getSupabase();
   if (!sb) return res.status(503).json({ error: "db unavailable" });
@@ -132,7 +141,7 @@ router.put("/customers/:id", requireAuth, async (req, res) => {
 });
 
 // DELETE /customers/:id — admin only
-router.delete("/customers/:id", requireAdmin, async (req, res) => {
+router.delete("/customers/:id", requireAdmin, auditLog("delete", "customer"), async (req, res) => {
   const sb = getSupabase();
   if (!sb) return res.status(503).json({ error: "db unavailable" });
   const { error } = await sb.from("customers").delete().eq("id", req.params.id);
@@ -159,6 +168,59 @@ router.get("/customers/:id", requireAuth, async (req, res) => {
   } catch {
     return res.status(500).json({ error: "internal" });
   }
+});
+
+// ── R3-DB-6: Customer assignment endpoints ────────────────────────────────────
+
+// GET /customers/:id/salespersons — authenticated
+router.get("/customers/:id/salespersons", requireAuth, async (req, res) => {
+  const sb = getSupabase();
+  if (!sb) return res.status(503).json({ error: "db unavailable" });
+  const { data, error } = await sb
+    .from("v_customer_salespersons")
+    .select("*")
+    .eq("customer_id", req.params.id);
+  if (error) return res.status(500).json({ error: error.message });
+  return res.json(data ?? []);
+});
+
+// POST /customers/:id/salespersons — admin only
+router.post("/customers/:id/salespersons", requireAdmin, async (req, res) => {
+  const sb = getSupabase();
+  if (!sb) return res.status(503).json({ error: "db unavailable" });
+  const session = (req as any).session;
+  const { salespersonId, isPrimary, commissionSplit, notes } = req.body;
+  if (!salespersonId) return res.status(400).json({ error: "salespersonId required" });
+
+  // If new primary, demote existing primaries
+  if (isPrimary) {
+    await sb.from("customer_assignments")
+      .update({ is_primary: false })
+      .eq("customer_id", req.params.id);
+  }
+
+  const { data, error } = await sb.from("customer_assignments").insert({
+    customer_id: req.params.id,
+    salesperson_id: salespersonId,
+    is_primary: !!isPrimary,
+    commission_split: Number(commissionSplit ?? 100),
+    assigned_by: session.sub,
+    notes: notes ?? null,
+  }).select().single();
+  if (error) return res.status(400).json({ error: error.message });
+  return res.status(201).json(data);
+});
+
+// DELETE /customers/:id/salespersons/:salespersonId — admin only
+router.delete("/customers/:id/salespersons/:salespersonId", requireAdmin, async (req, res) => {
+  const sb = getSupabase();
+  if (!sb) return res.status(503).json({ error: "db unavailable" });
+  const { error } = await sb.from("customer_assignments")
+    .delete()
+    .eq("customer_id", req.params.id)
+    .eq("salesperson_id", req.params.salespersonId);
+  if (error) return res.status(400).json({ error: error.message });
+  return res.status(204).send();
 });
 
 export default router;

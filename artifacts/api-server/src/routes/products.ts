@@ -2,6 +2,7 @@ import { Router } from "express";
 import { getSupabase } from "../lib/supabase.js";
 import { requireAdmin } from "../middlewares/requireAuth.js";
 import { verifySessionToken } from "../lib/sessionToken.js";
+import { auditLog } from "../middlewares/auditLog.js";
 
 const router = Router();
 
@@ -101,7 +102,7 @@ router.get("/products/:slug", async (req, res) => {
   }
 });
 
-router.post("/products", requireAdmin, async (req, res) => {
+router.post("/products", requireAdmin, auditLog("create", "product"), async (req, res) => {
   const sb = getSupabase();
   if (!sb) return res.status(503).json({ error: "db unavailable" });
   try {
@@ -117,7 +118,7 @@ router.post("/products", requireAdmin, async (req, res) => {
   }
 });
 
-router.put("/products/:id", requireAdmin, async (req, res) => {
+router.put("/products/:id", requireAdmin, auditLog("update", "product"), async (req, res) => {
   const sb = getSupabase();
   if (!sb) return res.status(503).json({ error: "db unavailable" });
   try {
@@ -130,7 +131,7 @@ router.put("/products/:id", requireAdmin, async (req, res) => {
   }
 });
 
-router.delete("/products/:id", requireAdmin, async (req, res) => {
+router.delete("/products/:id", requireAdmin, auditLog("delete", "product"), async (req, res) => {
   const sb = getSupabase();
   if (!sb) return res.status(503).json({ error: "db unavailable" });
   try {

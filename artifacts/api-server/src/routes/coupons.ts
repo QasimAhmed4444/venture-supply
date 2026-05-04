@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { getSupabase } from "../lib/supabase.js";
 import { requireAdmin, requireAuth } from "../middlewares/requireAuth.js";
+import { auditLog } from "../middlewares/auditLog.js";
 import type { VerifiedSession } from "../lib/sessionToken.js";
 
 const router = Router();
@@ -90,7 +91,7 @@ router.get("/coupons/validate", requireAuth, async (req, res) => {
 });
 
 // POST /coupons — admin only
-router.post("/coupons", requireAdmin, async (req, res) => {
+router.post("/coupons", requireAdmin, auditLog("create", "coupon"), async (req, res) => {
   const sb = getSupabase();
   if (!sb) return res.status(503).json({ error: "db unavailable" });
   const b = req.body as Record<string, unknown>;
@@ -116,7 +117,7 @@ router.post("/coupons", requireAdmin, async (req, res) => {
 });
 
 // PUT /coupons/:id — admin only
-router.put("/coupons/:id", requireAdmin, async (req, res) => {
+router.put("/coupons/:id", requireAdmin, auditLog("update", "coupon"), async (req, res) => {
   const sb = getSupabase();
   if (!sb) return res.status(503).json({ error: "db unavailable" });
   const b = req.body as Record<string, unknown>;
@@ -138,7 +139,7 @@ router.put("/coupons/:id", requireAdmin, async (req, res) => {
 });
 
 // DELETE /coupons/:id — admin only
-router.delete("/coupons/:id", requireAdmin, async (req, res) => {
+router.delete("/coupons/:id", requireAdmin, auditLog("delete", "coupon"), async (req, res) => {
   const sb = getSupabase();
   if (!sb) return res.status(503).json({ error: "db unavailable" });
   const { error } = await sb.from("coupons").delete().eq("id", req.params.id);

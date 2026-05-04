@@ -2,6 +2,7 @@ import { Router } from "express";
 import { randomBytes, randomUUID } from "node:crypto";
 import { getSupabase } from "../lib/supabase.js";
 import { requireAuth, requireRole, requireAdmin } from "../middlewares/requireAuth.js";
+import { auditLog } from "../middlewares/auditLog.js";
 import type { VerifiedSession } from "../lib/sessionToken.js";
 
 const router = Router();
@@ -74,8 +75,7 @@ router.get("/orders", requireAuth, async (req, res) => {
   }
 });
 
-// GET /orders/:id — public for tracking links; scoped by role for authenticated users
-// R2-NB-9: sanitize ID to prevent PostgREST filter injection
+// GET /orders/:id — R2-NB-9: sanitize ID to prevent PostgREST filter injection
 router.get("/orders/:id", async (req, res) => {
   const session = (req as any).session as VerifiedSession | undefined;
   const sb = getSupabase();
@@ -117,10 +117,8 @@ router.get("/orders/:id", async (req, res) => {
   }
 });
 
-// POST /orders — any authenticated user can place an order
-// R2-NB-1+2+3+4+5: role-gate body fields
-// R2-NB-7+8+14: stock check, audience check, items cap
-router.post("/orders", requireAuth, async (req, res) => {
+// POST /orders — any authenticated user
+router.post("/orders", requireAuth, auditLog("create", "order"), async (req, res) => {
   const session = (req as any).session as VerifiedSession;
   const sb = getSupabase();
   if (!sb) return res.status(503).json({ error: "db unavailable" });
@@ -161,7 +159,7 @@ router.post("/orders", requireAuth, async (req, res) => {
       ? body.history
       : [{ status, at: new Date().toISOString(), by: isStaff ? session.sub : "system" }];
 
-    // Server always generates IDs — body values ignored
+    // Server always generates IDs
     const orderId = `o-${randomUUID()}`;
     const trackingId = `VS-O-${randomBytes(4).toString("hex").toUpperCase()}`;
 
@@ -178,7 +176,6 @@ router.post("/orders", requireAuth, async (req, res) => {
     let pricedItems: Record<string, unknown>[] = rawItems;
     if (rawItems.length > 0) {
       const productIds = [...new Set(rawItems.map((it) => it.productId as string).filter(Boolean))];
-      // R2-NB-7+8: fetch stock + audience alongside pricing fields
       const { data: products } = await sb.from("products")
         .select("id, en_name, b2c_price, b2b_price, packs, stock_qty, stock_status, audience")
         .in("id", productIds);
@@ -191,24 +188,12 @@ router.post("/orders", requireAuth, async (req, res) => {
           let unitPrice: number;
           if (prod) {
             const qty = Number(it.qty ?? 0);
-            // R2-NB-7: qty validation
-            if (qty <= 0) {
-              throw new Error(`Invalid quantity for ${prod.en_name ?? it.productId}`);
-            }
-            if (prod.stock_status === "out-of-stock") {
-              throw new Error(`${prod.en_name} is out of stock`);
-            }
-            if (qty > Number(prod.stock_qty ?? 0)) {
-              throw new Error(`Only ${prod.stock_qty} of ${prod.en_name} available`);
-            }
-            // R2-NB-8: audience check — customers can't buy off-audience products; staff can place mixed orders
+            if (qty <= 0) throw new Error(`Invalid quantity for ${prod.en_name ?? it.productId}`);
+            if (prod.stock_status === "out-of-stock") throw new Error(`${prod.en_name} is out of stock`);
+            if (qty > Number(prod.stock_qty ?? 0)) throw new Error(`Only ${prod.stock_qty} of ${prod.en_name} available`);
             if (!isStaff) {
-              if (customerType === "b2c" && prod.audience === "b2b") {
-                throw new Error(`${prod.en_name} is B2B-only`);
-              }
-              if (customerType === "b2b" && prod.audience === "b2c") {
-                throw new Error(`${prod.en_name} is B2C-only`);
-              }
+              if (customerType === "b2c" && prod.audience === "b2b") throw new Error(`${prod.en_name} is B2B-only`);
+              if (customerType === "b2b" && prod.audience === "b2c") throw new Error(`${prod.en_name} is B2C-only`);
             }
             const packSize = it.packSize as string | undefined;
             const packs = Array.isArray(prod.packs) ? (prod.packs as Record<string, unknown>[]) : [];
@@ -218,10 +203,11 @@ router.post("/orders", requireAuth, async (req, res) => {
             } else {
               unitPrice = Number((isB2B ? prod.b2b_price : prod.b2c_price) ?? 0);
             }
+            return { ...it, unitPrice, productName: prod.en_name as string };
           } else {
             unitPrice = 0;
+            return { ...it, unitPrice };
           }
-          return { ...it, unitPrice };
         });
       } catch (err: any) {
         return res.status(400).json({ error: err?.message ?? "Validation failed" });
@@ -261,6 +247,26 @@ router.post("/orders", requireAuth, async (req, res) => {
     const deliveryCharge = freeDelivery ? 0 : baseDelivery;
     const total = Math.max(0, +(subtotal + vat + deliveryCharge - discount).toFixed(2));
 
+    // ── R3-DB-4: B2B credit check via view ────────────────────────────────────
+    if (body.paymentMethod === "credit") {
+      if (customerType !== "b2b") return res.status(403).json({ error: "Credit only for B2B" });
+      if (!customerId) return res.status(401).json({ error: "Login required for credit orders" });
+
+      const { data: creditStatus } = await sb
+        .from("v_b2b_credit_status")
+        .select("*")
+        .eq("customer_id", customerId)
+        .maybeSingle();
+
+      if (!creditStatus || !creditStatus.allow_credit) {
+        return res.status(403).json({ error: "Credit not approved for this account" });
+      }
+      if (Number(creditStatus.outstanding ?? 0) + total > Number(creditStatus.credit_limit ?? 0)) {
+        const available = Number(creditStatus.credit_limit ?? 0) - Number(creditStatus.outstanding ?? 0);
+        return res.status(402).json({ error: `Credit limit exceeded. Available: ${available.toFixed(2)} SAR` });
+      }
+    }
+
     const row = {
       id: orderId,
       tracking_id: trackingId,
@@ -289,12 +295,30 @@ router.post("/orders", requireAuth, async (req, res) => {
     const { data, error } = await sb.from("orders").insert(row).select().single();
     if (error || !data) return res.status(400).json({ error: error?.message ?? "insert failed" });
 
-    // R2-NB-6: increment coupon uses_count atomically via RPC (correct param name p_code)
+    // ── R3-DB-2: Mirror items into order_items table for analytics ────────────
+    if (pricedItems.length > 0) {
+      try {
+        const flatItems = pricedItems.map((it: any) => ({
+          order_id: (data as any).id,
+          product_id: it.productId,
+          product_name: it.productName ?? it.enName ?? null,
+          pack_size: it.packSize ?? null,
+          quantity: Number(it.qty ?? it.quantity ?? 1),
+          unit_price: Number(it.unitPrice ?? 0),
+          line_total: Number(it.unitPrice ?? 0) * Number(it.qty ?? it.quantity ?? 1),
+        }));
+        await sb.from("order_items").insert(flatItems);
+      } catch {
+        // best-effort — analytics table, not source of truth
+      }
+    }
+
+    // R2-NB-6: increment coupon uses_count atomically via RPC
     if (row.coupon_code) {
       try {
         await sb.rpc("increment_coupon_uses", { p_code: row.coupon_code as string });
       } catch {
-        // best-effort — don't fail the order
+        // best-effort
       }
     }
 
@@ -305,7 +329,8 @@ router.post("/orders", requireAuth, async (req, res) => {
 });
 
 // PUT /orders/:id — admin and sales only
-router.put("/orders/:id", requireRole("admin", "sales"), async (req, res) => {
+// R3-DB-3: DB trigger blocks illegal transitions; surface 409 for those
+router.put("/orders/:id", requireRole("admin", "sales"), auditLog("update", "order"), async (req, res) => {
   const sb = getSupabase();
   if (!sb) return res.status(503).json({ error: "db unavailable" });
   try {
@@ -318,7 +343,14 @@ router.put("/orders/:id", requireRole("admin", "sales"), async (req, res) => {
     if (b.cancellationReason !== undefined) updates.cancellation_reason = b.cancellationReason;
     if (b.history !== undefined) updates.history = b.history;
     const { data, error } = await sb.from("orders").update(updates).eq("id", req.params.id).select().single();
-    if (error || !data) return res.status(400).json({ error: error?.message ?? "update failed" });
+    if (error) {
+      // DB trigger (enforce_order_status_transition) raises check violation errcode 23514
+      if (error.code === "23514" || error.message?.includes("Illegal status transition") || error.message?.includes("terminal state")) {
+        return res.status(409).json({ error: error.message });
+      }
+      return res.status(400).json({ error: error.message });
+    }
+    if (!data) return res.status(400).json({ error: "update failed" });
     return res.json(toCamel(data as Record<string, unknown>));
   } catch (err: any) {
     return res.status(500).json({ error: err?.message ?? "internal" });
@@ -326,7 +358,7 @@ router.put("/orders/:id", requireRole("admin", "sales"), async (req, res) => {
 });
 
 // DELETE /orders/:id — admin only
-router.delete("/orders/:id", requireAdmin, async (req, res) => {
+router.delete("/orders/:id", requireAdmin, auditLog("delete", "order"), async (req, res) => {
   const sb = getSupabase();
   if (!sb) return res.status(503).json({ error: "db unavailable" });
   try {

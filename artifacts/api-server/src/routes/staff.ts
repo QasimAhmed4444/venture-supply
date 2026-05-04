@@ -2,6 +2,7 @@ import { Router } from "express";
 import bcrypt from "bcryptjs";
 import { getSupabase } from "../lib/supabase.js";
 import { requireAdmin } from "../middlewares/requireAuth.js";
+import { auditLog } from "../middlewares/auditLog.js";
 
 const router = Router();
 
@@ -33,7 +34,7 @@ router.get("/staff", async (_req, res) => {
   return res.json((data ?? []).map((r) => toCamel(r as Record<string, unknown>)));
 });
 
-router.post("/staff", async (req, res) => {
+router.post("/staff", auditLog("create", "staff"), async (req, res) => {
   const { name, email, password, role, salespersonId } = req.body as {
     name?: string; email?: string; password?: string; role?: string; salespersonId?: string | null;
   };
@@ -73,7 +74,7 @@ router.post("/staff", async (req, res) => {
   return res.status(201).json(toCamel(data as Record<string, unknown>));
 });
 
-router.put("/staff/:id", async (req, res) => {
+router.put("/staff/:id", auditLog("update", "staff"), async (req, res) => {
   const { name, email, password, role, salespersonId } = req.body as {
     name?: string; email?: string; password?: string; role?: string; salespersonId?: string | null;
   };
@@ -110,7 +111,7 @@ router.put("/staff/:id", async (req, res) => {
 
 // Use the delete_staff_safely RPC which enforces last-admin protection atomically
 // R2-NB-19: correct param name p_id, self-delete guard, last-admin 409
-router.delete("/staff/:id", async (req, res) => {
+router.delete("/staff/:id", auditLog("delete", "staff"), async (req, res) => {
   const sb = getSupabase();
   if (!sb) return res.status(503).json({ error: "db unavailable" });
 
