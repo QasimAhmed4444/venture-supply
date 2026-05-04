@@ -56,10 +56,6 @@ export function CheckoutPage() {
   const [crNumber, setCrNumber] = useState(customer?.business?.crNumber ?? "");
   const [vatNumber, setVatNumber] = useState(customer?.business?.vatNumber ?? "");
 
-  const [cardNumber, setCardNumber] = useState("");
-  const [cardExpiry, setCardExpiry] = useState("");
-  const [cardCvc, setCardCvc] = useState("");
-
   const [couponCode, setCouponCode] = useState("");
   const [applyingCoupon, setApplyingCoupon] = useState(false);
   const [appliedCoupon, setAppliedCoupon] = useState<ValidatedCoupon | null>(null);
@@ -170,24 +166,8 @@ export function CheckoutPage() {
       }
     }
 
-    if (paymentMethod === "card") {
-      const digits = cardNumber.replace(/\s/g, "");
-      if (digits.length < 13) {
-        toast({ title: language === "ar" ? "رقم البطاقة غير صحيح" : "Invalid card number", variant: "destructive" });
-        return;
-      }
-      if (!cardExpiry.match(/^\d{2}\s*\/\s*\d{2}$/)) {
-        toast({ title: language === "ar" ? "تاريخ انتهاء غير صحيح" : "Invalid expiry date", variant: "destructive" });
-        return;
-      }
-      if (cardCvc.length < 3) {
-        toast({ title: language === "ar" ? "CVC غير صحيح" : "Invalid CVC", variant: "destructive" });
-        return;
-      }
-    }
-
-    const id = `o-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
-    const trackingId = `VS-O-${Math.floor(1000 + Math.random() * 9000)}`;
+    const id = `o-${crypto.randomUUID()}`;
+    const trackingId = `VS-O-${crypto.randomUUID().replace(/-/g, "").slice(0, 8).toUpperCase()}`;
     const placedAt = new Date().toISOString();
     const estDays = orderType === "pickup" ? 1 : isB2B ? 4 : 2;
     const estimatedAt = new Date(Date.now() + estDays * 86_400_000).toISOString();
@@ -249,10 +229,13 @@ export function CheckoutPage() {
     );
   };
 
-  if (items.length === 0) {
-    setLocation("/cart");
-    return null;
-  }
+  useEffect(() => {
+    if (items.length === 0) {
+      setLocation("/cart");
+    }
+  }, [items.length, setLocation]);
+
+  if (items.length === 0) return null;
 
   return (
     <form onSubmit={handleSubmit} className="max-w-7xl mx-auto px-4 py-8">
@@ -372,7 +355,6 @@ export function CheckoutPage() {
               <RadioGroup value={paymentMethod} onValueChange={setPaymentMethod} className="grid sm:grid-cols-2 gap-3">
                 {[
                   { v: "cod", label: t("checkout.payment.cod"), icon: Wallet },
-                  { v: "card", label: t("checkout.payment.card"), icon: CreditCard },
                   { v: "bank", label: t("checkout.payment.bank"), icon: Banknote },
                   ...(isB2B ? [{ v: "credit", label: t("checkout.payment.credit"), icon: Building2, disabled: !creditApproved }] : []),
                 ].map((p: any) => (
@@ -411,59 +393,6 @@ export function CheckoutPage() {
                 </div>
               )}
 
-              {paymentMethod === "card" && (
-                <div className="mt-2 p-4 border border-primary/20 rounded-lg bg-primary/5 space-y-3">
-                  <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                    {language === "ar" ? "بيانات البطاقة" : "Card Details"}
-                  </p>
-                  <div>
-                    <Label>{language === "ar" ? "رقم البطاقة" : "Card Number"}</Label>
-                    <Input
-                      placeholder="4242 4242 4242 4242"
-                      value={cardNumber}
-                      onChange={(e) => {
-                        const v = e.target.value.replace(/\D/g, "").slice(0, 16);
-                        setCardNumber(v.replace(/(.{4})/g, "$1 ").trim());
-                      }}
-                      required={paymentMethod === "card"}
-                      data-testid="input-card-number"
-                      className="font-mono"
-                    />
-                  </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <Label>{language === "ar" ? "تاريخ الانتهاء" : "Expiry (MM / YY)"}</Label>
-                      <Input
-                        placeholder="MM / YY"
-                        value={cardExpiry}
-                        onChange={(e) => {
-                          const v = e.target.value.replace(/\D/g, "").slice(0, 4);
-                          setCardExpiry(v.length > 2 ? `${v.slice(0, 2)} / ${v.slice(2)}` : v);
-                        }}
-                        required={paymentMethod === "card"}
-                        data-testid="input-card-expiry"
-                        className="font-mono"
-                      />
-                    </div>
-                    <div>
-                      <Label>CVC</Label>
-                      <Input
-                        placeholder="123"
-                        maxLength={4}
-                        value={cardCvc}
-                        onChange={(e) => setCardCvc(e.target.value.replace(/\D/g, "").slice(0, 4))}
-                        required={paymentMethod === "card"}
-                        data-testid="input-card-cvc"
-                        type="password"
-                        className="font-mono"
-                      />
-                    </div>
-                  </div>
-                  <p className="text-[11px] text-muted-foreground">
-                    {language === "ar" ? "بياناتك محمية ومشفرة بالكامل" : "Your card info is encrypted and secure."}
-                  </p>
-                </div>
-              )}
             </CardContent>
           </Card>
         </div>

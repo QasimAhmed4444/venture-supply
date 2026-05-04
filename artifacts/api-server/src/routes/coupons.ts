@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { getSupabase } from "../lib/supabase.js";
 import { requireAdmin, requireAuth } from "../middlewares/requireAuth.js";
+import type { VerifiedSession } from "../lib/sessionToken.js";
 
 const router = Router();
 
@@ -19,8 +20,8 @@ function toCamel(row: Record<string, unknown>) {
     enTitle: row.en_title,
     arTitle: row.ar_title,
     type: row.type,
-    value: Number(row.value),
-    minOrder: Number(row.min_order),
+    value: Number(row.value ?? 0),
+    minOrder: Number(row.min_order ?? 0),
     audience: row.audience,
     maxUses: row.max_uses,
     usesCount: Number(row.uses_count ?? 0),
@@ -41,9 +42,14 @@ router.get("/coupons", requireAdmin, async (_req, res) => {
 });
 
 // GET /coupons/validate — authenticated customers validating a coupon at checkout
+// Audience is derived from the session role — not trusted from the client
 router.get("/coupons/validate", requireAuth, async (req, res) => {
-  const { code, total, audience } = req.query as Record<string, string>;
+  const session = (req as any).session as VerifiedSession;
+  const { code, total } = req.query as Record<string, string>;
   if (!code) return res.status(400).json({ error: "code required" });
+
+  // Derive audience from the authenticated session, never from client input
+  const audience = session.role === "b2b" ? "b2b" : "b2c";
 
   const sb = getSupabase();
   if (!sb) return res.status(503).json({ error: "db unavailable" });
@@ -71,7 +77,7 @@ router.get("/coupons/validate", requireAuth, async (req, res) => {
     return res.status(400).json({ error: `Minimum order SAR ${coupon.minOrder} required` });
   }
 
-  if (audience && coupon.audience !== "both" && coupon.audience !== audience) {
+  if (coupon.audience !== "both" && coupon.audience !== audience) {
     return res.status(400).json({ error: "Coupon not valid for your account type" });
   }
 

@@ -14,7 +14,7 @@ function toCamel(row: Record<string, unknown>) {
     city: row.city,
     type: row.type,
     totalOrders: row.total_orders,
-    lifetimeValue: Number(row.lifetime_value),
+    lifetimeValue: Number(row.lifetime_value ?? 0),
     assignedSalespersonId: row.assigned_salesperson_id ?? undefined,
     joinedDate: row.joined_date,
     business: row.business ?? undefined,
@@ -31,7 +31,6 @@ router.get("/customers", requireRole("admin", "sales"), async (req, res) => {
     let q = sb.from("customers").select("*").order("created_at", { ascending: false });
     if (req.query.type && req.query.type !== "all") q = q.eq("type", req.query.type as string);
 
-    // For sales role, scope to customers assigned to this salesperson
     if (session.role === "sales") {
       const { data: staff } = await sb.from("staff").select("salesperson_id").eq("id", session.sub).maybeSingle();
       const spId = (staff?.salesperson_id as string | null) ?? null;
@@ -92,14 +91,36 @@ router.put("/customers/:id", requireAuth, async (req, res) => {
 
   const b = req.body;
   const payload: Record<string, unknown> = {};
-  if (b.name !== undefined) payload.name = b.name;
-  if (b.email !== undefined) payload.email = b.email;
-  if (b.phone !== undefined) payload.phone = b.phone;
-  if (b.city !== undefined) payload.city = b.city;
-  if (b.type !== undefined) payload.type = b.type;
-  if (b.assignedSalespersonId !== undefined) payload.assigned_salesperson_id = b.assignedSalespersonId;
-  if (b.business !== undefined) payload.business = b.business;
-  if (b.addresses !== undefined) payload.addresses = b.addresses;
+
+  if (session.role === "b2c" || session.role === "b2b") {
+    // Customers may only update safe personal fields
+    if (b.name !== undefined) payload.name = b.name;
+    if (b.phone !== undefined) payload.phone = b.phone;
+    if (b.city !== undefined) payload.city = b.city;
+    if (b.addresses !== undefined) payload.addresses = b.addresses;
+    // Allow updating safe business sub-fields only
+    if (b.business !== undefined) {
+      const safeBiz: Record<string, unknown> = {};
+      if (b.business.name !== undefined) safeBiz.name = b.business.name;
+      if (b.business.crNumber !== undefined) safeBiz.crNumber = b.business.crNumber;
+      if (b.business.vatNumber !== undefined) safeBiz.vatNumber = b.business.vatNumber;
+      // Preserve existing credit/approval fields by fetching current record
+      const { data: cur } = await sb.from("customers").select("business").eq("id", req.params.id).maybeSingle();
+      const existingBiz = (cur?.business as Record<string, unknown> | null) ?? {};
+      payload.business = { ...existingBiz, ...safeBiz };
+    }
+  } else {
+    // Admin / sales — full update
+    if (b.name !== undefined) payload.name = b.name;
+    if (b.email !== undefined) payload.email = b.email;
+    if (b.phone !== undefined) payload.phone = b.phone;
+    if (b.city !== undefined) payload.city = b.city;
+    if (b.type !== undefined) payload.type = b.type;
+    if (b.assignedSalespersonId !== undefined) payload.assigned_salesperson_id = b.assignedSalespersonId;
+    if (b.business !== undefined) payload.business = b.business;
+    if (b.addresses !== undefined) payload.addresses = b.addresses;
+  }
+
   const { data, error } = await sb.from("customers").update(payload).eq("id", req.params.id).select().single();
   if (error) return res.status(400).json({ error: error.message });
   return res.json(toCamel(data as Record<string, unknown>));
@@ -123,7 +144,6 @@ router.get("/customers/:id", requireAuth, async (req, res) => {
     const { data } = await sb.from("customers").select("*").eq("id", req.params.id).single();
     if (!data) return res.status(404).json({ error: "not found" });
 
-    // B2C/B2B can only see their own record
     if (session.role === "b2c" || session.role === "b2b") {
       if ((data as any).email !== session.email) {
         return res.status(403).json({ error: "Forbidden" });

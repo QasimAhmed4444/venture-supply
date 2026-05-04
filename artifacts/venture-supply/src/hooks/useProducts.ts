@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { apiFetch } from "@/lib/api";
-import { products as mockProducts, type Product } from "@/data/products";
+import type { Product } from "@/data/products";
 
 export function useProducts(filters?: { category?: string; brand?: string; search?: string }) {
   const params = new URLSearchParams();
@@ -12,7 +12,6 @@ export function useProducts(filters?: { category?: string; brand?: string; searc
   return useQuery<Product[]>({
     queryKey: ["products", filters],
     queryFn: () => apiFetch<Product[]>(`/products${qs ? `?${qs}` : ""}`),
-    placeholderData: mockProducts,
     staleTime: 0,
     retry: 1,
   });

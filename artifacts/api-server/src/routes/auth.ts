@@ -1,11 +1,13 @@
 import { Router } from "express";
 import bcrypt from "bcryptjs";
+import { randomBytes, createHash } from "node:crypto";
 import { getSupabase } from "../lib/supabase.js";
 import { signSessionToken } from "../lib/sessionToken.js";
 
 const router = Router();
 
 const BCRYPT_ROUNDS = 10;
+const RESET_TOKEN_TTL_MS = 60 * 60 * 1000; // 1 hour
 
 function isBcryptHash(value: unknown): value is string {
   return typeof value === "string" && /^\$2[aby]\$/.test(value);
@@ -20,8 +22,7 @@ async function verifyPassword(
   if (isBcryptHash(storedPassword)) {
     return bcrypt.compare(submittedPassword, storedPassword);
   }
-  // Legacy plaintext row (e.g. created by an older demo seed). Accept once
-  // and silently upgrade to a bcrypt hash so subsequent logins are secure.
+  // Legacy plaintext row — accept once and silently upgrade
   if (storedPassword !== submittedPassword) return false;
   if (sb) {
     try {
@@ -130,7 +131,6 @@ router.post("/auth/register", async (req, res) => {
 
   if (!sb) return res.status(503).json({ error: "Service unavailable" });
 
-  // Check for duplicate email in staff (credentials table)
   try {
     const { data: existing } = await sb.from("staff").select("id").eq("email", lower).maybeSingle();
     if (existing) return res.status(409).json({ error: "Email is already registered" });
@@ -138,7 +138,6 @@ router.post("/auth/register", async (req, res) => {
     // ignore lookup errors
   }
 
-  // Check for duplicate email in customers
   try {
     const { data: existingCust } = await sb.from("customers").select("id").eq("email", lower).maybeSingle();
     if (existingCust) return res.status(409).json({ error: "Email is already registered" });
@@ -146,11 +145,9 @@ router.post("/auth/register", async (req, res) => {
     // ignore
   }
 
-  // Build customer record
   const customerId = `c-${Date.now().toString(36)}`;
   const accountType = type === "b2b" ? "b2b" : "b2c";
 
-  // Resolve business type name/code from Supabase if provided
   let resolvedBtName = "retailer";
   let resolvedBtId: string | null = null;
   if (accountType === "b2b" && businessTypeId) {
@@ -190,7 +187,6 @@ router.post("/auth/register", async (req, res) => {
     return res.status(400).json({ error: userMsg });
   }
 
-  // Store hashed credentials in staff table
   const passwordHash = await bcrypt.hash(password, BCRYPT_ROUNDS);
   const { error: staffErr } = await sb.from("staff").insert({
     email: lower,
@@ -200,7 +196,6 @@ router.post("/auth/register", async (req, res) => {
   });
 
   if (staffErr) {
-    // Roll back customer row
     await sb.from("customers").delete().eq("id", customerId);
     return res.status(400).json({ error: staffErr.message });
   }
@@ -221,7 +216,7 @@ router.post("/auth/register", async (req, res) => {
 });
 
 // ---------------------------------------------------------------------------
-// Change password — verifies current password against staff table
+// Change password
 // ---------------------------------------------------------------------------
 router.post("/auth/change-password", async (req, res) => {
   const { email, currentPassword, newPassword } = req.body as {
@@ -255,16 +250,85 @@ router.post("/auth/change-password", async (req, res) => {
 });
 
 // ---------------------------------------------------------------------------
+// Forgot password — generate a reset token and store its hash
+// ---------------------------------------------------------------------------
+router.post("/auth/forgot-password", async (req, res) => {
+  const { email } = req.body as { email?: string };
+  if (!email) return res.status(400).json({ error: "email is required" });
+
+  const sb = getSupabase();
+  if (!sb) return res.status(503).json({ error: "Service unavailable" });
+
+  const lower = email.toLowerCase().trim();
+  const { data: staff } = await sb
+    .from("staff").select("id").eq("email", lower).maybeSingle();
+
+  // Always respond the same way to prevent email enumeration
+  if (!staff) {
+    return res.json({ ok: true, message: "If that address is registered, a reset token has been issued." });
+  }
+
+  const token = randomBytes(32).toString("hex");
+  const tokenHash = createHash("sha256").update(token).digest("hex");
+  const expiresAt = new Date(Date.now() + RESET_TOKEN_TTL_MS).toISOString();
+
+  await sb.from("staff").update({
+    reset_token_hash: tokenHash,
+    reset_token_expires_at: expiresAt,
+  }).eq("id", staff.id as string);
+
+  // In production this token would be emailed; for now return it directly
+  return res.json({
+    ok: true,
+    token,
+    message: "Reset token issued. Use it within 1 hour.",
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Reset password — verify token hash and update password
+// ---------------------------------------------------------------------------
+router.post("/auth/reset-password", async (req, res) => {
+  const { token, newPassword } = req.body as { token?: string; newPassword?: string };
+  if (!token || !newPassword) {
+    return res.status(400).json({ error: "token and newPassword are required" });
+  }
+  if (newPassword.length < 6) {
+    return res.status(400).json({ error: "Password must be at least 6 characters" });
+  }
+
+  const sb = getSupabase();
+  if (!sb) return res.status(503).json({ error: "Service unavailable" });
+
+  const tokenHash = createHash("sha256").update(token).digest("hex");
+  const { data: staff } = await sb
+    .from("staff")
+    .select("id, reset_token_expires_at")
+    .eq("reset_token_hash", tokenHash)
+    .maybeSingle();
+
+  if (!staff) return res.status(400).json({ error: "Invalid or expired reset token" });
+
+  const expiresAt = staff.reset_token_expires_at as string | null;
+  if (!expiresAt || new Date(expiresAt) < new Date()) {
+    return res.status(400).json({ error: "Reset token has expired" });
+  }
+
+  const newHash = await bcrypt.hash(newPassword, BCRYPT_ROUNDS);
+  const { error: updErr } = await sb.from("staff").update({
+    password: newHash,
+    reset_token_hash: null,
+    reset_token_expires_at: null,
+  }).eq("id", staff.id as string);
+
+  if (updErr) return res.status(500).json({ error: updErr.message });
+
+  return res.json({ ok: true, message: "Password updated successfully." });
+});
+
+// ---------------------------------------------------------------------------
 // Initial admin bootstrap
 // ---------------------------------------------------------------------------
-// One-shot endpoint to create the first admin staff member. To use it, the
-// operator must:
-//   1. Set BOOTSTRAP_TOKEN to a strong, secret value in the deployment env
-//      (the endpoint returns 403 / "disabled" if it is unset).
-//   2. Send that exact token in the `X-Bootstrap-Token` header.
-//   3. Have zero existing admin rows (returns 409 once any admin exists, so
-//      this path cannot be used for privilege escalation later).
-// All three checks must pass — there is no public path to create an admin.
 router.post("/auth/bootstrap-admin", async (req, res) => {
   const expectedToken = process.env["BOOTSTRAP_TOKEN"];
   if (!expectedToken || expectedToken.length < 16) {
@@ -276,7 +340,6 @@ router.post("/auth/bootstrap-admin", async (req, res) => {
   if (typeof provided !== "string" || provided.length !== expectedToken.length) {
     return res.status(401).json({ error: "Invalid bootstrap token" });
   }
-  // Constant-time comparison
   const a = Buffer.from(provided);
   const b = Buffer.from(expectedToken);
   let diff = 0;

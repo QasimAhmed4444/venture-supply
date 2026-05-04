@@ -1,0 +1,793 @@
+Venture Supply — Comprehensive Security & Quality Fixes
+I need you to apply 18 fixes to this codebase. The database has already been prepared — all required Postgres functions, foreign keys, indexes, and columns exist. Do NOT touch the database.
+STRICT RULES — read before starting
+
+DO NOT modify the database. Do not run scripts/setup-supabase.mjs, do not modify supabase/schema.sql, do not run any SQL migration. The DB is already prepared with: increment_coupon_uses, decrement_coupon_uses, delete_staff_safely RPC functions; FKs on orders/customers/staff/salespersons; staff.reset_token_hash and staff.reset_token_expires_at columns; pg_trgm extension; performance indexes.
+DO NOT add new dependencies unless I explicitly list them in a fix. The only addition allowed is express-rate-limit (in F-API-6).
+DO NOT refactor anything beyond what's described. Surgical changes only. No "while I'm here" cleanups. No file reorganization.
+One commit per fix with conventional commit format: fix(F-API-1): add requireAdmin to product/category/brand routes. This makes per-fix rollback possible.
+For every fix, after applying, run the verification step listed in that fix. If verification fails, do not commit — fix it first.
+If a fix touches more than the listed files, or if the existing code differs significantly from what I describe, STOP and report back. Do not improvise.
+Phase 0 credentials are already rotated. New passwords are in Replit Secrets: SEED_ADMIN_PASSWORD, SEED_SALES_PASSWORD, E2E_ADMIN_PASSWORD, E2E_SALES_PASSWORD, E2E_B2C_PASSWORD. Do not invent new credentials.
+Files you can modify:
+
+artifacts/api-server/src/**
+artifacts/venture-supply/src/**
+tests/e2e/**
+.replit (only deletions, listed in F-CONFIG-1)
+package.json of the api-server workspace (to add express-rate-limit)
+
+
+Files you must NOT modify:
+
+supabase/**
+scripts/**
+Anything in lib/api-spec/, lib/api-zod/, lib/api-client-react/, lib/db/ (auto-generated from schema)
+
+
+At the end, produce a summary report listing:
+
+All 18 commit hashes
+Any verification step that failed
+Any deviation from the spec, with reasoning
+
+
+
+
+THE FIXES
+Apply in this order. Most depend on the auth middleware existing, so F-API-1 must come early.
+
+F-CONFIG-1 — Remove plaintext credentials from source
+Files:
+
+.replit
+tests/e2e/staff-login.spec.ts
+tests/e2e/checkout.spec.ts
+
+In .replit: delete these four lines (do not replace them, just delete):
+SEED_ADMIN_EMAIL = "admin@venturesupply.sa"
+SEED_ADMIN_PASSWORD = "TestAdmin@2024!"
+SEED_SALES_EMAIL = "sales@venturesupply.sa"
+SEED_SALES_PASSWORD = "TestSales@2024!"
+The seed script reads these from process.env already; the values now live in Replit Secrets.
+In tests/e2e/staff-login.spec.ts and tests/e2e/checkout.spec.ts: find any line like:
+tsconst ADMIN_PASSWORD = "pakistan12345";
+const SALES_PASSWORD = "TestSales@2024!";
+const B2C_PASSWORD = "TestB2C@2024!";
+Replace with:
+tsconst ADMIN_PASSWORD = process.env.E2E_ADMIN_PASSWORD;
+const SALES_PASSWORD = process.env.E2E_SALES_PASSWORD;
+const B2C_PASSWORD = process.env.E2E_B2C_PASSWORD;
+
+if (!ADMIN_PASSWORD || !SALES_PASSWORD || !B2C_PASSWORD) {
+  throw new Error("E2E test passwords must be set in environment");
+}
+Verify: run git grep "TestAdmin@2024\|pakistan12345\|TestB2C@2024\|TestSales@2024" — must return zero hits.
+
+F-API-AUTH-MW — Add requireRole middleware (prerequisite)
+File: artifacts/api-server/src/middlewares/requireAuth.ts
+Check if requireRole already exists in this file. If yes, skip this fix. If no, add it after the existing requireAuth export:
+tsexport const requireRole = (allowed: string[]) => (req: any, res: any, next: any) => {
+  const role = req.session?.role;
+  if (!role || !allowed.includes(role)) {
+    return res.status(403).json({ error: "Forbidden" });
+  }
+  next();
+};
+Commit message: feat(middleware): add requireRole helper
+
+F-API-1 — Add auth to unprotected admin routes
+Files (5):
+
+artifacts/api-server/src/routes/products.ts
+artifacts/api-server/src/routes/categories.ts
+artifacts/api-server/src/routes/brands.ts
+artifacts/api-server/src/routes/business-types.ts
+artifacts/api-server/src/routes/salespersons.ts
+
+For each file: GET routes stay public. Every POST, PUT, DELETE route gets requireAuth, requireRole(["admin"]) attached.
+Pattern:
+tsimport { requireAuth, requireRole } from "../middlewares/requireAuth.js";
+// ... existing imports
+
+// GET routes unchanged
+router.get("/products", async (req, res) => { /* unchanged */ });
+router.get("/products/:id", async (req, res) => { /* unchanged */ });
+
+// Write routes get auth middleware:
+router.post("/products", requireAuth, requireRole(["admin"]), async (req, res) => { /* unchanged body */ });
+router.put("/products/:id", requireAuth, requireRole(["admin"]), async (req, res) => { /* unchanged body */ });
+router.delete("/products/:id", requireAuth, requireRole(["admin"]), async (req, res) => { /* unchanged body */ });
+Do not modify the handler bodies. Only attach middlewares.
+Verify:
+
+Without auth header: curl -X POST http://localhost:5000/api/products -H "Content-Type: application/json" -d '{}' → 401
+With admin token: same call → 200 or whatever the handler normally returns
+With B2C token: → 403
+
+
+F-API-7 — CORS allowlist
+File: artifacts/api-server/src/app.ts (around line 28)
+Replace app.use(cors()) with:
+tsconst allowedOrigins = (process.env.CORS_ORIGINS ?? "")
+  .split(",")
+  .map((s) => s.trim())
+  .filter(Boolean);
+
+app.use(cors({
+  origin: (origin, callback) => {
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.length === 0) return callback(null, true); // dev fallback when unset
+    if (allowedOrigins.includes(origin)) return callback(null, true);
+    return callback(new Error("CORS: origin not allowed"));
+  },
+  credentials: false,
+}));
+Tell me to add CORS_ORIGINS env var to Replit Secrets when ready.
+Verify: in dev (no CORS_ORIGINS set) the app still works. With CORS_ORIGINS=https://example.com, requests from other origins are blocked.
+
+F-API-6 — Rate limiting
+Files:
+
+artifacts/api-server/package.json (add dep)
+artifacts/api-server/src/app.ts (add limiter exports)
+artifacts/api-server/src/routes/auth.ts (apply to login/register)
+artifacts/api-server/src/routes/coupons.ts (apply to validate)
+artifacts/api-server/src/routes/orders.ts (apply to POST)
+
+Add dependency: pnpm add express-rate-limit -F api-server (or --filter ./artifacts/api-server if the workspace name differs).
+In app.ts, after CORS, add:
+tsimport rateLimit from "express-rate-limit";
+
+export const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  message: { error: "Too many login attempts. Try again in 15 minutes." },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+export const writeLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 30,
+  message: { error: "Too many requests." },
+});
+
+export const couponLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 10,
+  message: { error: "Too many coupon validations." },
+});
+In routes/auth.ts, attach authLimiter to the login and register handlers. In routes/coupons.ts attach couponLimiter to the validate handler. In routes/orders.ts attach writeLimiter to the POST /orders route only.
+Verify: 6 rapid login attempts → 6th returns 429.
+
+F-API-2 — Server-side recompute of order totals (CRITICAL)
+This is the biggest fix. Adds a new pricing module and replaces the order POST handler.
+New file: artifacts/api-server/src/lib/pricing.ts
+tsimport { getSupabase } from "./supabase.js";
+
+const VAT_RATE = 0.15;
+const FREE_DELIVERY_THRESHOLD = 200;
+const DELIVERY_CHARGE = 25;
+
+type OrderInput = {
+  customerId: string | null;
+  customerType: "b2c" | "b2b" | "guest";
+  items: Array<{ productId: string; quantity: number; packId?: string | null }>;
+  couponCode?: string | null;
+  paymentMethod: "cod" | "bank" | "credit";
+};
+
+export type PricedOrder = {
+  items: Array<{
+    productId: string;
+    productName: string;
+    quantity: number;
+    unitPrice: number;
+    lineTotal: number;
+    packId: string | null;
+  }>;
+  subtotal: number;
+  vat: number;
+  delivery_charge: number;
+  discount: number;
+  coupon_code: string | null;
+  total: number;
+};
+
+export async function priceOrder(input: OrderInput): Promise<PricedOrder> {
+  const sb = getSupabase();
+  if (!sb) throw new Error("Database unavailable");
+  if (!input.items || input.items.length === 0) throw new Error("Empty cart");
+  if (input.items.length > 50) throw new Error("Too many items (max 50 per order)");
+
+  const productIds = input.items.map((i) => i.productId);
+  const { data: products, error: prodErr } = await sb
+    .from("products")
+    .select("id, en_name, b2c_price, b2b_price, audience, stock_qty, stock_status")
+    .in("id", productIds);
+  if (prodErr) throw new Error("Product fetch failed: " + prodErr.message);
+
+  const productMap = new Map(products?.map((p) => [p.id, p]) ?? []);
+  const pricedItems: PricedOrder["items"] = [];
+
+  for (const item of input.items) {
+    const p = productMap.get(item.productId);
+    if (!p) throw new Error(`Product ${item.productId} not found`);
+    if (p.stock_status === "out-of-stock") throw new Error(`${p.en_name} is out of stock`);
+    if (item.quantity <= 0 || !Number.isInteger(item.quantity)) throw new Error("Invalid quantity");
+    if (item.quantity > Number(p.stock_qty ?? 0)) {
+      throw new Error(`Only ${p.stock_qty} of ${p.en_name} available`);
+    }
+    if (input.customerType === "b2c" && p.audience === "b2b") {
+      throw new Error(`${p.en_name} is B2B-only`);
+    }
+    if (input.customerType === "b2b" && p.audience === "b2c") {
+      throw new Error(`${p.en_name} is B2C-only`);
+    }
+
+    const unitPrice =
+      input.customerType === "b2b" && Number(p.b2b_price) > 0
+        ? Number(p.b2b_price)
+        : Number(p.b2c_price);
+    const lineTotal = Math.round(unitPrice * item.quantity * 100) / 100;
+
+    pricedItems.push({
+      productId: p.id,
+      productName: p.en_name,
+      quantity: item.quantity,
+      unitPrice,
+      lineTotal,
+      packId: item.packId ?? null,
+    });
+  }
+
+  const subtotal = Math.round(pricedItems.reduce((s, i) => s + i.lineTotal, 0) * 100) / 100;
+
+  let discount = 0;
+  let appliedCouponCode: string | null = null;
+  if (input.couponCode) {
+    const code = String(input.couponCode).trim().toUpperCase();
+    const { data: coupon } = await sb
+      .from("coupons")
+      .select("code, type, value, min_order, audience, max_uses, uses_count, is_active, starts_at, ends_at")
+      .ilike("code", code)
+      .single();
+    if (!coupon) throw new Error("Invalid coupon");
+    if (!coupon.is_active) throw new Error("Coupon inactive");
+    if (coupon.audience !== "both" && coupon.audience !== input.customerType) {
+      throw new Error("Coupon not applicable to your account type");
+    }
+    if (coupon.starts_at && new Date(coupon.starts_at) > new Date()) {
+      throw new Error("Coupon not yet active");
+    }
+    if (coupon.ends_at && new Date(coupon.ends_at) < new Date()) {
+      throw new Error("Coupon expired");
+    }
+    if (coupon.min_order && subtotal < Number(coupon.min_order)) {
+      throw new Error(`Minimum order ${coupon.min_order} SAR for this coupon`);
+    }
+    if (coupon.max_uses && coupon.uses_count >= coupon.max_uses) {
+      throw new Error("Coupon redemption limit reached");
+    }
+
+    if (coupon.type === "percent") {
+      discount = Math.round((subtotal * Number(coupon.value)) / 100 * 100) / 100;
+    } else if (coupon.type === "fixed") {
+      discount = Math.min(Number(coupon.value), subtotal);
+    }
+    appliedCouponCode = coupon.code;
+  }
+
+  const taxableAmount = Math.max(0, subtotal - discount);
+  const vat = Math.round(taxableAmount * VAT_RATE * 100) / 100;
+  const delivery_charge = subtotal >= FREE_DELIVERY_THRESHOLD ? 0 : DELIVERY_CHARGE;
+  const total = Math.round((taxableAmount + vat + delivery_charge) * 100) / 100;
+
+  return { items: pricedItems, subtotal, vat, delivery_charge, discount, coupon_code: appliedCouponCode, total };
+}
+
+export async function incrementCouponUses(code: string | null): Promise<boolean> {
+  const sb = getSupabase();
+  if (!sb || !code) return true;
+  const { data, error } = await sb.rpc("increment_coupon_uses", { p_code: code });
+  if (error) {
+    console.error("Coupon increment failed:", error);
+    return false;
+  }
+  return data === true;
+}
+
+export async function decrementCouponUses(code: string | null): Promise<void> {
+  const sb = getSupabase();
+  if (!sb || !code) return;
+  await sb.rpc("decrement_coupon_uses", { p_code: code });
+}
+Modify: artifacts/api-server/src/routes/orders.ts
+Replace the entire POST /orders handler with:
+tsrouter.post("/orders", writeLimiter, async (req, res) => {
+  const sb = getSupabase();
+  if (!sb) return res.status(503).json({ error: "Database unavailable" });
+
+  const b = req.body ?? {};
+  const session = (req as any).session ?? null;
+
+  const customerId: string | null =
+    session?.role === "b2c" || session?.role === "b2b" ? session.sub : (b.customerId ?? null);
+  const customerType: "b2c" | "b2b" | "guest" =
+    session?.role === "b2b" ? "b2b" : session?.role === "b2c" ? "b2c" : "guest";
+
+  let priced;
+  try {
+    priced = await priceOrder({
+      customerId,
+      customerType,
+      items: (b.items ?? []).map((it: any) => ({
+        productId: String(it.productId ?? it.id),
+        quantity: Number(it.quantity ?? 1),
+        packId: it.packId ?? null,
+      })),
+      couponCode: b.couponCode ?? null,
+      paymentMethod: (b.paymentMethod as any) ?? "cod",
+    });
+  } catch (err: any) {
+    return res.status(400).json({ error: err.message ?? "Pricing failed" });
+  }
+
+  // Server-side credit limit check
+  if (b.paymentMethod === "credit") {
+    if (customerType !== "b2b") return res.status(403).json({ error: "Credit only for B2B" });
+    if (!customerId) return res.status(401).json({ error: "Login required for credit orders" });
+
+    const { data: customer } = await sb.from("customers").select("business").eq("id", customerId).single();
+    const business = (customer?.business ?? {}) as any;
+    if (!business?.allowCredit || business?.approvalStatus !== "approved") {
+      return res.status(403).json({ error: "Credit not approved for this account" });
+    }
+    const { data: outstandingRows } = await sb
+      .from("orders")
+      .select("total")
+      .eq("customer_id", customerId)
+      .eq("payment_method", "credit")
+      .neq("status", "cancelled");
+    const outstanding = (outstandingRows ?? []).reduce(
+      (s: number, r: any) => s + Number(r.total ?? 0),
+      0
+    );
+    const limit = Number(business?.creditLimit ?? 0);
+    if (outstanding + priced.total > limit) {
+      return res.status(402).json({
+        error: `Credit limit exceeded. Available: ${(limit - outstanding).toFixed(2)} SAR`,
+      });
+    }
+  }
+
+  if (priced.coupon_code) {
+    const ok = await incrementCouponUses(priced.coupon_code);
+    if (!ok) return res.status(409).json({ error: "Coupon redemption limit reached" });
+  }
+
+  const trackingId = `VS-O-${Math.floor(Math.random() * 90000 + 10000)}`;
+  const orderId = `o-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+
+  const { data: inserted, error: insErr } = await sb
+    .from("orders")
+    .insert({
+      id: orderId,
+      tracking_id: trackingId,
+      customer_id: customerId,
+      customer_name: b.customerName ?? null,
+      customer_type: customerType,
+      salesperson_id: b.salespersonId ?? null,
+      status: "new",
+      order_type: b.orderType ?? "delivery",
+      payment_method: b.paymentMethod ?? "cod",
+      placed_at: new Date().toISOString(),
+      delivery_address: b.deliveryAddress ?? null,
+      city: b.city ?? null,
+      items: priced.items,
+      subtotal: priced.subtotal,
+      vat: priced.vat,
+      delivery_charge: priced.delivery_charge,
+      total: priced.total,
+      discount: priced.discount,
+      coupon_code: priced.coupon_code,
+      notes: b.notes ?? null,
+      history: [{ status: "new", at: new Date().toISOString(), by: "system" }],
+    })
+    .select()
+    .single();
+
+  if (insErr) {
+    if (priced.coupon_code) {
+      await decrementCouponUses(priced.coupon_code);
+    }
+    return res.status(500).json({ error: insErr.message });
+  }
+
+  return res.status(201).json(inserted);
+});
+Add this import at the top of orders.ts:
+tsimport { priceOrder, incrementCouponUses, decrementCouponUses } from "../lib/pricing.js";
+import { writeLimiter } from "../app.js";
+Frontend changes:
+In artifacts/venture-supply/src/pages/CheckoutPage.tsx, find the order POST. Change the request body so it sends ONLY:
+
+customerName, customerId
+items: array of { productId, quantity, packId } — NO unitPrice, NO lineTotal
+couponCode, deliveryAddress, city, orderType, paymentMethod, notes, salespersonId
+
+Remove from the body: subtotal, vat, delivery_charge, total, discount, unitPrice per item.
+The server returns the priced order in the response. Display the totals from the response, not from local cart state. Update success view accordingly.
+In artifacts/venture-supply/src/pages/SalesPages.tsx (sales create order), apply the same change.
+Verify:
+
+Open DevTools Network tab. Place a checkout. Modify the request payload to add total: 0.01. Resubmit. Order is rejected or recomputed correctly (the server ignores total and uses its own calculation).
+Try a coupon at its max_uses limit → 409 "Coupon redemption limit reached".
+Try a B2B-only product as B2C user → 400 "B2B-only".
+Try ordering 1000 of a product with stock_qty 5 → 400 "Only 5 available".
+
+
+F-API-3 — Customer field whitelist
+File: artifacts/api-server/src/routes/customers.ts
+Replace the entire PUT /customers/:id handler with:
+tsrouter.put("/customers/:id", requireAuth, async (req, res) => {
+  const sb = getSupabase();
+  if (!sb) return res.status(503).json({ error: "Database unavailable" });
+
+  const session = (req as any).session;
+  const targetId = req.params.id;
+  const isSelf = session.sub === targetId && (session.role === "b2c" || session.role === "b2b");
+  const isAdminOrSales = session.role === "admin" || session.role === "sales";
+
+  if (!isSelf && !isAdminOrSales) {
+    return res.status(403).json({ error: "Forbidden" });
+  }
+
+  const b = req.body ?? {};
+  const payload: any = {};
+
+  // Customer-editable fields
+  if (typeof b.name === "string") payload.name = b.name.trim();
+  if (typeof b.phone === "string") payload.phone = b.phone.trim();
+  if (typeof b.city === "string") payload.city = b.city.trim();
+  if (Array.isArray(b.addresses)) payload.addresses = b.addresses;
+  if (typeof b.email === "string") payload.email = b.email.trim().toLowerCase();
+
+  // Admin/sales-only fields
+  if (isAdminOrSales) {
+    if (typeof b.type === "string" && ["b2c", "b2b"].includes(b.type)) payload.type = b.type;
+    if (typeof b.assigned_salesperson_id === "string" || b.assigned_salesperson_id === null) {
+      payload.assigned_salesperson_id = b.assigned_salesperson_id;
+    }
+    if (b.business !== undefined) payload.business = b.business;
+  }
+
+  if (Object.keys(payload).length === 0) {
+    return res.status(400).json({ error: "No allowed fields in payload" });
+  }
+
+  const { data, error } = await sb.from("customers").update(payload).eq("id", targetId).select().single();
+  if (error) return res.status(500).json({ error: error.message });
+  return res.json(data);
+});
+Frontend change: in artifacts/venture-supply/src/pages/AccountPages.tsx (around line 764, AccountProfilePage save logic), the save call must send ONLY name, phone, city — never business, never type, never assigned_salesperson_id.
+Verify: as B2C, modify localStorage vs.customer.business.allowCredit to true, save profile. Check the DB row's business column — should be unchanged.
+
+F-API-4 — Coupon validate must not compute discount
+File: artifacts/api-server/src/routes/coupons.ts
+Replace the GET /coupons/validate handler with:
+tsrouter.get("/coupons/validate", couponLimiter, async (req, res) => {
+  const sb = getSupabase();
+  if (!sb) return res.status(503).json({ error: "Database unavailable" });
+
+  const code = String(req.query.code ?? "").trim();
+  const audience = String(req.query.audience ?? "both");
+  if (!code) return res.status(400).json({ error: "Missing code" });
+
+  const { data: coupon } = await sb
+    .from("coupons")
+    .select("code, en_title, ar_title, type, value, min_order, audience, max_uses, uses_count, is_active, starts_at, ends_at")
+    .ilike("code", code)
+    .single();
+
+  if (!coupon) return res.status(404).json({ error: "Invalid coupon" });
+  if (!coupon.is_active) return res.status(410).json({ error: "Coupon inactive" });
+  if (coupon.audience !== "both" && coupon.audience !== audience) {
+    return res.status(403).json({ error: "Coupon not applicable to your account type" });
+  }
+  if (coupon.starts_at && new Date(coupon.starts_at) > new Date()) {
+    return res.status(425).json({ error: "Coupon not yet active" });
+  }
+  if (coupon.ends_at && new Date(coupon.ends_at) < new Date()) {
+    return res.status(410).json({ error: "Coupon expired" });
+  }
+  if (coupon.max_uses && coupon.uses_count >= coupon.max_uses) {
+    return res.status(409).json({ error: "Coupon redemption limit reached" });
+  }
+
+  return res.json({
+    valid: true,
+    code: coupon.code,
+    title: coupon.en_title,
+    type: coupon.type,
+    value: Number(coupon.value),
+    minOrder: Number(coupon.min_order ?? 0),
+  });
+});
+Add couponLimiter import at the top.
+Frontend change: in pages/CheckoutPage.tsx and pages/CartPage.tsx, the "Apply coupon" UI should show "Coupon applied — discount calculated at checkout" instead of a specific SAR amount. Real discount appears in the order POST response.
+Verify: apply a valid coupon → UI shows "applied" without specific SAR. Submit checkout → response includes discount from server.
+
+F-FE-2 — Move form components out of parent component scope
+File: artifacts/venture-supply/src/pages/AdminPages.tsx
+Two form components are declared inside their parent functions, causing focus loss on every keystroke. Move them to module scope.
+Find CouponForm (around line 1739, inside AdminPromotionsPage) and BTForm (around line 1997, inside AdminBusinessTypesPage). Move both definitions OUTSIDE their parent functions to module scope. Pass state via props:
+tsx// Module scope, before AdminPromotionsPage:
+type CouponFormProps = { data: any; setData: (next: any) => void };
+function CouponForm({ data, setData }: CouponFormProps) {
+  // existing JSX body — uses `data` and `setData` instead of closure variables
+}
+
+// Inside AdminPromotionsPage (unchanged usage):
+return <CouponForm data={newCoupon} setData={setNewCoupon} />;
+Same pattern for BTForm. Don't change the JSX content — just move the function definition out and accept props for what was previously closure state.
+Verify: open admin → Promotions → "Create coupon" → type a 10-character code in one go. Cursor stays in the input. Same for Business Types.
+
+F-FE-3 — Remove mock data placeholders
+Files (6):
+
+artifacts/venture-supply/src/hooks/useCustomers.ts
+artifacts/venture-supply/src/hooks/useProducts.ts
+artifacts/venture-supply/src/hooks/useBrands.ts
+artifacts/venture-supply/src/hooks/useCategories.ts
+artifacts/venture-supply/src/hooks/useOrders.ts
+artifacts/venture-supply/src/hooks/useSalespersons.ts
+
+In each: replace placeholderData: mockCustomers (or mockProducts, mockBrands, etc.) with placeholderData: []. Remove the now-unused import { mock... } line.
+Verify: hard-refresh admin dashboard. Loading skeleton → real data. Never any "Ahmed Al-Qahtani" placeholders.
+
+F-FE-1 — XSS in invoice print template
+File: artifacts/venture-supply/src/pages/OrderTrackingPage.tsx (around line 380, printInvoice function)
+Add at the top of the file (or above the function):
+tsfunction escapeHtml(str: unknown): string {
+  return String(str ?? "").replace(/[&<>"']/g, (ch) => {
+    const map: Record<string, string> = {
+      "&": "&amp;",
+      "<": "&lt;",
+      ">": "&gt;",
+      '"': "&quot;",
+      "'": "&#39;",
+    };
+    return map[ch] ?? ch;
+  });
+}
+In the printInvoice function, wrap EVERY interpolated value with escapeHtml(...). That includes: order.trackingId, order.customerName, order.deliveryAddress, order.city, it.enName, it.quantity, it.unitPrice, it.lineTotal, all subtotal/vat/delivery/total fields, and the dir attribute value.
+Also run grep -rn "document.write\|innerHTML" artifacts/venture-supply/src to find any other matches. Apply the same escape (skip components/ui/chart.tsx — that's shadcn-stock and uses developer-controlled config, not user input).
+Verify: create a test customer with name <img src=x onerror=alert('XSS')>. Place an order. Log in as admin and print the invoice. The string appears as visible text. NO alert popup.
+
+F-API-5 — Sanitize PostgREST or filter input
+File: artifacts/api-server/src/routes/orders.ts, GET /orders/:id handler.
+Replace the body with:
+tsrouter.get("/orders/:id", requireAuth, async (req, res) => {
+  const sb = getSupabase();
+  if (!sb) return res.status(503).json({ error: "Database unavailable" });
+
+  const raw = String(req.params.id ?? "");
+  if (!/^[A-Za-z0-9_-]{1,64}$/.test(raw)) {
+    return res.status(400).json({ error: "Invalid order ID" });
+  }
+
+  let { data, error } = await sb.from("orders").select("*").eq("id", raw).maybeSingle();
+  if (!data && !error) {
+    ({ data, error } = await sb.from("orders").select("*").eq("tracking_id", raw).maybeSingle());
+  }
+  if (error) return res.status(500).json({ error: error.message });
+  if (!data) return res.status(404).json({ error: "Order not found" });
+
+  const session = (req as any).session;
+  if (session.role === "b2c" || session.role === "b2b") {
+    if (data.customer_id !== session.sub) return res.status(403).json({ error: "Forbidden" });
+  }
+
+  return res.json(data);
+});
+Verify:
+
+curl http://localhost:5000/api/orders/o-123 (with auth) → 200 or 404
+curl http://localhost:5000/api/orders/x,placed_at.gte.2020-01-01 → 400
+
+
+F-API-8 — Atomic admin delete + self-deletion guard
+File: artifacts/api-server/src/routes/staff.ts, DELETE handler.
+Replace with:
+tsrouter.delete("/staff/:id", requireAuth, requireRole(["admin"]), async (req, res) => {
+  const sb = getSupabase();
+  if (!sb) return res.status(503).json({ error: "Database unavailable" });
+
+  const session = (req as any).session;
+  if (req.params.id === session.sub) {
+    return res.status(400).json({ error: "Cannot delete your own account" });
+  }
+
+  const { data, error } = await sb.rpc("delete_staff_safely", { p_id: req.params.id });
+  if (error) return res.status(500).json({ error: error.message });
+  if (data === false) return res.status(409).json({ error: "Cannot delete the last admin" });
+  return res.json({ ok: true });
+});
+Verify: as admin, try to delete your own account → 400. Try to delete a sales staff (admin still exists) → 200.
+
+F-API-9 — Number(null) guards on numeric fields
+For each file in artifacts/api-server/src/routes/, find every Number(row.something) and add ?? 0:
+ts// Before
+total: Number(row.total),
+// After
+total: Number(row.total ?? 0),
+Use grep -rn "Number(row\." artifacts/api-server/src/routes to find all occurrences. Apply to all numeric fields: total, subtotal, vat, delivery_charge, discount, b2c_price, b2b_price, stock_qty, min_order_qty, monthly_sales, monthly_target, customers_count, orders_this_month, pending_orders, lifetime_value, total_orders, rating, review_count, value, min_order, max_uses, uses_count, default_discount, min_order_value, credit_limit, sort_order.
+Verify: git diff shows only ?? 0 additions, no logic changes.
+
+F-FE-4 — Remove card data collection from checkout
+File: artifacts/venture-supply/src/pages/CheckoutPage.tsx
+Find the payment method options. Remove the "card" option entirely. Remove all cardNumber, cardExpiry, cardCvc state variables and their JSX inputs. Only cod (Cash on Delivery) and bank (Bank Transfer) remain.
+If the type definition for paymentMethod includes "card", remove it.
+Verify: grep -rn "cardNumber\|cardCvc\|cardExpiry" artifacts/venture-supply/src returns 0 results. Checkout shows only COD + Bank Transfer.
+
+F-FE-6 — Wrap empty-cart redirect in useEffect
+File: artifacts/venture-supply/src/pages/CheckoutPage.tsx around line 253.
+Find the inline setLocation("/cart") call inside the render path. Replace with:
+tsxuseEffect(() => {
+  if (cart.items.length === 0) setLocation("/cart");
+}, [cart.items.length, setLocation]);
+
+if (cart.items.length === 0) return null;
+Make sure useEffect is imported from React.
+Verify: visit /checkout with empty cart → redirects to /cart. No React console warnings.
+
+F-AUTH-RESET — Forgot password flow
+Backend — artifacts/api-server/src/routes/auth.ts:
+Add two new routes:
+tsimport crypto from "crypto";
+import bcrypt from "bcryptjs";
+// ... assuming authLimiter is imported from app.ts
+
+router.post("/auth/request-password-reset", authLimiter, async (req, res) => {
+  const sb = getSupabase();
+  if (!sb) return res.status(503).json({ error: "Database unavailable" });
+
+  const email = String(req.body?.email ?? "").trim().toLowerCase();
+  if (!email) return res.status(400).json({ error: "Email required" });
+
+  const { data: user } = await sb.from("staff").select("id, email").eq("email", email).maybeSingle();
+
+  if (user) {
+    const token = crypto.randomBytes(32).toString("hex");
+    const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
+    const expiresAt = new Date(Date.now() + 60 * 60 * 1000).toISOString();
+
+    await sb.from("staff").update({
+      reset_token_hash: tokenHash,
+      reset_token_expires_at: expiresAt,
+    }).eq("id", user.id);
+
+    // TODO: send email with reset link. For now, log it.
+    const resetUrl = `${process.env.APP_URL ?? "http://localhost:3000"}/reset-password?token=${token}`;
+    console.log(`[RESET] Password reset link for ${user.email}: ${resetUrl}`);
+    // Wire to email provider (Resend, SendGrid, etc.) when EMAIL_API_KEY is configured.
+  }
+
+  // Always return 200 to prevent email enumeration
+  return res.json({ ok: true });
+});
+
+router.post("/auth/reset-password", authLimiter, async (req, res) => {
+  const sb = getSupabase();
+  if (!sb) return res.status(503).json({ error: "Database unavailable" });
+
+  const { token, newPassword } = req.body ?? {};
+  if (!token || !newPassword) return res.status(400).json({ error: "Token and newPassword required" });
+  if (String(newPassword).length < 8) return res.status(400).json({ error: "Password must be 8+ characters" });
+
+  const tokenHash = crypto.createHash("sha256").update(String(token)).digest("hex");
+
+  const { data: user } = await sb
+    .from("staff")
+    .select("id, reset_token_expires_at")
+    .eq("reset_token_hash", tokenHash)
+    .maybeSingle();
+
+  if (!user) return res.status(400).json({ error: "Invalid or expired token" });
+  if (!user.reset_token_expires_at || new Date(user.reset_token_expires_at) < new Date()) {
+    return res.status(400).json({ error: "Invalid or expired token" });
+  }
+
+  const newHash = await bcrypt.hash(String(newPassword), 12);
+
+  await sb.from("staff").update({
+    password: newHash,
+    reset_token_hash: null,
+    reset_token_expires_at: null,
+  }).eq("id", user.id);
+
+  return res.json({ ok: true });
+});
+Frontend — artifacts/venture-supply/src/pages/AuthPage.tsx:
+Around line 220, find the "Feature coming soon" toast. Replace with a dialog that takes an email input. On submit, POST to /api/auth/request-password-reset. Always show the same success message regardless of API response: "If that email is registered, a reset link has been sent."
+Frontend — new file artifacts/venture-supply/src/pages/ResetPasswordPage.tsx:
+Create page that:
+
+Reads ?token=... from URL
+Shows password + confirm password fields
+POSTs { token, newPassword } to /api/auth/reset-password
+On success, redirects to login with toast: "Password updated, please log in"
+On error, shows error message
+
+Wire the route in App.tsx:
+tsx<Route path="/reset-password" component={ResetPasswordPage} />
+Verify:
+
+Click forgot password → enter email → success toast shown.
+Check the server console logs for the reset URL (since email isn't wired yet).
+Visit the URL → set new password → success.
+Log in with new password → works.
+Old password → fails.
+Re-use the same reset link → "Invalid or expired token".
+
+
+C-1 — Delete scripts/setup-supabase.mjs
+File: scripts/setup-supabase.mjs
+This file disables RLS and contradicts supabase/schema.sql. Delete it entirely.
+Replace with: scripts/README.md containing:
+md# Database Scripts
+
+DB schema lives in `/supabase/schema.sql`. Migrations are applied through the Supabase dashboard or via the Supabase MCP, not through scripts in this folder.
+
+The previous `setup-supabase.mjs` file disabled RLS on catalog tables and was a security risk if accidentally run. It has been removed.
+Verify: ls scripts/ does not contain setup-supabase.mjs. README is in place.
+
+C-4 — Use crypto.randomUUID() for IDs in frontend
+Files: wherever pages/*.tsx uses Math.random() for ID generation (mainly CheckoutPage.tsx, SalesPages.tsx).
+These IDs are now generated server-side after F-API-2, but if any frontend code still generates IDs (e.g. for optimistic UI), use:
+tsconst id = crypto.randomUUID();
+instead of Math.random() patterns. Skip if no frontend ID generation remains.
+
+FINAL VERIFICATION CHECKLIST
+After all fixes are applied and committed, run through this list. Report PASS or FAIL for each:
+Security
+
+ git grep "TestAdmin@2024\|pakistan12345\|TestB2C@2024\|TestSales@2024" → 0 hits
+ Unauthenticated POST /api/products, POST /api/categories, POST /api/brands, POST /api/business-types, POST /api/salespersons → 401
+ B2C user PUT /api/customers/:self with {type: "b2b"} → type unchanged in DB
+ B2C user with paymentMethod: "credit" order → 403
+ Order POST with total: 0.01 for a real cart → server ignores total, recomputes correctly
+ GET /coupons/validate?code=X&total=999999 → returns coupon meta, no discount field
+ Customer with name <img src=x onerror=alert(1)> printed in invoice → text appears as text, no alert
+ GET /orders/abc,placed_at.gte.2020-01-01 → 400
+ 6th login attempt within 15 min from same IP → 429
+ CORS blocks unknown origins when CORS_ORIGINS is set
+
+UX
+
+ Coupon code field accepts 10 chars in one go (no focus loss)
+ Business type name field accepts 10 chars in one go (no focus loss)
+ Admin dashboard hard-refresh shows skeleton → real data, no fake placeholders
+ Empty-cart visit to /checkout → redirects, no console warnings
+
+Features
+
+ Forgot password sends email (or logs reset link to server console for now)
+ Reset link sets new password successfully
+
+Code hygiene
+
+ All Number(row.X) calls in routes/*.ts are Number(row.X ?? 0)
+ No cardNumber, cardCvc, cardExpiry in frontend
+ CORS allowlist via CORS_ORIGINS env var
+ scripts/setup-supabase.mjs deleted
+ pricing.ts exists in api-server lib
+ One commit per fix (~ 18 commits)
+
+When all PASS, push to GitHub and reply with:
+
+List of all commit hashes (one per fix)
+Any FAILed checks with explanation
+Any deviations from the spec

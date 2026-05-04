@@ -1719,24 +1719,8 @@ export function AdminSalespersonsPage() {
 
 const BLANK_COUPON = { code: "", enTitle: "", arTitle: "", type: "percent" as const, value: "0", minOrder: "0", audience: "both" as const, maxUses: "", startsAt: "", endsAt: "", isActive: true };
 
-export function AdminPromotionsPage() {
-  const { t, language } = useLanguage();
-  const { toast } = useToast();
-  const { data: coupons = [], isLoading } = useCoupons();
-  const createCoupon = useCreateCoupon();
-  const updateCoupon = useUpdateCoupon();
-  const deleteCoupon = useDeleteCoupon();
-  const [addOpen, setAddOpen] = useState(false);
-  const [newCoupon, setNewCoupon] = useState(BLANK_COUPON);
-  const [editCoupon, setEditCoupon] = useState<Coupon | null>(null);
-  const [editData, setEditData] = useState(BLANK_COUPON);
-
-  const openEdit = (c: Coupon) => {
-    setEditCoupon(c);
-    setEditData({ code: c.code, enTitle: c.enTitle ?? "", arTitle: c.arTitle ?? "", type: c.type as any, value: String(c.value), minOrder: String(c.minOrder), audience: c.audience as any, maxUses: c.maxUses != null ? String(c.maxUses) : "", startsAt: c.startsAt ? c.startsAt.slice(0, 10) : "", endsAt: c.endsAt ? c.endsAt.slice(0, 10) : "", isActive: c.isActive });
-  };
-
-  const CouponForm = ({ data, setData }: { data: typeof BLANK_COUPON; setData: (fn: (p: typeof BLANK_COUPON) => typeof BLANK_COUPON) => void }) => (
+function CouponForm({ data, setData }: { data: typeof BLANK_COUPON; setData: (fn: (p: typeof BLANK_COUPON) => typeof BLANK_COUPON) => void }) {
+  return (
     <div className="space-y-3 max-h-[60vh] overflow-y-auto">
       <div className="grid grid-cols-2 gap-3">
         <div><Label>Code</Label><Input value={data.code} onChange={(e) => setData((p) => ({ ...p, code: e.target.value.toUpperCase() }))} className="font-mono uppercase" /></div>
@@ -1774,6 +1758,24 @@ export function AdminPromotionsPage() {
       </div>
     </div>
   );
+}
+
+export function AdminPromotionsPage() {
+  const { t, language } = useLanguage();
+  const { toast } = useToast();
+  const { data: coupons = [], isLoading } = useCoupons();
+  const createCoupon = useCreateCoupon();
+  const updateCoupon = useUpdateCoupon();
+  const deleteCoupon = useDeleteCoupon();
+  const [addOpen, setAddOpen] = useState(false);
+  const [newCoupon, setNewCoupon] = useState(BLANK_COUPON);
+  const [editCoupon, setEditCoupon] = useState<Coupon | null>(null);
+  const [editData, setEditData] = useState(BLANK_COUPON);
+
+  const openEdit = (c: Coupon) => {
+    setEditCoupon(c);
+    setEditData({ code: c.code, enTitle: c.enTitle ?? "", arTitle: c.arTitle ?? "", type: c.type as any, value: String(c.value), minOrder: String(c.minOrder), audience: c.audience as any, maxUses: c.maxUses != null ? String(c.maxUses) : "", startsAt: c.startsAt ? c.startsAt.slice(0, 10) : "", endsAt: c.endsAt ? c.endsAt.slice(0, 10) : "", isActive: c.isActive });
+  };
 
   const toPayload = (d: typeof BLANK_COUPON) => ({
     code: d.code, enTitle: d.enTitle || null, arTitle: d.arTitle || null, type: d.type,
@@ -1970,31 +1972,8 @@ export function AdminBrandsPage() {
 
 const BLANK_BT = { name: "", code: "", description: "", defaultDiscount: "0", minOrderValue: "0", creditAllowed: false, creditLimit: "", status: "active" as "active" | "inactive" };
 
-export function AdminBusinessTypesPage() {
-  const { t, language } = useLanguage();
-  const { toast } = useToast();
-  const { data: businessTypes = [], isLoading } = useBusinessTypes();
-  const createBT = useCreateBusinessType();
-  const updateBT = useUpdateBusinessType();
-  const deleteBT = useDeleteBusinessType();
-  const [addOpen, setAddOpen] = useState(false);
-  const [newBT, setNewBT] = useState(BLANK_BT);
-  const [editBT, setEditBT] = useState<BusinessType | null>(null);
-  const [editData, setEditData] = useState(BLANK_BT);
-
-  const openEdit = (bt: BusinessType) => {
-    setEditBT(bt);
-    setEditData({ name: bt.name, code: bt.code, description: bt.description ?? "", defaultDiscount: String(bt.defaultDiscount), minOrderValue: String(bt.minOrderValue), creditAllowed: bt.creditAllowed, creditLimit: bt.creditLimit != null ? String(bt.creditLimit) : "", status: bt.status });
-  };
-
-  const toPayload = (d: typeof BLANK_BT) => ({
-    name: d.name, code: d.code, description: d.description || null,
-    defaultDiscount: Number(d.defaultDiscount), minOrderValue: Number(d.minOrderValue),
-    creditAllowed: d.creditAllowed, creditLimit: d.creditAllowed && d.creditLimit ? Number(d.creditLimit) : null,
-    status: d.status,
-  });
-
-  const BTForm = ({ data, setData }: { data: typeof BLANK_BT; setData: (fn: (p: typeof BLANK_BT) => typeof BLANK_BT) => void }) => (
+function BTForm({ data, setData }: { data: typeof BLANK_BT; setData: (fn: (p: typeof BLANK_BT) => typeof BLANK_BT) => void }) {
+  return (
     <div className="space-y-3">
       <div className="grid grid-cols-2 gap-3">
         <div><Label>Business Type Name</Label><Input value={data.name} onChange={(e) => setData((p) => ({ ...p, name: e.target.value }))} placeholder="e.g. Restaurant" /></div>
@@ -2018,6 +1997,31 @@ export function AdminBusinessTypesPage() {
       </div>
     </div>
   );
+}
+
+export function AdminBusinessTypesPage() {
+  const { t, language } = useLanguage();
+  const { toast } = useToast();
+  const { data: businessTypes = [], isLoading } = useBusinessTypes();
+  const createBT = useCreateBusinessType();
+  const updateBT = useUpdateBusinessType();
+  const deleteBT = useDeleteBusinessType();
+  const [addOpen, setAddOpen] = useState(false);
+  const [newBT, setNewBT] = useState(BLANK_BT);
+  const [editBT, setEditBT] = useState<BusinessType | null>(null);
+  const [editData, setEditData] = useState(BLANK_BT);
+
+  const openEdit = (bt: BusinessType) => {
+    setEditBT(bt);
+    setEditData({ name: bt.name, code: bt.code, description: bt.description ?? "", defaultDiscount: String(bt.defaultDiscount), minOrderValue: String(bt.minOrderValue), creditAllowed: bt.creditAllowed, creditLimit: bt.creditLimit != null ? String(bt.creditLimit) : "", status: bt.status });
+  };
+
+  const toPayload = (d: typeof BLANK_BT) => ({
+    name: d.name, code: d.code, description: d.description || null,
+    defaultDiscount: Number(d.defaultDiscount), minOrderValue: Number(d.minOrderValue),
+    creditAllowed: d.creditAllowed, creditLimit: d.creditAllowed && d.creditLimit ? Number(d.creditLimit) : null,
+    status: d.status,
+  });
 
   return (
     <div className="space-y-4">

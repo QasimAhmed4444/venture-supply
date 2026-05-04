@@ -370,8 +370,8 @@ export function SalesCreateOrderPage() {
     const selectedCustomer = myCustomers.find((c) => c.id === customerId);
     if (!selectedCustomer) return;
 
-    const id = `o-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
-    const trackingId = `VS-O-${Math.floor(1000 + Math.random() * 9000)}`;
+    const id = `o-${crypto.randomUUID()}`;
+    const trackingId = `VS-O-${crypto.randomUUID().replace(/-/g, "").slice(0, 8).toUpperCase()}`;
     const placedAt = new Date().toISOString();
     const estimatedAt = new Date(Date.now() + 4 * 86_400_000).toISOString();
     const deliveryAddress =

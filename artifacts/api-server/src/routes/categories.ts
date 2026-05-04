@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { getSupabase } from "../lib/supabase.js";
 import { seedCategories } from "../lib/seedData.js";
+import { requireAdmin } from "../middlewares/requireAuth.js";
 
 const router = Router();
 
@@ -25,7 +26,7 @@ router.get("/categories", async (_req, res) => {
   }
 });
 
-router.post("/categories", async (req, res) => {
+router.post("/categories", requireAdmin, async (req, res) => {
   const sb = getSupabase();
   if (!sb) return res.status(503).json({ error: "db unavailable" });
   try {
@@ -45,7 +46,7 @@ router.post("/categories", async (req, res) => {
   }
 });
 
-router.put("/categories/:id", async (req, res) => {
+router.put("/categories/:id", requireAdmin, async (req, res) => {
   const sb = getSupabase();
   if (!sb) return res.status(503).json({ error: "db unavailable" });
   try {
@@ -62,7 +63,7 @@ router.put("/categories/:id", async (req, res) => {
   }
 });
 
-router.delete("/categories/:id", async (req, res) => {
+router.delete("/categories/:id", requireAdmin, async (req, res) => {
   const sb = getSupabase();
   if (!sb) return res.status(503).json({ error: "db unavailable" });
   try {

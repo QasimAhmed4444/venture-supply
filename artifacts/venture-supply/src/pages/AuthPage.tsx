@@ -217,7 +217,7 @@ export function AuthPage({ mode = "login" }: Props) {
                   <button
                     type="button"
                     className="text-sm text-secondary hover:underline"
-                    onClick={() => toast({ title: t("auth.forgot"), description: t("common.feature_coming_soon") })}
+                    onClick={() => setLocation("/reset-password")}
                   >
                     {t("auth.forgot")}
                   </button>

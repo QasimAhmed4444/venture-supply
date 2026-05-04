@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test";
 
 const B2C_EMAIL = "e2e.checkout@test.sa";
-const B2C_PASSWORD = "TestB2C@2024!";
+const B2C_PASSWORD = process.env["SEED_B2C_PASSWORD"] ?? "";
 const PRODUCT_ID = "p-chef-1121-sella";
 const PRODUCT_SLUG = "chef-rice-1121-sella-basmati";
 

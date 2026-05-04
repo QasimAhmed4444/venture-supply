@@ -33,6 +33,11 @@ export function ProductDetailPage() {
     if (product?.id) track(product.id);
   }, [product?.id, track]);
 
+  const visiblePacks = product ? product.packs.filter((p) => (isB2B ? p.b2bPrice : p.b2cPrice)) : [];
+  const displayPacks = visiblePacks.length > 0 ? visiblePacks : (product?.packs ?? []);
+  const [selectedPackIdx, setSelectedPackIdx] = useState(0);
+  const [qty, setQty] = useState(isB2B ? (product?.minOrderQty ?? 1) : 1);
+
   if (!product) {
     return (
       <div className="max-w-7xl mx-auto px-4 py-20 text-center">
@@ -41,11 +46,6 @@ export function ProductDetailPage() {
       </div>
     );
   }
-
-  const visiblePacks = product.packs.filter((p) => (isB2B ? p.b2bPrice : p.b2cPrice));
-  const displayPacks = visiblePacks.length > 0 ? visiblePacks : product.packs;
-  const [selectedPackIdx, setSelectedPackIdx] = useState(0);
-  const [qty, setQty] = useState(isB2B ? product.minOrderQty : 1);
 
   const pack = displayPacks[selectedPackIdx] ?? product.packs[0];
   const unitPrice = (isB2B ? pack.b2bPrice : pack.b2cPrice) ?? (isB2B ? product.b2bPrice : product.b2cPrice);

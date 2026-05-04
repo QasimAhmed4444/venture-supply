@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { getSupabase } from "../lib/supabase.js";
+import { requireAdmin } from "../middlewares/requireAuth.js";
 
 const router = Router();
 
@@ -26,7 +27,7 @@ router.get("/business-types", async (_req, res) => {
   return res.json((data ?? []).map(toCamel));
 });
 
-router.post("/business-types", async (req, res) => {
+router.post("/business-types", requireAdmin, async (req, res) => {
   const sb = getSupabase();
   if (!sb) return res.status(503).json({ error: "db unavailable" });
   const b = req.body;
@@ -42,7 +43,7 @@ router.post("/business-types", async (req, res) => {
   return res.status(201).json(toCamel(data as Record<string, unknown>));
 });
 
-router.put("/business-types/:id", async (req, res) => {
+router.put("/business-types/:id", requireAdmin, async (req, res) => {
   const sb = getSupabase();
   if (!sb) return res.status(503).json({ error: "db unavailable" });
   const b = req.body;
@@ -60,7 +61,7 @@ router.put("/business-types/:id", async (req, res) => {
   return res.json(toCamel(data as Record<string, unknown>));
 });
 
-router.delete("/business-types/:id", async (req, res) => {
+router.delete("/business-types/:id", requireAdmin, async (req, res) => {
   const sb = getSupabase();
   if (!sb) return res.status(503).json({ error: "db unavailable" });
   const { error } = await sb.from("business_types").delete().eq("id", req.params.id);

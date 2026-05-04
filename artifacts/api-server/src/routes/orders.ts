@@ -21,13 +21,13 @@ function toCamel(row: Record<string, unknown>) {
     deliveryAddress: row.delivery_address,
     city: row.city,
     items: row.items ?? [],
-    subtotal: Number(row.subtotal),
-    vat: Number(row.vat),
-    deliveryCharge: Number(row.delivery_charge),
-    total: Number(row.total),
+    subtotal: Number(row.subtotal ?? 0),
+    vat: Number(row.vat ?? 0),
+    deliveryCharge: Number(row.delivery_charge ?? 0),
+    total: Number(row.total ?? 0),
     notes: row.notes ?? null,
     couponCode: (row.coupon_code as string | null) ?? null,
-    discount: row.discount ? Number(row.discount) : undefined,
+    discount: Number(row.discount ?? 0),
     cancellationReason: row.cancellation_reason,
     history: row.history ?? [],
   };
@@ -80,19 +80,31 @@ router.get("/orders/:id", async (req, res) => {
 
   if (!sb) return res.status(404).json({ error: "not found" });
   try {
-    const { data } = await sb.from("orders").select("*").or(`id.eq.${req.params.id},tracking_id.eq.${req.params.id}`).single();
+    const { data } = await sb
+      .from("orders")
+      .select("*")
+      .or(`id.eq.${req.params.id},tracking_id.eq.${req.params.id}`)
+      .maybeSingle();
     if (!data) return res.status(404).json({ error: "not found" });
 
     const order = toCamel(data as Record<string, unknown>);
 
-    // If authenticated as a customer, scope to their own orders only
+    // Authenticated customers can only see their own orders
     if (session?.role === "b2c" || session?.role === "b2b") {
       const { data: cust } = await sb.from("customers").select("id").eq("email", session.email).maybeSingle();
       if (!cust || cust.id !== order.customerId) {
         return res.status(404).json({ error: "not found" });
       }
     }
-    // Admin / sales can see everything; unauthenticated guests can track by ID
+
+    // Sales can only see orders for their assigned customers
+    if (session?.role === "sales") {
+      const { data: staff } = await sb.from("staff").select("salesperson_id").eq("id", session.sub).maybeSingle();
+      const spId = staff?.salesperson_id as string | null;
+      if (spId && order.salespersonId !== spId) {
+        return res.status(404).json({ error: "not found" });
+      }
+    }
 
     return res.json(order);
   } catch {
@@ -115,61 +127,110 @@ router.post("/orders", requireAuth, async (req, res) => {
       const { data: cust } = await sb.from("customers").select("id, assigned_salesperson_id").eq("email", session.email).maybeSingle();
       if (cust) {
         customerId = cust.id as string;
-        // Auto-fill salesperson_id from customer's assignment if not explicitly provided
         if (!body.salespersonId && cust.assigned_salesperson_id) {
           autoSalespersonId = cust.assigned_salesperson_id as string;
         }
       }
     }
-    const b: Record<string, unknown> = { ...body, ...(autoSalespersonId ? { salespersonId: autoSalespersonId } : {}) };
 
-    const couponCode = (b.couponCode as string | undefined) ?? null;
-    const discount = b.discount ? Number(b.discount) : 0;
+    // ── Server-side pricing ───────────────────────────────────────────────────
+    const rawItems = Array.isArray(body.items) ? (body.items as Record<string, unknown>[]) : [];
+    const customerType = (body.customerType as string | undefined) ?? (session.role === "b2b" || session.role === "sales" ? "b2b" : "b2c");
+    const isB2B = customerType === "b2b";
+
+    let pricedItems: Record<string, unknown>[] = rawItems;
+    if (rawItems.length > 0) {
+      const productIds = [...new Set(rawItems.map((it) => it.productId as string).filter(Boolean))];
+      const { data: products } = await sb.from("products").select("id, b2c_price, b2b_price, packs").in("id", productIds);
+      const prodMap: Record<string, Record<string, unknown>> = {};
+      for (const p of (products ?? [])) prodMap[p.id as string] = p as Record<string, unknown>;
+
+      pricedItems = rawItems.map((it) => {
+        const prod = prodMap[it.productId as string];
+        let unitPrice: number;
+        if (prod) {
+          const packSize = it.packSize as string | undefined;
+          const packs = Array.isArray(prod.packs) ? (prod.packs as Record<string, unknown>[]) : [];
+          const pack = packSize ? packs.find((pk) => pk.size === packSize) : packs[0];
+          if (pack) {
+            unitPrice = Number((isB2B ? (pack.b2bPrice ?? pack.b2b_price) : (pack.b2cPrice ?? pack.b2c_price)) ?? (isB2B ? prod.b2b_price : prod.b2c_price) ?? 0);
+          } else {
+            unitPrice = Number((isB2B ? prod.b2b_price : prod.b2c_price) ?? 0);
+          }
+        } else {
+          unitPrice = 0;
+        }
+        return { ...it, unitPrice };
+      });
+    }
+
+    const subtotal = +pricedItems.reduce((s, it) => s + Number(it.unitPrice ?? 0) * Number(it.qty ?? 0), 0).toFixed(2);
+    const vat = +(subtotal * 0.15).toFixed(2);
+    const orderType = (body.orderType as string | undefined) ?? "delivery";
+    const baseDelivery = orderType === "pickup" ? 0 : isB2B ? 0 : subtotal >= 200 ? 0 : 25;
+
+    // Re-validate coupon server-side
+    const couponCode = (body.couponCode as string | undefined) ?? null;
+    let discount = 0;
+    let freeDelivery = false;
+    if (couponCode) {
+      try {
+        const { data: cp } = await sb.from("coupons").select("*").ilike("code", couponCode).maybeSingle();
+        if (cp && cp.is_active) {
+          const now = new Date();
+          const notExpired = (!cp.starts_at || new Date(cp.starts_at as string) <= now)
+            && (!cp.ends_at || new Date(cp.ends_at as string) >= now);
+          const withinLimit = cp.max_uses == null || Number(cp.uses_count ?? 0) < Number(cp.max_uses);
+          const audienceOk = cp.audience === "both" || (isB2B ? cp.audience === "b2b" : cp.audience === "b2c");
+          const minOk = subtotal >= Number(cp.min_order ?? 0);
+          if (notExpired && withinLimit && audienceOk && minOk) {
+            if (cp.type === "percent") discount = +(subtotal * Number(cp.value) / 100).toFixed(2);
+            else if (cp.type === "fixed") discount = Math.min(Number(cp.value), subtotal);
+            else if (cp.type === "free_delivery") freeDelivery = true;
+          }
+        }
+      } catch {
+        // best-effort coupon re-validation; don't fail the order
+      }
+    }
+
+    const deliveryCharge = freeDelivery ? 0 : baseDelivery;
+    const total = Math.max(0, +(subtotal + vat + deliveryCharge - discount).toFixed(2));
+
+    const b: Record<string, unknown> = { ...body, ...(autoSalespersonId ? { salespersonId: autoSalespersonId } : {}) };
 
     const row = {
       id: b.id,
       tracking_id: b.trackingId,
       customer_id: customerId ?? b.customerId,
       customer_name: b.customerName,
-      customer_type: b.customerType ?? "b2c",
+      customer_type: customerType,
       salesperson_id: b.salespersonId ?? null,
       status: b.status ?? "new",
-      order_type: b.orderType ?? "delivery",
+      order_type: orderType,
       payment_method: b.paymentMethod ?? "cod",
       placed_at: b.placedAt ?? new Date().toISOString(),
       estimated_at: b.estimatedAt ?? null,
       delivery_address: b.deliveryAddress,
       city: b.city,
       notes: b.notes ?? null,
-      // Only include coupon_code / discount when they carry real values so that
-      // environments where these columns have not yet been migrated still work.
       ...(couponCode != null ? { coupon_code: couponCode } : {}),
       ...(discount ? { discount } : {}),
-      items: b.items ?? [],
-      subtotal: b.subtotal ?? 0,
-      vat: b.vat ?? 0,
-      delivery_charge: b.deliveryCharge ?? 0,
-      total: b.total ?? 0,
+      items: pricedItems,
+      subtotal,
+      vat,
+      delivery_charge: deliveryCharge,
+      total,
       history: b.history ?? [{ status: "new", at: new Date().toISOString() }],
     };
 
     const { data, error } = await sb.from("orders").insert(row).select().single();
     if (error || !data) return res.status(400).json({ error: error?.message ?? "insert failed" });
 
-    // Increment coupon uses_count atomically
+    // Increment coupon uses_count atomically via RPC
     if (row.coupon_code) {
       try {
-        const { data: cp } = await sb
-          .from("coupons")
-          .select("id,uses_count")
-          .ilike("code", row.coupon_code as string)
-          .maybeSingle();
-        if (cp) {
-          await sb
-            .from("coupons")
-            .update({ uses_count: ((cp.uses_count as number) || 0) + 1 })
-            .eq("id", cp.id as string);
-        }
+        await sb.rpc("increment_coupon_uses", { coupon_code: row.coupon_code as string });
       } catch {
         // best-effort — don't fail the order
       }

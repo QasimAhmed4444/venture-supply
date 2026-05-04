@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { getSupabase } from "../lib/supabase.js";
+import { requireAdmin } from "../middlewares/requireAuth.js";
 
 const router = Router();
 
@@ -10,13 +11,13 @@ function toCamel(row: Record<string, unknown>) {
     email: row.email,
     phone: row.phone,
     region: row.region,
-    monthlyTarget: Number(row.monthly_target),
+    monthlyTarget: Number(row.monthly_target ?? 0),
     monthlyNewCustomerTarget: Number(row.monthly_new_customer_target ?? 5),
     monthlyOrderTarget: Number(row.monthly_order_target ?? 20),
-    monthlySales: Number(row.monthly_sales),
-    customersCount: Number(row.customers_count),
-    ordersThisMonth: Number(row.orders_this_month),
-    pendingOrders: Number(row.pending_orders),
+    monthlySales: Number(row.monthly_sales ?? 0),
+    customersCount: Number(row.customers_count ?? 0),
+    ordersThisMonth: Number(row.orders_this_month ?? 0),
+    pendingOrders: Number(row.pending_orders ?? 0),
     status: row.status,
     joinedDate: row.joined_date,
     createdAt: row.created_at,
@@ -61,7 +62,7 @@ router.get("/salespersons/:id", async (req, res) => {
   return res.json(toCamel(data as Record<string, unknown>));
 });
 
-router.post("/salespersons", async (req, res) => {
+router.post("/salespersons", requireAdmin, async (req, res) => {
   const sb = getSupabase();
   if (!sb) return res.status(503).json({ error: "db unavailable" });
   const id = `sp-${Date.now().toString(36)}`;
@@ -69,7 +70,6 @@ router.post("/salespersons", async (req, res) => {
   const { data, error } = await sb.from("salespersons").insert(payload).select().single();
   if (error) return res.status(400).json({ error: error.message });
 
-  // Sync assignedCustomerIds → customers.assigned_salesperson_id on create
   if (Array.isArray(req.body.assignedCustomerIds) && req.body.assignedCustomerIds.length > 0) {
     const newIds = req.body.assignedCustomerIds as string[];
     await sb.from("customers").update({ assigned_salesperson_id: id }).in("id", newIds);
@@ -78,7 +78,7 @@ router.post("/salespersons", async (req, res) => {
   return res.status(201).json(toCamel(data as Record<string, unknown>));
 });
 
-router.put("/salespersons/:id", async (req, res) => {
+router.put("/salespersons/:id", requireAdmin, async (req, res) => {
   const sb = getSupabase();
   if (!sb) return res.status(503).json({ error: "db unavailable" });
   const spId = req.params.id;
@@ -87,12 +87,9 @@ router.put("/salespersons/:id", async (req, res) => {
   const { data, error } = await sb.from("salespersons").update(filtered).eq("id", spId).select().single();
   if (error) return res.status(400).json({ error: error.message });
 
-  // Sync assignedCustomerIds → customers.assigned_salesperson_id
   if (Array.isArray(req.body.assignedCustomerIds)) {
     const newIds = req.body.assignedCustomerIds as string[];
-    // Clear all customers previously assigned to this SP (full replace strategy)
     await sb.from("customers").update({ assigned_salesperson_id: null }).eq("assigned_salesperson_id", spId);
-    // Set new assignments
     if (newIds.length > 0) {
       await sb.from("customers").update({ assigned_salesperson_id: spId }).in("id", newIds);
     }
@@ -101,7 +98,7 @@ router.put("/salespersons/:id", async (req, res) => {
   return res.json(toCamel(data as Record<string, unknown>));
 });
 
-router.delete("/salespersons/:id", async (req, res) => {
+router.delete("/salespersons/:id", requireAdmin, async (req, res) => {
   const sb = getSupabase();
   if (!sb) return res.status(503).json({ error: "db unavailable" });
   const { error } = await sb.from("salespersons").delete().eq("id", req.params.id);

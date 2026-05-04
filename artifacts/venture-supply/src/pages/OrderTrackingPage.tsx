@@ -26,6 +26,16 @@ function norm(s: string): OrderStatus {
   return s.replace(/_/g, "-") as OrderStatus;
 }
 
+// ─── HTML escaping to prevent XSS in generated invoice ───────────────────────
+function esc(s: unknown): string {
+  return String(s ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 // ─── Step definitions ─────────────────────────────────────────────────────────
 interface Step { status: OrderStatus; en: string; ar: string; Icon: React.ElementType }
 
@@ -381,13 +391,13 @@ export function OrderTrackingPage() {
     const date = new Date(order.placedAt).toLocaleDateString(ar ? "ar-SA" : "en-GB", { dateStyle: "long" });
     const itemsHtml = order.items.map((it) => `
       <tr>
-        <td>${ar ? it.arName : it.enName}</td>
-        <td style="text-align:center">${it.packSize}</td>
+        <td>${esc(ar ? it.arName : it.enName)}</td>
+        <td style="text-align:center">${esc(it.packSize)}</td>
         <td style="text-align:center">${it.qty}</td>
         <td style="text-align:end">${fmt(it.unitPrice)}</td>
         <td style="text-align:end">${fmt(it.unitPrice * it.qty)}</td>
       </tr>`).join("");
-    win.document.write(`<!doctype html><html dir="${ar ? "rtl" : "ltr"}"><head><meta charset="utf-8"><title>Invoice ${order.trackingId}</title>
+    win.document.write(`<!doctype html><html dir="${ar ? "rtl" : "ltr"}"><head><meta charset="utf-8"><title>Invoice ${esc(order.trackingId)}</title>
       <style>
         body{font-family:system-ui,Arial;color:#1f2937;padding:32px;max-width:780px;margin:auto}
         h1{color:#5d3a16;margin:0 0 4px}
@@ -407,11 +417,11 @@ export function OrderTrackingPage() {
           <div class="muted">${ar ? "فاتورة ضريبية مبسّطة" : "Simplified Tax Invoice"}</div>
         </div>
         <div class="meta" style="text-align:end">
-          <div><strong>${order.trackingId}</strong></div>
-          <div>${date}</div>
-          <div>${ar ? "العميل" : "Customer"}: ${order.customerName ?? ""}</div>
-          <div>${ar ? "العنوان" : "Address"}: ${order.deliveryAddress}, ${order.city}</div>
-          <div>${ar ? "الدفع" : "Payment"}: ${(order.paymentMethod ?? "").toUpperCase()}</div>
+          <div><strong>${esc(order.trackingId)}</strong></div>
+          <div>${esc(date)}</div>
+          <div>${ar ? "العميل" : "Customer"}: ${esc(order.customerName ?? "")}</div>
+          <div>${ar ? "العنوان" : "Address"}: ${esc(order.deliveryAddress)}, ${esc(order.city)}</div>
+          <div>${ar ? "الدفع" : "Payment"}: ${esc((order.paymentMethod ?? "").toUpperCase())}</div>
         </div>
       </div>
       <table>

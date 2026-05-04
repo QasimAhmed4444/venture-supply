@@ -5,7 +5,6 @@ import { requireAdmin } from "../middlewares/requireAuth.js";
 
 const router = Router();
 
-// All staff-management endpoints require an authenticated admin session.
 router.use("/staff", requireAdmin);
 
 const BCRYPT_ROUNDS = 10;
@@ -22,8 +21,6 @@ function toCamel(row: Record<string, unknown>) {
   };
 }
 
-// Admin/sales staff only — customer rows (role b2c/b2b) live alongside the
-// auth credentials but are managed through /customers and /auth/register.
 router.get("/staff", async (_req, res) => {
   const sb = getSupabase();
   if (!sb) return res.json([]);
@@ -111,27 +108,18 @@ router.put("/staff/:id", async (req, res) => {
   return res.json(toCamel(data as Record<string, unknown>));
 });
 
+// Use the delete_staff_safely RPC which enforces last-admin protection atomically
 router.delete("/staff/:id", async (req, res) => {
   const sb = getSupabase();
   if (!sb) return res.status(503).json({ error: "db unavailable" });
 
-  // Refuse to delete the last remaining admin so the panel can never be locked out.
-  const { data: target } = await sb
-    .from("staff").select("role").eq("id", req.params.id).maybeSingle();
-  if (target?.role === "admin") {
-    const { count } = await sb
-      .from("staff").select("id", { count: "exact", head: true }).eq("role", "admin");
-    if ((count ?? 0) <= 1) {
+  const { error } = await sb.rpc("delete_staff_safely", { staff_id: req.params.id });
+  if (error) {
+    if (error.message?.toLowerCase().includes("last admin")) {
       return res.status(400).json({ error: "Cannot remove the last admin" });
     }
+    return res.status(400).json({ error: error.message });
   }
-
-  const { error } = await sb
-    .from("staff")
-    .delete()
-    .eq("id", req.params.id)
-    .in("role", ["admin", "sales"]);
-  if (error) return res.status(400).json({ error: error.message });
   return res.status(204).send();
 });
 

@@ -23,6 +23,7 @@ import { CheckoutPage } from "@/pages/CheckoutPage";
 import { OrderSuccessPage } from "@/pages/OrderSuccessPage";
 import { OrderTrackingPage } from "@/pages/OrderTrackingPage";
 import { AuthPage } from "@/pages/AuthPage";
+import { ResetPasswordPage } from "@/pages/ResetPasswordPage";
 import { AboutPage, ContactPage, OffersPage, RequestProductPage } from "@/pages/StaticPages";
 import { AdminLoginPage } from "@/pages/AdminLoginPage";
 
@@ -146,6 +147,7 @@ function AppRouter() {
       {/* Auth */}
       <Route path="/login" component={LoginPage} />
       <Route path="/register" component={RegisterPage} />
+      <Route path="/reset-password" component={ResetPasswordPage} />
       <Route path="/admin/login" component={AdminLoginPage} />
 
       {/* Static */}

@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { getSupabase } from "../lib/supabase.js";
+import { requireAdmin } from "../middlewares/requireAuth.js";
 
 const router = Router();
 
@@ -15,11 +16,11 @@ function toCamel(row: Record<string, unknown>) {
     brandId: row.brand_id,
     categoryId: row.category_id,
     audience: row.audience ?? "both",
-    b2cPrice: Number(row.b2c_price),
-    b2bPrice: Number(row.b2b_price),
+    b2cPrice: Number(row.b2c_price ?? 0),
+    b2bPrice: Number(row.b2b_price ?? 0),
     packs: row.packs ?? [],
     minOrderQty: row.min_order_qty ?? 1,
-    rating: Number(row.rating),
+    rating: Number(row.rating ?? 0),
     reviewCount: row.review_count,
     stockStatus: row.stock_status,
     stockQty: row.stock_qty,
@@ -78,7 +79,7 @@ router.get("/products/:slug", async (req, res) => {
   }
 });
 
-router.post("/products", async (req, res) => {
+router.post("/products", requireAdmin, async (req, res) => {
   const sb = getSupabase();
   if (!sb) return res.status(503).json({ error: "db unavailable" });
   try {
@@ -94,7 +95,7 @@ router.post("/products", async (req, res) => {
   }
 });
 
-router.put("/products/:id", async (req, res) => {
+router.put("/products/:id", requireAdmin, async (req, res) => {
   const sb = getSupabase();
   if (!sb) return res.status(503).json({ error: "db unavailable" });
   try {
@@ -107,7 +108,7 @@ router.put("/products/:id", async (req, res) => {
   }
 });
 
-router.delete("/products/:id", async (req, res) => {
+router.delete("/products/:id", requireAdmin, async (req, res) => {
   const sb = getSupabase();
   if (!sb) return res.status(503).json({ error: "db unavailable" });
   try {

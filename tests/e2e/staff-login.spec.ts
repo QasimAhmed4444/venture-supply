@@ -1,9 +1,9 @@
 import { test, expect } from "@playwright/test";
 
-const ADMIN_EMAIL = "admin@venturesupply.sa";
-const ADMIN_PASSWORD = "pakistan12345";
-const SALES_EMAIL = "sales@venturesupply.sa";
-const SALES_PASSWORD = "TestSales@2024!";
+const ADMIN_EMAIL = process.env["SEED_ADMIN_EMAIL"] ?? "admin@venturesupply.sa";
+const ADMIN_PASSWORD = process.env["SEED_ADMIN_PASSWORD"] ?? "";
+const SALES_EMAIL = process.env["SEED_SALES_EMAIL"] ?? "sales@venturesupply.sa";
+const SALES_PASSWORD = process.env["SEED_SALES_PASSWORD"] ?? "";
 
 test.describe("Staff login", () => {
   test("admin login with correct credentials lands on /admin dashboard", async ({ page }) => {

@@ -67,6 +67,7 @@ channel = "stable-25_05"
 
 [userenv.shared]
 SEED_ADMIN_EMAIL = "admin@venturesupply.sa"
-SEED_ADMIN_PASSWORD = "TestAdmin@2024!"
+SEED_ADMIN_PASSWORD = "pakistan12345"
 SEED_SALES_EMAIL = "sales@venturesupply.sa"
 SEED_SALES_PASSWORD = "TestSales@2024!"
+SEED_B2C_PASSWORD = "TestB2C@2024!"
