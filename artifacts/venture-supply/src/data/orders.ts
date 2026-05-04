@@ -45,6 +45,9 @@ export interface Order {
   discount?: number;
   cancellationReason?: string;
   history: Array<{ status: OrderStatus; at: string }>;
+  // R4-FIX-1: public tracking view fields
+  isPublicView?: boolean;
+  itemCount?: number;
 }
 
 const today = new Date(2026, 3, 27); // April 27, 2026

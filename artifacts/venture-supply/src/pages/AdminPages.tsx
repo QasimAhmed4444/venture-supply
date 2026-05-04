@@ -1,6 +1,7 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { Link } from "wouter";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -14,7 +15,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Plus, Trash2, ShoppingBag, Users as UsersIcon, AlertTriangle, TrendingUp, Wallet, Eye,
   Pencil, Search, Download, FileText, Package, DollarSign, Building2, CheckCircle2,
-  Clock, XCircle, Truck, PackageCheck, ShoppingCart, X, ChevronUp, ChevronDown, Upload,
+  Clock, XCircle, Truck, PackageCheck, ShoppingCart, X, ChevronUp, ChevronDown, Upload, Banknote,
 } from "lucide-react";
 import {
   LineChart, Line, AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell,
@@ -1005,6 +1006,129 @@ export function AdminOrdersPage() {
 
 const BLANK_CUST = { name: "", email: "", phone: "", city: "", address: "", type: "b2c" as "b2c" | "b2b", businessName: "", businessTypeId: "", creditLimit: "", allowCredit: false, active: true, assignedSalespersonId: "" };
 
+// ─── R4-FIX-2: B2B Credit Management Panel ────────────────────────────────────
+function B2BCreditPanel({ customerId }: { customerId: string }) {
+  const [credit, setCredit] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const { toast } = useToast();
+
+  useEffect(() => {
+    let cancelled = false;
+    apiFetch<any>(`/customers/${customerId}/credit`)
+      .then((d) => { if (!cancelled) setCredit(d); })
+      .catch((e) => { if (!cancelled) toast({ title: "Failed to load credit", description: e.message, variant: "destructive" }); })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, [customerId, toast]);
+
+  if (loading) return <div className="p-4 text-sm text-muted-foreground">Loading credit info…</div>;
+  if (!credit) return null;
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      const updated = await apiFetch<any>(`/customers/${customerId}/credit`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          allowCredit: credit.allowCredit,
+          creditLimit: Number(credit.creditLimit),
+          approvalStatus: credit.approvalStatus,
+          approvalNotes: credit.approvalNotes,
+        }),
+      });
+      setCredit((prev: any) => ({ ...prev, ...updated.creditStatus }));
+      toast({ title: "Credit settings updated" });
+    } catch (e: any) {
+      toast({ title: "Save failed", description: e.message, variant: "destructive" });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Card className="mt-4">
+      <CardHeader>
+        <CardTitle className="text-base">B2B Credit Management</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="grid grid-cols-2 gap-4">
+          <div className="flex items-center gap-2">
+            <Switch
+              checked={!!credit.allowCredit}
+              onCheckedChange={(v: boolean) => setCredit((p: any) => ({ ...p, allowCredit: v }))}
+              id="credit-allow"
+            />
+            <Label htmlFor="credit-allow">Allow Credit</Label>
+          </div>
+          <div>
+            <Label>Approval Status</Label>
+            <Select
+              value={credit.approvalStatus ?? "pending"}
+              onValueChange={(v: string) => setCredit((p: any) => ({ ...p, approvalStatus: v }))}
+            >
+              <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="pending">Pending</SelectItem>
+                <SelectItem value="approved">Approved</SelectItem>
+                <SelectItem value="rejected">Rejected</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
+        <div>
+          <Label>Credit Limit (SAR)</Label>
+          <Input
+            type="number"
+            className="mt-1"
+            value={credit.creditLimit ?? 0}
+            onChange={(e) => setCredit((p: any) => ({ ...p, creditLimit: e.target.value }))}
+            disabled={!credit.allowCredit}
+          />
+        </div>
+
+        <div>
+          <Label>Approval Notes</Label>
+          <Textarea
+            className="mt-1"
+            value={credit.approvalNotes ?? ""}
+            onChange={(e) => setCredit((p: any) => ({ ...p, approvalNotes: e.target.value }))}
+            placeholder="Internal notes about this approval"
+            rows={2}
+          />
+        </div>
+
+        <div className="grid grid-cols-3 gap-4 p-3 bg-muted rounded-md text-sm">
+          <div>
+            <div className="text-muted-foreground">Outstanding</div>
+            <div className="font-semibold">SAR {Number(credit.outstanding ?? 0).toFixed(2)}</div>
+          </div>
+          <div>
+            <div className="text-muted-foreground">Available</div>
+            <div className="font-semibold text-green-700">SAR {Number(credit.available ?? 0).toFixed(2)}</div>
+          </div>
+          <div>
+            <div className="text-muted-foreground">Limit</div>
+            <div className="font-semibold">SAR {Number(credit.creditLimit ?? 0).toFixed(2)}</div>
+          </div>
+        </div>
+
+        {credit.approvedAt && (
+          <div className="text-xs text-muted-foreground">
+            Last approved: {new Date(credit.approvedAt).toLocaleString()}
+          </div>
+        )}
+
+        <Button onClick={handleSave} disabled={saving}>
+          {saving ? "Saving…" : "Save Credit Settings"}
+        </Button>
+      </CardContent>
+    </Card>
+  );
+}
+
 export function AdminCustomersPage() {
   const { t, language } = useLanguage();
   const { toast } = useToast();
@@ -1276,7 +1400,7 @@ export function AdminCustomersPage() {
       </Card>
 
       <Dialog open={!!viewCust} onOpenChange={() => setViewCust(null)}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
           <DialogHeader><DialogTitle>{viewCust?.name}</DialogTitle></DialogHeader>
           {viewCust && (
             <div className="space-y-2 text-sm">
@@ -1302,6 +1426,7 @@ export function AdminCustomersPage() {
                   <p className="text-muted-foreground">{a.fullAddress}</p>
                 </div>
               ))}
+              {viewCust.type === "b2b" && <B2BCreditPanel customerId={viewCust.id} />}
             </div>
           )}
         </DialogContent>
@@ -2257,7 +2382,7 @@ export function AdminSettingsPage() {
   };
 
   return (
-    <div className="space-y-4 max-w-3xl">
+    <div className="space-y-4 max-w-3xl" data-page="admin-settings">
       <h1 className="text-3xl font-bold">{t("admin.settings")}</h1>
       <Card>
         <CardContent className="p-5 space-y-4">
@@ -2301,6 +2426,7 @@ export function AdminSettingsPage() {
         </CardContent>
       </Card>
       <Button onClick={() => toast({ title: t("common.save"), description: "Coming soon" })} className="bg-primary hover:bg-primary/90">{t("common.save")}</Button>
+
       <Card>
         <CardContent className="p-5 space-y-4">
           <h2 className="font-semibold">Change Account Password</h2>
@@ -2315,6 +2441,41 @@ export function AdminSettingsPage() {
           <Button onClick={handleChangePassword} disabled={pwLoading} className="bg-primary hover:bg-primary/90">{pwLoading ? "Saving…" : "Update Password"}</Button>
         </CardContent>
       </Card>
+    </div>
+  );
+}
+
+// ─── R4-FIX-2: Admin B2B Credit page ─────────────────────────────────────────
+export function AdminB2BCreditPage() {
+  const { data: customers, isLoading } = useCustomers("b2b");
+
+  return (
+    <div className="space-y-4">
+      <h1 className="text-2xl font-bold flex items-center gap-2">
+        <Banknote className="w-6 h-6" />
+        B2B Credit Management
+      </h1>
+      {isLoading ? (
+        <div className="text-sm text-muted-foreground">Loading…</div>
+      ) : (customers ?? []).length === 0 ? (
+        <div className="text-sm text-muted-foreground">No B2B customers found.</div>
+      ) : (
+        <div className="space-y-4">
+          {(customers ?? []).map((c) => (
+            <Card key={c.id}>
+              <CardHeader>
+                <CardTitle className="text-base">{c.name}</CardTitle>
+                {c.business?.name && (
+                  <div className="text-sm text-muted-foreground">{c.business.name}</div>
+                )}
+              </CardHeader>
+              <CardContent>
+                <B2BCreditPanel customerId={c.id} />
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

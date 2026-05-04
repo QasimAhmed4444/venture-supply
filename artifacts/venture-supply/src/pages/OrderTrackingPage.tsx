@@ -10,8 +10,9 @@ import { Skeleton } from "@/components/ui/skeleton";
 import {
   Package, Check, MapPin, CreditCard, Calendar, Download,
   RotateCw, Search, ArrowLeft, Wifi, WifiOff, Clock,
-  AlertCircle, CheckCircle2, Truck, Box, ShoppingBag, Share2,
+  AlertCircle, CheckCircle2, Truck, Box, ShoppingBag, Share2, LogIn,
 } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useOrder } from "@/hooks/useOrders";
 import { getSessionToken } from "@/lib/api";
 import type { Order, OrderStatus } from "@/data/orders";
@@ -509,51 +510,65 @@ export function OrderTrackingPage() {
       {/* ── Progress stepper ── */}
       {!isCancelled && <ProgressStepper order={order} language={language} />}
 
+      {/* ── Public view: login prompt ── */}
+      {order.isPublicView && (
+        <Alert>
+          <LogIn className="w-4 h-4" />
+          <AlertDescription>
+            {ar
+              ? "سجّل الدخول لعرض تفاصيل الطلب الكاملة، الأسعار، وتنزيل الفاتورة."
+              : "Log in to view full order details, prices, and download invoice."}
+          </AlertDescription>
+        </Alert>
+      )}
+
       {/* ── Address + History grid ── */}
       <div className="grid md:grid-cols-2 gap-4">
-        <div className="space-y-4">
-          <Card>
-            <CardContent className="p-5 space-y-3">
-              <h3 className="font-semibold flex items-center gap-2 text-sm">
-                <MapPin className="w-4 h-4 text-secondary" />
-                {isPickup ? (ar ? "موقع الاستلام" : "Pickup Location") : (ar ? "عنوان التوصيل" : "Delivery Address")}
-              </h3>
-              <p className="text-sm text-muted-foreground leading-relaxed">{order.deliveryAddress}</p>
-              <p className="text-sm font-medium">{order.city}</p>
-              {order.notes && (
-                <div className="mt-1 rounded-md bg-amber-50 border border-amber-200 px-3 py-2">
-                  <p className="text-xs font-semibold text-amber-700 mb-0.5">{ar ? "ملاحظات التسليم" : "Delivery notes"}</p>
-                  <p className="text-sm text-amber-900">{order.notes}</p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="p-5 space-y-3">
-              <h3 className="font-semibold flex items-center gap-2 text-sm">
-                <CreditCard className="w-4 h-4 text-secondary" />
-                {ar ? "تفاصيل الدفع" : "Payment Details"}
-              </h3>
-              <div className="space-y-1.5 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">{ar ? "طريقة الدفع" : "Method"}</span>
-                  <span className="font-medium capitalize">{order.paymentMethod?.toUpperCase()}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground flex items-center gap-1"><Calendar className="w-3 h-3" /> {ar ? "تاريخ الطلب" : "Placed"}</span>
-                  <span>{new Date(order.placedAt).toLocaleDateString(ar ? "ar-SA" : "en-GB", { day: "numeric", month: "short", year: "numeric" })}</span>
-                </div>
-                {order.customerName && (
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">{ar ? "اسم العميل" : "Customer"}</span>
-                    <span className="truncate max-w-[150px]">{order.customerName}</span>
+        {!order.isPublicView && (
+          <div className="space-y-4">
+            <Card>
+              <CardContent className="p-5 space-y-3">
+                <h3 className="font-semibold flex items-center gap-2 text-sm">
+                  <MapPin className="w-4 h-4 text-secondary" />
+                  {isPickup ? (ar ? "موقع الاستلام" : "Pickup Location") : (ar ? "عنوان التوصيل" : "Delivery Address")}
+                </h3>
+                <p className="text-sm text-muted-foreground leading-relaxed">{order.deliveryAddress}</p>
+                <p className="text-sm font-medium">{order.city}</p>
+                {order.notes && (
+                  <div className="mt-1 rounded-md bg-amber-50 border border-amber-200 px-3 py-2">
+                    <p className="text-xs font-semibold text-amber-700 mb-0.5">{ar ? "ملاحظات التسليم" : "Delivery notes"}</p>
+                    <p className="text-sm text-amber-900">{order.notes}</p>
                   </div>
                 )}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="p-5 space-y-3">
+                <h3 className="font-semibold flex items-center gap-2 text-sm">
+                  <CreditCard className="w-4 h-4 text-secondary" />
+                  {ar ? "تفاصيل الدفع" : "Payment Details"}
+                </h3>
+                <div className="space-y-1.5 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">{ar ? "طريقة الدفع" : "Method"}</span>
+                    <span className="font-medium capitalize">{order.paymentMethod?.toUpperCase()}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground flex items-center gap-1"><Calendar className="w-3 h-3" /> {ar ? "تاريخ الطلب" : "Placed"}</span>
+                    <span>{new Date(order.placedAt).toLocaleDateString(ar ? "ar-SA" : "en-GB", { day: "numeric", month: "short", year: "numeric" })}</span>
+                  </div>
+                  {order.customerName && (
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">{ar ? "اسم العميل" : "Customer"}</span>
+                      <span className="truncate max-w-[150px]">{order.customerName}</span>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
 
         <HistoryTimeline order={order} language={language} isLive={isLive} />
       </div>
@@ -564,64 +579,82 @@ export function OrderTrackingPage() {
           <h3 className="font-semibold flex items-center gap-2">
             <Package className="w-4 h-4" />
             {ar ? "محتوى الطلب" : "Order Items"}
-            <Badge variant="outline" className="ms-auto text-xs">{order.items.length} {ar ? "منتج" : "items"}</Badge>
+            <Badge variant="outline" className="ms-auto text-xs">
+              {order.isPublicView
+                ? `${order.itemCount ?? 0} ${ar ? "منتج" : "items"}`
+                : `${order.items?.length ?? 0} ${ar ? "منتج" : "items"}`}
+            </Badge>
           </h3>
-          <div className="space-y-3">
-            {order.items.map((it) => {
-              const name = ar ? it.arName : it.enName;
-              return (
-                <div key={`${it.productId}-${it.packSize}`} className="flex gap-3 items-center">
-                  <img
-                    src={it.image}
-                    alt={name}
-                    className="w-14 h-14 rounded-lg object-cover shrink-0 border"
-                    onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
-                  />
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium text-sm leading-tight truncate">{name}</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">{it.packSize} × {it.qty}</p>
-                  </div>
-                  <PriceTag amount={it.unitPrice * it.qty} size="sm" />
+          {order.isPublicView ? (
+            <p className="text-sm text-muted-foreground py-2">
+              {order.itemCount === 1
+                ? (ar ? "منتج واحد في هذا الطلب" : "1 item in this order")
+                : (ar ? `${order.itemCount} منتجات في هذا الطلب` : `${order.itemCount} items in this order`)}
+            </p>
+          ) : (
+            <>
+              <div className="space-y-3">
+                {order.items.map((it) => {
+                  const name = ar ? it.arName : it.enName;
+                  return (
+                    <div key={`${it.productId}-${it.packSize}`} className="flex gap-3 items-center">
+                      <img
+                        src={it.image}
+                        alt={name}
+                        className="w-14 h-14 rounded-lg object-cover shrink-0 border"
+                        onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+                      />
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-sm leading-tight truncate">{name}</p>
+                        <p className="text-xs text-muted-foreground mt-0.5">{it.packSize} × {it.qty}</p>
+                      </div>
+                      <PriceTag amount={it.unitPrice * it.qty} size="sm" />
+                    </div>
+                  );
+                })}
+              </div>
+              <Separator />
+              <div className="space-y-1.5 text-sm">
+                <div className="flex justify-between text-muted-foreground">
+                  <span>{ar ? "المجموع الفرعي" : "Subtotal"}</span>
+                  <PriceTag amount={order.subtotal} size="sm" />
                 </div>
-              );
-            })}
-          </div>
-          <Separator />
-          <div className="space-y-1.5 text-sm">
-            <div className="flex justify-between text-muted-foreground">
-              <span>{ar ? "المجموع الفرعي" : "Subtotal"}</span>
-              <PriceTag amount={order.subtotal} size="sm" />
-            </div>
-            <div className="flex justify-between text-muted-foreground">
-              <span>{ar ? "ضريبة القيمة المضافة (15%)" : "VAT (15%)"}</span>
-              <PriceTag amount={order.vat} size="sm" />
-            </div>
-            <div className="flex justify-between text-muted-foreground">
-              <span>{ar ? "رسوم التوصيل" : "Delivery"}</span>
-              {order.deliveryCharge === 0
-                ? <span className="text-emerald-600 font-semibold">{ar ? "مجاني" : "Free"}</span>
-                : <PriceTag amount={order.deliveryCharge} size="sm" />
-              }
-            </div>
-            <Separator className="my-1" />
-            <div className="flex justify-between items-baseline">
-              <span className="font-bold text-base">{ar ? "الإجمالي" : "Total"}</span>
-              <PriceTag amount={order.total} size="lg" />
-            </div>
-          </div>
+                <div className="flex justify-between text-muted-foreground">
+                  <span>{ar ? "ضريبة القيمة المضافة (15%)" : "VAT (15%)"}</span>
+                  <PriceTag amount={order.vat} size="sm" />
+                </div>
+                <div className="flex justify-between text-muted-foreground">
+                  <span>{ar ? "رسوم التوصيل" : "Delivery"}</span>
+                  {order.deliveryCharge === 0
+                    ? <span className="text-emerald-600 font-semibold">{ar ? "مجاني" : "Free"}</span>
+                    : <PriceTag amount={order.deliveryCharge} size="sm" />
+                  }
+                </div>
+                <Separator className="my-1" />
+                <div className="flex justify-between items-baseline">
+                  <span className="font-bold text-base">{ar ? "الإجمالي" : "Total"}</span>
+                  <PriceTag amount={order.total} size="lg" />
+                </div>
+              </div>
+            </>
+          )}
         </CardContent>
       </Card>
 
       {/* ── Actions ── */}
       <div className="flex flex-wrap gap-2 pb-4">
-        <Button variant="outline" onClick={handleDownloadInvoice}>
-          <Download className="w-4 h-4 me-2" />
-          {ar ? "تنزيل الفاتورة" : "Download Invoice"}
-        </Button>
-        <Button variant="outline" onClick={handleReorder}>
-          <RotateCw className="w-4 h-4 me-2" />
-          {ar ? "إعادة الطلب" : "Reorder"}
-        </Button>
+        {!order.isPublicView && (
+          <>
+            <Button variant="outline" onClick={handleDownloadInvoice}>
+              <Download className="w-4 h-4 me-2" />
+              {ar ? "تنزيل الفاتورة" : "Download Invoice"}
+            </Button>
+            <Button variant="outline" onClick={handleReorder}>
+              <RotateCw className="w-4 h-4 me-2" />
+              {ar ? "إعادة الطلب" : "Reorder"}
+            </Button>
+          </>
+        )}
         <Button variant="outline" onClick={handleShare}>
           <Share2 className="w-4 h-4 me-2" />
           {ar ? "مشاركة التتبع" : "Share Tracking"}

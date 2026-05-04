@@ -211,6 +211,91 @@ router.post("/customers/:id/salespersons", requireAdmin, async (req, res) => {
   return res.status(201).json(data);
 });
 
+// PUT /customers/:id/credit — admin only, R4-FIX-2: B2B credit management
+router.put("/customers/:id/credit", requireAdmin, auditLog("update", "customer_credit"), async (req, res) => {
+  const sb = getSupabase();
+  if (!sb) return res.status(503).json({ error: "db unavailable" });
+
+  const { allowCredit, creditLimit, approvalStatus, approvalNotes } = req.body as {
+    allowCredit?: boolean;
+    creditLimit?: number;
+    approvalStatus?: "pending" | "approved" | "rejected";
+    approvalNotes?: string;
+  };
+
+  if (approvalStatus && !["pending", "approved", "rejected"].includes(approvalStatus)) {
+    return res.status(400).json({ error: "Invalid approval status" });
+  }
+  if (creditLimit !== undefined && (Number(creditLimit) < 0 || Number(creditLimit) > 10_000_000)) {
+    return res.status(400).json({ error: "Credit limit out of range (0 - 10,000,000)" });
+  }
+
+  const { data: cust } = await sb.from("customers").select("type, business").eq("id", req.params.id).maybeSingle();
+  if (!cust) return res.status(404).json({ error: "Customer not found" });
+  if (cust.type !== "b2b") return res.status(400).json({ error: "Credit only available for B2B customers" });
+
+  const session = (req as any).session;
+  const existingBiz = (cust.business as Record<string, unknown> | null) ?? {};
+
+  const updatedBiz = {
+    ...existingBiz,
+    allowCredit: allowCredit ?? existingBiz.allowCredit ?? false,
+    creditLimit: creditLimit !== undefined ? Number(creditLimit) : (existingBiz.creditLimit ?? 0),
+    approvalStatus: approvalStatus ?? existingBiz.approvalStatus ?? "pending",
+    approvalNotes: approvalNotes ?? existingBiz.approvalNotes ?? null,
+    approvedBy: approvalStatus === "approved" ? session.sub : (existingBiz.approvedBy ?? null),
+    approvedAt: approvalStatus === "approved" ? new Date().toISOString() : (existingBiz.approvedAt ?? null),
+  };
+
+  const { data, error } = await sb.from("customers")
+    .update({ business: updatedBiz })
+    .eq("id", req.params.id)
+    .select()
+    .single();
+
+  if (error) return res.status(400).json({ error: error.message });
+
+  const { data: status } = await sb
+    .from("v_b2b_credit_status")
+    .select("*")
+    .eq("customer_id", req.params.id)
+    .maybeSingle();
+
+  return res.json({ customer: data, creditStatus: status ?? null });
+});
+
+// GET /customers/:id/credit — admin/sales view of customer's credit status
+router.get("/customers/:id/credit", requireRole("admin", "sales"), async (req, res) => {
+  const sb = getSupabase();
+  if (!sb) return res.status(503).json({ error: "db unavailable" });
+
+  const { data: cust } = await sb.from("customers")
+    .select("id, name, type, business")
+    .eq("id", req.params.id)
+    .maybeSingle();
+  if (!cust) return res.status(404).json({ error: "Customer not found" });
+  if (cust.type !== "b2b") return res.status(400).json({ error: "Credit only available for B2B customers" });
+
+  const { data: outstanding } = await sb.rpc("customer_outstanding_credit", { p_customer_id: req.params.id });
+
+  const biz = (cust.business as Record<string, unknown>) ?? {};
+  const limit = Number(biz.creditLimit ?? 0);
+  const out = Number(outstanding ?? 0);
+
+  return res.json({
+    customerId: cust.id,
+    customerName: cust.name,
+    allowCredit: biz.allowCredit ?? false,
+    creditLimit: limit,
+    approvalStatus: biz.approvalStatus ?? "pending",
+    approvalNotes: biz.approvalNotes ?? null,
+    approvedBy: biz.approvedBy ?? null,
+    approvedAt: biz.approvedAt ?? null,
+    outstanding: out,
+    available: Math.max(0, limit - out),
+  });
+});
+
 // DELETE /customers/:id/salespersons/:salespersonId — admin only
 router.delete("/customers/:id/salespersons/:salespersonId", requireAdmin, async (req, res) => {
   const sb = getSupabase();

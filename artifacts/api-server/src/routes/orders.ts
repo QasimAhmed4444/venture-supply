@@ -75,7 +75,7 @@ router.get("/orders", requireAuth, async (req, res) => {
   }
 });
 
-// GET /orders/:id — R2-NB-9: sanitize ID to prevent PostgREST filter injection
+// GET /orders/:id — R4-FIX-1: public view returns minimal fields; owner/staff gets full order
 router.get("/orders/:id", async (req, res) => {
   const session = (req as any).session as VerifiedSession | undefined;
   const sb = getSupabase();
@@ -96,22 +96,43 @@ router.get("/orders/:id", async (req, res) => {
 
     const order = toCamel(data as Record<string, unknown>);
 
-    if (session?.role === "b2c" || session?.role === "b2b") {
-      const { data: cust } = await sb.from("customers").select("id").eq("email", session.email).maybeSingle();
-      if (!cust || cust.id !== order.customerId) {
-        return res.status(404).json({ error: "not found" });
-      }
-    }
+    // Determine viewer permission level
+    let isOwner = false;
+    let isStaff = false;
 
-    if (session?.role === "sales") {
+    if (session?.role === "admin") {
+      isStaff = true;
+      isOwner = true;
+    } else if (session?.role === "sales") {
       const { data: staff } = await sb.from("staff").select("salesperson_id").eq("id", session.sub).maybeSingle();
       const spId = staff?.salesperson_id as string | null;
-      if (spId && order.salespersonId !== spId) {
-        return res.status(404).json({ error: "not found" });
+      if (spId && order.salespersonId === spId) {
+        isStaff = true;
+        isOwner = true;
+      }
+    } else if (session?.role === "b2c" || session?.role === "b2b") {
+      const { data: cust } = await sb.from("customers").select("id").eq("email", session.email).maybeSingle();
+      if (cust && cust.id === order.customerId) {
+        isOwner = true;
       }
     }
 
-    return res.json(order);
+    // Public view (anyone with the tracking link) — minimal fields only
+    if (!isOwner && !isStaff) {
+      return res.json({
+        trackingId: order.trackingId,
+        status: order.status,
+        orderType: order.orderType,
+        placedAt: order.placedAt,
+        estimatedAt: order.estimatedAt,
+        history: order.history,
+        itemCount: Array.isArray(order.items) ? (order.items as unknown[]).length : 0,
+        isPublicView: true,
+      });
+    }
+
+    // Owner/staff view — full order
+    return res.json({ ...order, isPublicView: false });
   } catch {
     return res.status(500).json({ error: "internal" });
   }
