@@ -4,8 +4,8 @@ import express, { type Express, type RequestHandler } from "express";
 import cors from "cors";
 import { rateLimit } from "express-rate-limit";
 import type { Logger } from "pino";
-import router from "./routes";
-import { logger } from "./lib/logger";
+import router from "./routes/index.js";
+import { logger } from "./lib/logger.js";
 
 declare global {
   namespace Express {
