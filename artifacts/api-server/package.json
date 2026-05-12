@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "export NODE_ENV=development && pnpm run build && pnpm run start",
-    "build": "node ./build.mjs",
+    "build": "pnpm run build:refs && node ./build.mjs",
+    "build:refs": "tsc --build ../../lib/api-zod ../../lib/db",
     "start": "node --enable-source-maps ./dist/index.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
