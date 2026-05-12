@@ -49,19 +49,22 @@ export function getSupabase(): SupabaseClient | null {
   if (_client) return _client;
 
   const url = process.env["SUPABASE_URL"];
-  const rawKey = process.env["SUPABASE_SERVICE_ROLE_KEY"];
+  const rawServiceKey = process.env["SUPABASE_SERVICE_ROLE_KEY"];
+  const rawAnonKey = process.env["SUPABASE_ANON_KEY"] ?? process.env["SUPABASE_PUBLISHABLE_KEY"];
+  const rawKey = rawServiceKey ?? rawAnonKey;
+  const configuredKeyName = rawServiceKey ? "SUPABASE_SERVICE_ROLE_KEY" : "SUPABASE_ANON_KEY";
 
   if (!url || !rawKey) {
     logger.error(
-      "SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be set as Replit Secrets",
+      "SUPABASE_URL and either SUPABASE_SERVICE_ROLE_KEY or SUPABASE_ANON_KEY must be set",
     );
     return null;
   }
 
   if (!rawKey.startsWith("eyJ")) {
     logger.error(
-      { keyPrefix: rawKey.slice(0, 8) },
-      "SUPABASE_SERVICE_ROLE_KEY is not a JWT. In Replit Secrets, paste the service_role key from Supabase → Project Settings → API.",
+      { keyPrefix: rawKey.slice(0, 8), configuredKeyName },
+      `${configuredKeyName} is not a legacy JWT key. Paste the service_role key or legacy anon key from Supabase Project Settings > API.`,
     );
     return null;
   }
@@ -69,25 +72,30 @@ export function getSupabase(): SupabaseClient | null {
   const key = extractFirstJwt(rawKey);
   const dotCount = (key.match(/\./g) ?? []).length;
   if (dotCount !== 2) {
-    logger.error({ dotCount }, "Could not extract a valid JWT from SUPABASE_SERVICE_ROLE_KEY");
+    logger.error({ dotCount, configuredKeyName }, `Could not extract a valid JWT from ${configuredKeyName}`);
     return null;
   }
 
   const roleInToken = decodeJwtRole(key);
-  if (roleInToken !== "service_role") {
+  if (roleInToken !== "service_role" && roleInToken !== "anon") {
     logger.error(
-      { roleInToken },
-      `SUPABASE_SERVICE_ROLE_KEY has role='${roleInToken ?? "unknown"}' — expected 'service_role'. ` +
-        "Copy the service_role key (not the anon key) from Supabase → Project Settings → API.",
+      { roleInToken, configuredKeyName },
+      `${configuredKeyName} has role='${roleInToken ?? "unknown"}' - expected 'service_role' or 'anon'.`,
     );
     return null;
+  }
+
+  if (roleInToken === "anon") {
+    logger.warn(
+      "Supabase client is using the anon key fallback. Add SUPABASE_SERVICE_ROLE_KEY in production for privileged server operations.",
+    );
   }
 
   try {
     _client = createClient(url, key, {
       auth: { persistSession: false, autoRefreshToken: false },
     });
-    logger.info({ url, keyType: "service_role" }, "Supabase client initialised");
+    logger.info({ url, keyType: roleInToken }, "Supabase client initialised");
     return _client;
   } catch (err) {
     logger.error({ err }, "Failed to create Supabase client");
