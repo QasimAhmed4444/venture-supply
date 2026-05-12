@@ -1,9 +1,28 @@
-import express, { type Express } from "express";
+import { createRequire } from "node:module";
+import type { IncomingMessage, ServerResponse } from "node:http";
+import express, { type Express, type RequestHandler } from "express";
 import cors from "cors";
-import pinoHttp from "pino-http";
-import rateLimit from "express-rate-limit";
+import { rateLimit } from "express-rate-limit";
+import type { Logger } from "pino";
 import router from "./routes";
 import { logger } from "./lib/logger";
+
+declare global {
+  namespace Express {
+    interface Request {
+      log?: Logger;
+    }
+  }
+}
+
+const require = createRequire(import.meta.url);
+const pinoHttp = require("pino-http") as (options: {
+  logger: typeof logger;
+  serializers: {
+    req(req: IncomingMessage & { id?: string | number }): unknown;
+    res(res: ServerResponse): unknown;
+  };
+}) => RequestHandler;
 
 const app: Express = express();
 
@@ -29,14 +48,14 @@ app.use(
   }),
 );
 
-// ── Security headers ─────────────────────────────────────────────────────────
+// Security headers
 app.use((_req, res, next) => {
   res.setHeader("X-Content-Type-Options", "nosniff");
   res.setHeader("X-Frame-Options", "DENY");
   next();
 });
 
-// ── Rate limiting ─────────────────────────────────────────────────────────────
+// Rate limiting
 const globalLimiter = rateLimit({
   windowMs: 60_000,
   max: 100,
@@ -64,7 +83,7 @@ app.use(globalLimiter);
 app.use("/api/auth", authLimiter);
 app.use("/api/coupons/validate", couponLimiter);
 
-// R2-NB-10: CORS allowlist — set CORS_ORIGINS env var (comma-separated) for production
+// R2-NB-10: CORS allowlist - set CORS_ORIGINS env var (comma-separated) for production
 const allowedOrigins = (process.env["CORS_ORIGINS"] ?? "")
   .split(",")
   .map((s) => s.trim())
