@@ -35,7 +35,7 @@ function toCamel(row: Record<string, unknown>) {
   };
 }
 
-// GET /orders — scoped by role
+// GET /orders - scoped by role
 router.get("/orders", requireAuth, async (req, res) => {
   const session = (req as any).session as VerifiedSession;
   const sb = getSupabase();
@@ -75,7 +75,7 @@ router.get("/orders", requireAuth, async (req, res) => {
   }
 });
 
-// GET /orders/:id — R4-FIX-1: public view returns minimal fields; owner/staff gets full order
+// GET /orders/:id - public view returns minimal fields; owner/staff gets full order
 router.get("/orders/:id", optionalAuth, async (req, res) => {
   const session = (req as any).session as VerifiedSession | undefined;
   const sb = getSupabase();
@@ -96,7 +96,6 @@ router.get("/orders/:id", optionalAuth, async (req, res) => {
 
     const order = toCamel(data as Record<string, unknown>);
 
-    // Determine viewer permission level
     let isOwner = false;
     let isStaff = false;
 
@@ -117,7 +116,6 @@ router.get("/orders/:id", optionalAuth, async (req, res) => {
       }
     }
 
-    // Public view (anyone with the tracking link) — minimal fields only
     if (!isOwner && !isStaff) {
       return res.json({
         trackingId: order.trackingId,
@@ -131,14 +129,13 @@ router.get("/orders/:id", optionalAuth, async (req, res) => {
       });
     }
 
-    // Owner/staff view — full order
     return res.json({ ...order, isPublicView: false });
   } catch {
     return res.status(500).json({ error: "internal" });
   }
 });
 
-// POST /orders — any authenticated user
+// POST /orders - any authenticated user
 router.post("/orders", requireAuth, auditLog("create", "order"), async (req, res) => {
   const session = (req as any).session as VerifiedSession;
   const sb = getSupabase();
@@ -159,7 +156,6 @@ router.post("/orders", requireAuth, auditLog("create", "order"), async (req, res
       }
     }
 
-    // ── R2-NB-1+2+3+4+5: Role-gated field derivation ──────────────────────────
     const isStaff = session.role === "admin" || session.role === "sales";
 
     const customerType = isStaff
@@ -180,7 +176,6 @@ router.post("/orders", requireAuth, auditLog("create", "order"), async (req, res
       ? body.history
       : [{ status, at: new Date().toISOString(), by: isStaff ? session.sub : "system" }];
 
-    // Server always generates IDs
     const orderId = `o-${randomUUID()}`;
     const trackingId = `VS-O-${randomBytes(4).toString("hex").toUpperCase()}`;
 
@@ -188,7 +183,6 @@ router.post("/orders", requireAuth, auditLog("create", "order"), async (req, res
       ? (body.placedAt as string)
       : new Date().toISOString();
 
-    // ── R2-NB-14: items cap ───────────────────────────────────────────────────
     const rawItems = Array.isArray(body.items) ? (body.items as Record<string, unknown>[]) : [];
     if (rawItems.length > 50) {
       return res.status(400).json({ error: "Too many items (max 50 per order)" });
@@ -198,7 +192,7 @@ router.post("/orders", requireAuth, auditLog("create", "order"), async (req, res
     if (rawItems.length > 0) {
       const productIds = [...new Set(rawItems.map((it) => it.productId as string).filter(Boolean))];
       const { data: products } = await sb.from("products")
-        .select("id, en_name, b2c_price, b2b_price, packs, stock_qty, stock_status, audience")
+        .select("id, en_name, b2c_price, b2b_price, packs, stock_qty, stock_status, audience, category_id, brand_id")
         .in("id", productIds);
       const prodMap: Record<string, Record<string, unknown>> = {};
       for (const p of (products ?? [])) prodMap[p.id as string] = p as Record<string, unknown>;
@@ -224,7 +218,13 @@ router.post("/orders", requireAuth, auditLog("create", "order"), async (req, res
             } else {
               unitPrice = Number((isB2B ? prod.b2b_price : prod.b2c_price) ?? 0);
             }
-            return { ...it, unitPrice, productName: prod.en_name as string };
+            return {
+              ...it,
+              unitPrice,
+              productName: prod.en_name as string,
+              categoryId: prod.category_id as string | null,
+              brandId: prod.brand_id as string | null,
+            };
           } else {
             unitPrice = 0;
             return { ...it, unitPrice };
@@ -240,7 +240,6 @@ router.post("/orders", requireAuth, auditLog("create", "order"), async (req, res
     const orderType = (body.orderType as string | undefined) ?? "delivery";
     const baseDelivery = orderType === "pickup" ? 0 : isB2B ? 0 : subtotal >= 200 ? 0 : 25;
 
-    // Re-validate coupon server-side
     const couponCode = (body.couponCode as string | undefined) ?? null;
     let discount = 0;
     let freeDelivery = false;
@@ -260,15 +259,14 @@ router.post("/orders", requireAuth, auditLog("create", "order"), async (req, res
             else if (cp.type === "free_delivery") freeDelivery = true;
           }
         }
-      } catch {
-        // best-effort coupon re-validation; don't fail the order
+      } catch (err) {
+        req.log?.error({ err }, "coupon validation failed");
       }
     }
 
     const deliveryCharge = freeDelivery ? 0 : baseDelivery;
     const total = Math.max(0, +(subtotal + vat + deliveryCharge - discount).toFixed(2));
 
-    // ── R3-DB-4: B2B credit check via view ────────────────────────────────────
     if (body.paymentMethod === "credit") {
       if (customerType !== "b2b") return res.status(403).json({ error: "Credit only for B2B" });
       if (!customerId) return res.status(401).json({ error: "Login required for credit orders" });
@@ -316,7 +314,6 @@ router.post("/orders", requireAuth, auditLog("create", "order"), async (req, res
     const { data, error } = await sb.from("orders").insert(row).select().single();
     if (error || !data) return res.status(400).json({ error: error?.message ?? "insert failed" });
 
-    // ── R3-DB-2: Mirror items into order_items table for analytics ────────────
     if (pricedItems.length > 0) {
       try {
         const flatItems = pricedItems.map((it: any) => ({
@@ -326,15 +323,16 @@ router.post("/orders", requireAuth, auditLog("create", "order"), async (req, res
           pack_size: it.packSize ?? null,
           quantity: Number(it.qty ?? it.quantity ?? 1),
           unit_price: Number(it.unitPrice ?? 0),
-          line_total: Number(it.unitPrice ?? 0) * Number(it.qty ?? it.quantity ?? 1),
+          category_id: it.categoryId ?? null,
+          brand_id: it.brandId ?? null,
         }));
-        await sb.from("order_items").insert(flatItems);
-      } catch {
-        // best-effort — analytics table, not source of truth
+        const { error: itemErr } = await sb.from("order_items").insert(flatItems);
+        if (itemErr) req.log?.error({ itemErr }, "order_items mirror insert failed");
+      } catch (err) {
+        req.log?.error({ err }, "order_items mirror insert failed");
       }
     }
 
-    // R2-NB-6: increment coupon uses_count atomically via RPC
     if (row.coupon_code) {
       try {
         await sb.rpc("increment_coupon_uses", { p_code: row.coupon_code as string });
@@ -349,8 +347,7 @@ router.post("/orders", requireAuth, auditLog("create", "order"), async (req, res
   }
 });
 
-// PUT /orders/:id — admin and sales only
-// R3-DB-3: DB trigger blocks illegal transitions; surface 409 for those
+// PUT /orders/:id - admin and sales only
 router.put("/orders/:id", requireRole("admin", "sales"), auditLog("update", "order"), async (req, res) => {
   const sb = getSupabase();
   if (!sb) return res.status(503).json({ error: "db unavailable" });
@@ -365,7 +362,6 @@ router.put("/orders/:id", requireRole("admin", "sales"), auditLog("update", "ord
     if (b.history !== undefined) updates.history = b.history;
     const { data, error } = await sb.from("orders").update(updates).eq("id", req.params.id).select().single();
     if (error) {
-      // DB trigger (enforce_order_status_transition) raises check violation errcode 23514
       if (error.code === "23514" || error.message?.includes("Illegal status transition") || error.message?.includes("terminal state")) {
         return res.status(409).json({ error: error.message });
       }
@@ -378,7 +374,7 @@ router.put("/orders/:id", requireRole("admin", "sales"), auditLog("update", "ord
   }
 });
 
-// DELETE /orders/:id — admin only
+// DELETE /orders/:id - admin only
 router.delete("/orders/:id", requireAdmin, auditLog("delete", "order"), async (req, res) => {
   const sb = getSupabase();
   if (!sb) return res.status(503).json({ error: "db unavailable" });
