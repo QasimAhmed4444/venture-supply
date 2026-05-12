@@ -79,7 +79,7 @@ async function sendPasswordResetEmail(to: string, resetUrl: string): Promise<Res
       `,
       text: `Use this secure link to reset your Venture Supply password: ${resetUrl}\n\nThis link expires in 1 hour. If you did not request it, you can ignore this email.`,
     }),
-  });
+  }) as { ok: boolean; status: number; text: () => Promise<string> };
 
   if (!response.ok) {
     const body = await response.text().catch(() => "");
