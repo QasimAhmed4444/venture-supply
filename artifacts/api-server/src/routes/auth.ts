@@ -9,6 +9,8 @@ const router = Router();
 const BCRYPT_ROUNDS = 10;
 const RESET_TOKEN_TTL_MS = 60 * 60 * 1000; // 1 hour
 
+type ResetEmailResult = { ok: true } | { ok: false; error: string };
+
 function isBcryptHash(value: unknown): value is string {
   return typeof value === "string" && /^\$2[aby]\$/.test(value);
 }
@@ -22,7 +24,7 @@ async function verifyPassword(
   if (isBcryptHash(storedPassword)) {
     return bcrypt.compare(submittedPassword, storedPassword);
   }
-  // Legacy plaintext row — accept once and silently upgrade
+  // Legacy plaintext row - accept once and silently upgrade
   if (storedPassword !== submittedPassword) return false;
   if (sb) {
     try {
@@ -50,6 +52,41 @@ function customerToCamel(row: Record<string, unknown>) {
     business: row.business ?? undefined,
     addresses: row.addresses ?? [],
   };
+}
+
+async function sendPasswordResetEmail(to: string, resetUrl: string): Promise<ResetEmailResult> {
+  const apiKey = process.env["RESEND_API_KEY"];
+  const from = process.env["RESET_EMAIL_FROM"];
+
+  if (!apiKey || !from) {
+    return { ok: false, error: "Password reset email is not configured" };
+  }
+
+  const response = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      from,
+      to,
+      subject: "Reset your Venture Supply password",
+      html: `
+        <p>Use this secure link to reset your Venture Supply password:</p>
+        <p><a href="${resetUrl}">Reset password</a></p>
+        <p>This link expires in 1 hour. If you did not request it, you can ignore this email.</p>
+      `,
+      text: `Use this secure link to reset your Venture Supply password: ${resetUrl}\n\nThis link expires in 1 hour. If you did not request it, you can ignore this email.`,
+    }),
+  });
+
+  if (!response.ok) {
+    const body = await response.text().catch(() => "");
+    return { ok: false, error: body || `Resend returned ${response.status}` };
+  }
+
+  return { ok: true };
 }
 
 router.post("/auth/login", async (req, res) => {
@@ -188,7 +225,7 @@ router.post("/auth/register", async (req, res) => {
   if (custErr || !newCustomer) {
     const isRls = custErr?.message?.toLowerCase().includes("row-level security");
     const userMsg = isRls
-      ? "Registration is temporarily unavailable — please try again in a moment."
+      ? "Registration is temporarily unavailable - please try again in a moment."
       : (custErr?.message ?? "Could not create account");
     req.log?.error({ supabaseCode: custErr?.code, supabaseMsg: custErr?.message }, "customers INSERT failed");
     return res.status(400).json({ error: userMsg });
@@ -257,7 +294,7 @@ router.post("/auth/change-password", async (req, res) => {
 });
 
 // ---------------------------------------------------------------------------
-// Forgot password — generate a reset token and store its hash
+// Forgot password - generate a reset token and store its hash
 // ---------------------------------------------------------------------------
 router.post("/auth/forgot-password", async (req, res) => {
   const { email } = req.body as { email?: string };
@@ -265,6 +302,11 @@ router.post("/auth/forgot-password", async (req, res) => {
 
   const sb = getSupabase();
   if (!sb) return res.status(503).json({ error: "Service unavailable" });
+
+  if (!process.env["RESEND_API_KEY"] || !process.env["RESET_EMAIL_FROM"]) {
+    req.log?.warn("password reset requested but email delivery is not configured");
+    return res.status(503).json({ error: "Password reset email is not configured" });
+  }
 
   const lower = email.toLowerCase().trim();
   const { data: staff } = await sb
@@ -284,15 +326,21 @@ router.post("/auth/forgot-password", async (req, res) => {
     reset_token_expires_at: expiresAt,
   }).eq("id", staff.id as string);
 
-  // R2-NB-18: never return the token in the HTTP response — log to server console only
   const resetUrl = `${process.env["APP_URL"] ?? ""}/reset-password?token=${token}`;
-  console.log(`[RESET] Password reset link for ${lower}: ${resetUrl}`);
-  // TODO: wire to email provider (Resend/SendGrid). Token is logged to server console for now.
+  const emailResult = await sendPasswordResetEmail(lower, resetUrl);
+  if (!emailResult.ok) {
+    req.log?.error({ err: emailResult.error }, "password reset email failed");
+    await sb.from("staff").update({
+      reset_token_hash: null,
+      reset_token_expires_at: null,
+    }).eq("id", staff.id as string);
+    return res.status(502).json({ error: "Could not send password reset email" });
+  }
   return res.json({ ok: true, message: "If that address is registered, a reset link has been sent." });
 });
 
 // ---------------------------------------------------------------------------
-// Reset password — verify token hash and update password
+// Reset password - verify token hash and update password
 // ---------------------------------------------------------------------------
 router.post("/auth/reset-password", async (req, res) => {
   const { token, newPassword } = req.body as { token?: string; newPassword?: string };
@@ -333,7 +381,7 @@ router.post("/auth/reset-password", async (req, res) => {
 });
 
 // ---------------------------------------------------------------------------
-// Set password (authenticated — salesperson/admin already logged in)
+// Set password (authenticated - salesperson/admin already logged in)
 // ---------------------------------------------------------------------------
 router.post("/auth/set-password", async (req, res) => {
   const header = req.headers["authorization"];
