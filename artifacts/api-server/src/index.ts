@@ -1,6 +1,6 @@
-import app from "./app";
-import { logger } from "./lib/logger";
-import { getSupabase } from "./lib/supabase";
+import app from "./app.js";
+import { logger } from "./lib/logger.js";
+import { getSupabase } from "./lib/supabase.js";
 
 export default app;
 
