@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useLocation } from "wouter";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -23,12 +23,21 @@ export function ResetPasswordPage() {
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
 
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const resetToken = params.get("token");
+    if (resetToken) {
+      setToken(resetToken);
+      setStep("reset");
+    }
+  }, []);
+
   const handleRequestReset = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email) return;
     setIsLoading(true);
     try {
-      const result = await apiFetch<{ ok: boolean; token?: string; message: string }>(
+      const result = await apiFetch<{ ok: boolean; message: string }>(
         "/auth/forgot-password",
         {
           method: "POST",
@@ -37,15 +46,9 @@ export function ResetPasswordPage() {
         }
       );
       if (result.ok) {
-        if (result.token) {
-          setToken(result.token);
-        }
-        setStep("reset");
         toast({
-          title: "Reset token issued",
-          description: result.token
-            ? "Your reset token has been pre-filled below."
-            : result.message,
+          title: "Check your email",
+          description: result.message,
         });
       }
     } catch (err: any) {
@@ -107,7 +110,7 @@ export function ResetPasswordPage() {
               </h1>
               <p className="text-sm text-muted-foreground mt-1">
                 {step === "request"
-                  ? "Enter your email address to receive a reset token."
+                  ? "Enter your email address to receive a password reset link."
                   : "Enter the token and your new password."}
               </p>
             </div>
@@ -136,8 +139,8 @@ export function ResetPasswordPage() {
                   data-testid="button-forgot-submit"
                 >
                   {isLoading
-                    ? <><Loader2 className="w-4 h-4 me-2 animate-spin" /> Sending…</>
-                    : "Send Reset Token"}
+                    ? <><Loader2 className="w-4 h-4 me-2 animate-spin" /> Sending...</>
+                    : "Send Reset Link"}
                 </Button>
               </form>
             ) : (
@@ -162,7 +165,7 @@ export function ResetPasswordPage() {
                     type="password"
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
-                    minLength={6}
+                    minLength={8}
                     required
                     data-testid="input-new-password"
                   />
@@ -173,7 +176,7 @@ export function ResetPasswordPage() {
                     type="password"
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
-                    minLength={6}
+                    minLength={8}
                     required
                     data-testid="input-confirm-password"
                   />
@@ -185,7 +188,7 @@ export function ResetPasswordPage() {
                   data-testid="button-reset-submit"
                 >
                   {isLoading
-                    ? <><Loader2 className="w-4 h-4 me-2 animate-spin" /> Updating…</>
+                    ? <><Loader2 className="w-4 h-4 me-2 animate-spin" /> Updating...</>
                     : "Update Password"}
                 </Button>
                 <button
@@ -193,7 +196,7 @@ export function ResetPasswordPage() {
                   className="text-sm text-secondary hover:underline w-full text-center"
                   onClick={() => setStep("request")}
                 >
-                  Request a new token
+                  Request a new link
                 </button>
               </form>
             )}
