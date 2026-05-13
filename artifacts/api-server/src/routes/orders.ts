@@ -60,7 +60,7 @@ router.get("/orders", requireAuth, async (req, res) => {
     salespersonIdFilter = req.query.salespersonId as string | undefined;
   }
 
-  if (!sb) return res.json([]);
+  if (!sb) return res.status(503).json({ error: "db unavailable" });
 
   try {
     let q = sb.from("orders").select("*").order("placed_at", { ascending: false });
@@ -68,10 +68,14 @@ router.get("/orders", requireAuth, async (req, res) => {
     if (customerIdFilter) q = q.eq("customer_id", customerIdFilter);
     if (salespersonIdFilter) q = q.eq("salesperson_id", salespersonIdFilter);
     const { data, error } = await q;
-    if (error || !data) return res.json([]);
+    if (error || !data) {
+      req.log?.error({ error }, "orders list failed");
+      return res.status(500).json({ error: "Failed to load orders" });
+    }
     return res.json(data.map(toCamel));
-  } catch {
-    return res.json([]);
+  } catch (err) {
+    req.log?.error({ err }, "orders list failed");
+    return res.status(500).json({ error: "Failed to load orders" });
   }
 });
 
