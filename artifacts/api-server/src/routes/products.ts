@@ -56,9 +56,9 @@ function toSnake(b: Record<string, unknown>) {
 // R2-NB-11: GET /products with optional auth for audience filtering
 router.get("/products", async (req, res) => {
   const sb = getSupabase();
-  if (!sb) return res.json([]);
+  if (!sb) return res.status(503).json({ error: "db unavailable" });
 
-  // Optional auth — read role if token present, default to public (b2c) view
+  // Optional auth - read role if token present, default to public (b2c) view
   const auth = req.headers["authorization"];
   let role: string | null = null;
   if (typeof auth === "string" && auth.startsWith("Bearer ")) {
@@ -73,7 +73,7 @@ router.get("/products", async (req, res) => {
     if (role === "b2b") {
       query = query.in("audience", ["b2b", "both"]);
     } else if (role === "admin" || role === "sales") {
-      // staff sees everything — no filter
+      // staff sees everything - no filter
     } else {
       // guest or b2c
       query = query.in("audience", ["b2c", "both"]);
@@ -83,10 +83,14 @@ router.get("/products", async (req, res) => {
     if (req.query.brand)    query = query.eq("brand_id", req.query.brand as string);
     if (req.query.search)   query = query.ilike("en_name", `%${req.query.search}%`);
     const { data, error } = await query;
-    if (error || !data) return res.json([]);
+    if (error || !data) {
+      req.log?.error({ error }, "products list failed");
+      return res.status(500).json({ error: "Failed to load products" });
+    }
     return res.json(data.map(toCamel));
-  } catch {
-    return res.json([]);
+  } catch (err) {
+    req.log?.error({ err }, "products list failed");
+    return res.status(500).json({ error: "Failed to load products" });
   }
 });
 
