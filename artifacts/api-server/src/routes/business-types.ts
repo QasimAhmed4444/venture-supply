@@ -19,11 +19,14 @@ function toCamel(row: Record<string, unknown>) {
   };
 }
 
-router.get("/business-types", async (_req, res) => {
+router.get("/business-types", async (req, res) => {
   const sb = getSupabase();
-  if (!sb) return res.json([]);
+  if (!sb) return res.status(503).json({ error: "db unavailable" });
   const { data, error } = await sb.from("business_types").select("*").order("name");
-  if (error) return res.status(500).json({ error: error.message });
+  if (error) {
+    req.log?.error({ error }, "business types list failed");
+    return res.status(500).json({ error: "Failed to load business types" });
+  }
   return res.json((data ?? []).map(toCamel));
 });
 
