@@ -1,6 +1,5 @@
 import { Router } from "express";
 import { getSupabase } from "../lib/supabase.js";
-import { seedBrands } from "../lib/seedData.js";
 import { requireAdmin } from "../middlewares/requireAuth.js";
 
 const router = Router();
@@ -28,15 +27,19 @@ function toSnake(b: Record<string, unknown>) {
   return row;
 }
 
-router.get("/brands", async (_req, res) => {
+router.get("/brands", async (req, res) => {
   const sb = getSupabase();
-  if (!sb) return res.json(seedBrands.map(toCamel));
+  if (!sb) return res.status(503).json({ error: "db unavailable" });
   try {
     const { data, error } = await sb.from("brands").select("*").order("id");
-    if (error || !data?.length) return res.json(seedBrands.map(toCamel));
+    if (error || !data) {
+      req.log?.error({ error }, "brands list failed");
+      return res.status(500).json({ error: "Failed to load brands" });
+    }
     return res.json(data.map(toCamel));
-  } catch {
-    return res.json(seedBrands.map(toCamel));
+  } catch (err) {
+    req.log?.error({ err }, "brands list failed");
+    return res.status(500).json({ error: "Failed to load brands" });
   }
 });
 
