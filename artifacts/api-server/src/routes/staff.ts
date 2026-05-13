@@ -22,15 +22,18 @@ function toCamel(row: Record<string, unknown>) {
   };
 }
 
-router.get("/staff", async (_req, res) => {
+router.get("/staff", async (req, res) => {
   const sb = getSupabase();
-  if (!sb) return res.json([]);
+  if (!sb) return res.status(503).json({ error: "db unavailable" });
   const { data, error } = await sb
     .from("staff")
     .select("id,email,name,role,salesperson_id,created_at")
     .in("role", ["admin", "sales"])
     .order("created_at", { ascending: true });
-  if (error) return res.status(500).json({ error: error.message });
+  if (error) {
+    req.log?.error({ error }, "staff list failed");
+    return res.status(500).json({ error: "Failed to load staff" });
+  }
   return res.json((data ?? []).map((r) => toCamel(r as Record<string, unknown>)));
 });
 
