@@ -1,6 +1,5 @@
 import { Router } from "express";
 import { getSupabase } from "../lib/supabase.js";
-import { seedCategories } from "../lib/seedData.js";
 import { requireAdmin } from "../middlewares/requireAuth.js";
 
 const router = Router();
@@ -16,15 +15,19 @@ function toCamel(row: Record<string, unknown>) {
   };
 }
 
-router.get("/categories", async (_req, res) => {
+router.get("/categories", async (req, res) => {
   const sb = getSupabase();
-  if (!sb) return res.json(seedCategories.map(toCamel));
+  if (!sb) return res.status(503).json({ error: "db unavailable" });
   try {
     const { data, error } = await sb.from("categories").select("*").order("id");
-    if (error || !data?.length) return res.json(seedCategories.map(toCamel));
+    if (error || !data) {
+      req.log?.error({ error }, "categories list failed");
+      return res.status(500).json({ error: "Failed to load categories" });
+    }
     return res.json(data.map(toCamel));
-  } catch {
-    return res.json(seedCategories.map(toCamel));
+  } catch (err) {
+    req.log?.error({ err }, "categories list failed");
+    return res.status(500).json({ error: "Failed to load categories" });
   }
 });
 
