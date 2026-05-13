@@ -17,7 +17,7 @@ import { useCustomers } from "@/hooks/useCustomers";
 import { StatusBadge } from "@/components/StatusBadge";
 import { PriceTag } from "@/components/PriceTag";
 import { useRole } from "@/contexts/RoleContext";
-import { apiFetch } from "@/lib/api";
+import { API_BASE, SESSION_TOKEN_KEY, apiFetch } from "@/lib/api";
 import type { Order } from "@/data/orders";
 
 // suppress unused import lint
@@ -240,6 +240,7 @@ export function SalesCreateOrderPage() {
     setItems((prev) => prev.map((item, idx) => idx === i ? { ...item, [field]: value } : item));
 
   const total = items.reduce((s, it) => s + it.qty * it.price, 0);
+  const selectedCustomer = allCustomers.find((c) => c.id === selectedCustomerId);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -256,10 +257,12 @@ export function SalesCreateOrderPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           customerId: selectedCustomerId,
+          customerType: selectedCustomer?.type ?? "b2c",
+          salespersonId: currentSalespersonId ?? null,
           items,
           total,
           status: "new",
-          paymentMethod: "invoice",
+          paymentMethod: "bank",
           notes: `Created by salesperson ${currentSalespersonId ?? "unknown"}`,
         }),
       });
@@ -284,11 +287,11 @@ export function SalesCreateOrderPage() {
               <Label>Customer</Label>
               <Select value={selectedCustomerId} onValueChange={setSelectedCustomerId}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Select a customer…" />
+                  <SelectValue placeholder="Select a customer..." />
                 </SelectTrigger>
                 <SelectContent>
                   {myCustomers.map((c) => (
-                    <SelectItem key={c.id} value={c.id}>{c.name} — {c.email}</SelectItem>
+                    <SelectItem key={c.id} value={c.id}>{c.name} - {c.email}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -307,7 +310,7 @@ export function SalesCreateOrderPage() {
                   <Input value={item.productId} onChange={(e) => updateItem(i, "productId", e.target.value)} />
                   <Input type="number" min={1} value={item.qty} onChange={(e) => updateItem(i, "qty", Number(e.target.value))} />
                   <Input type="number" min={0} step="0.01" value={item.price} onChange={(e) => updateItem(i, "price", Number(e.target.value))} />
-                  <Button type="button" size="sm" variant="ghost" className="text-destructive" onClick={() => removeItem(i)}>✕</Button>
+                  <Button type="button" size="sm" variant="ghost" className="text-destructive" onClick={() => removeItem(i)}>x</Button>
                 </div>
               ))}
             </div>
@@ -317,7 +320,7 @@ export function SalesCreateOrderPage() {
             )}
 
             <Button type="submit" className="w-full bg-primary hover:bg-primary/90" disabled={isSubmitting}>
-              {isSubmitting ? <><Loader2 className="w-4 h-4 me-2 animate-spin" /> Creating…</> : "Create Order"}
+              {isSubmitting ? <><Loader2 className="w-4 h-4 me-2 animate-spin" /> Creating...</> : "Create Order"}
             </Button>
           </form>
         </CardContent>
@@ -344,9 +347,8 @@ export function SalesSettingsPage() {
     }
     setPwLoading(true);
     try {
-      const BASE = (import.meta.env.BASE_URL ?? "").replace(/\/$/, "");
-      const token = localStorage.getItem("vs.token") ?? "";
-      const res = await fetch(`${BASE}/api/auth/set-password`, {
+      const token = localStorage.getItem(SESSION_TOKEN_KEY) ?? "";
+      const res = await fetch(`${API_BASE}/api/auth/set-password`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ newPassword }),
@@ -393,7 +395,7 @@ export function SalesSettingsPage() {
             />
           </div>
           <Button onClick={handleChangePassword} disabled={pwLoading} className="bg-primary hover:bg-primary/90">
-            {pwLoading ? "Saving…" : "Update Password"}
+            {pwLoading ? "Saving..." : "Update Password"}
           </Button>
         </CardContent>
       </Card>
