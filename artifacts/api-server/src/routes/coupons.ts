@@ -6,7 +6,7 @@ import type { VerifiedSession } from "../lib/sessionToken.js";
 
 const router = Router();
 
-// R2-NB-21: FALLBACK_COUPONS removed — DB is the single source of truth
+// R2-NB-21: FALLBACK_COUPONS removed - DB is the single source of truth
 
 function toCamel(row: Record<string, unknown>) {
   return {
@@ -27,17 +27,20 @@ function toCamel(row: Record<string, unknown>) {
   };
 }
 
-// GET /coupons — admin only (list for admin management panel)
-router.get("/coupons", requireAdmin, async (_req, res) => {
+// GET /coupons - admin only (list for admin management panel)
+router.get("/coupons", requireAdmin, async (req, res) => {
   const sb = getSupabase();
-  if (!sb) return res.json([]);
+  if (!sb) return res.status(503).json({ error: "db unavailable" });
   const { data, error } = await sb.from("coupons").select("*").order("created_at", { ascending: false });
-  if (error) return res.status(500).json({ error: error.message });
+  if (error) {
+    req.log?.error({ error }, "coupons list failed");
+    return res.status(500).json({ error: "Failed to load coupons" });
+  }
   return res.json((data ?? []).map(toCamel));
 });
 
-// GET /coupons/validate — authenticated customers validating a coupon at checkout
-// Audience is derived from the session role — not trusted from the client
+// GET /coupons/validate - authenticated customers validating a coupon at checkout
+// Audience is derived from the session role - not trusted from the client
 router.get("/coupons/validate", requireAuth, async (req, res) => {
   const session = (req as any).session as VerifiedSession;
   const { code, total } = req.query as Record<string, string>;
@@ -55,7 +58,7 @@ router.get("/coupons/validate", requireAuth, async (req, res) => {
     .ilike("code", code)
     .single();
 
-  // R2-NB-21: no fallback — DB only
+  // R2-NB-21: no fallback - DB only
   if (error || !data) return res.status(404).json({ error: "Coupon not found" });
   const raw = data;
 
@@ -77,7 +80,7 @@ router.get("/coupons/validate", requireAuth, async (req, res) => {
     return res.status(400).json({ error: "Coupon not valid for your account type" });
   }
 
-  // R2-NB-22: do NOT compute or return discount — real discount is computed server-side at order placement
+  // R2-NB-22: do NOT compute or return discount - real discount is computed server-side at order placement
   return res.json({
     valid: true,
     code: coupon.code,
@@ -90,7 +93,7 @@ router.get("/coupons/validate", requireAuth, async (req, res) => {
   });
 });
 
-// POST /coupons — admin only
+// POST /coupons - admin only
 router.post("/coupons", requireAdmin, auditLog("create", "coupon"), async (req, res) => {
   const sb = getSupabase();
   if (!sb) return res.status(503).json({ error: "db unavailable" });
@@ -116,7 +119,7 @@ router.post("/coupons", requireAdmin, auditLog("create", "coupon"), async (req, 
   return res.status(201).json(toCamel(data as Record<string, unknown>));
 });
 
-// PUT /coupons/:id — admin only
+// PUT /coupons/:id - admin only
 router.put("/coupons/:id", requireAdmin, auditLog("update", "coupon"), async (req, res) => {
   const sb = getSupabase();
   if (!sb) return res.status(503).json({ error: "db unavailable" });
@@ -138,7 +141,7 @@ router.put("/coupons/:id", requireAdmin, auditLog("update", "coupon"), async (re
   return res.json(toCamel(data as Record<string, unknown>));
 });
 
-// DELETE /coupons/:id — admin only
+// DELETE /coupons/:id - admin only
 router.delete("/coupons/:id", requireAdmin, auditLog("delete", "coupon"), async (req, res) => {
   const sb = getSupabase();
   if (!sb) return res.status(503).json({ error: "db unavailable" });
